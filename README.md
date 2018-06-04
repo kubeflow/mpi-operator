@@ -32,12 +32,6 @@ kubectl create -f deploy/
 
 ## Test
 
-Build and push the `horovod` Docker image (this takes a while):
-```shell
-docker build -t rongou/horovod https://github.com/uber/horovod.git
-docker push rongou/horovod
-```
-
 Build and push the `tensorflow_benchmarks` Docker image:
 ```shell
 docker build -t rongou/tensorflow_benchmarks examples/tensorflow-benchmarks

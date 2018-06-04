@@ -407,17 +407,17 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	if !done {
 		// Get the ConfigMap for this MPIJob.
-		if config, err := c.getConfigMap(mpiJob, workerReplicas, gpusPerWorker); config == nil || err != nil {
+		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas, gpusPerWorker); config == nil || err != nil {
 			return err
 		}
 
 		// Get the launcher ServiceAccount for this MPIJob.
-		if sa, err := c.getLauncherServiceAccount(mpiJob); sa == nil || err != nil {
+		if sa, err := c.getOrCreateLauncherServiceAccount(mpiJob); sa == nil || err != nil {
 			return err
 		}
 
-		// Get the launcher Role  for this MPIJob.
-		if r, err := c.getLauncherRole(mpiJob, workerReplicas); r == nil || err != nil {
+		// Get the launcher Role for this MPIJob.
+		if r, err := c.getOrCreateLauncherRole(mpiJob, workerReplicas); r == nil || err != nil {
 			return err
 		}
 
@@ -427,7 +427,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 	}
 
-	worker, err := c.getWorkerStatefulSet(mpiJob, workerReplicas)
+	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas)
 	if err != nil {
 		return err
 	}
@@ -502,8 +502,9 @@ func (c *MPIJobController) getWorkerReplicas(totalGPUs int, done bool) int {
 	return workerReplicas
 }
 
-// getConfigMap gets the ConfigMap controlled by this MPIJob.
-func (c *MPIJobController) getConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int, gpusPerWorker int) (*corev1.ConfigMap, error) {
+// getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
+// one if it doesn't exist.
+func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int, gpusPerWorker int) (*corev1.ConfigMap, error) {
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
@@ -526,8 +527,9 @@ func (c *MPIJobController) getConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas 
 	return cm, nil
 }
 
-// getLauncherServiceAccount gets the launcher ServiceAccount controlled by this MPIJob.
-func (c *MPIJobController) getLauncherServiceAccount(mpiJob *kubeflow.MPIJob) (*corev1.ServiceAccount, error) {
+// getOrCreateLauncherServiceAccount gets the launcher ServiceAccount controlled
+// by this MPIJob, or creates one if it doesn't exist.
+func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MPIJob) (*corev1.ServiceAccount, error) {
 	sa, err := c.serviceAccountLister.ServiceAccounts(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
 	// If the ServiceAccount doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
@@ -550,8 +552,8 @@ func (c *MPIJobController) getLauncherServiceAccount(mpiJob *kubeflow.MPIJob) (*
 	return sa, nil
 }
 
-// getLauncherRole gets the launcher Role controlled by this MPIJob.
-func (c *MPIJobController) getLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) (*rbacv1.Role, error) {
+// getOrCreateLauncherRole gets the launcher Role controlled by this MPIJob.
+func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) (*rbacv1.Role, error) {
 	role, err := c.roleLister.Roles(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
 	// If the Role doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
@@ -574,7 +576,8 @@ func (c *MPIJobController) getLauncherRole(mpiJob *kubeflow.MPIJob, workerReplic
 	return role, nil
 }
 
-// getLauncherRoleBinding gets the launcher RoleBinding controlled by this MPIJob.
+// getLauncherRoleBinding gets the launcher RoleBinding controlled by this
+// MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rbacv1.RoleBinding, error) {
 	rb, err := c.roleBindingLister.RoleBindings(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
 	// If the RoleBinding doesn't exist, we'll create it.
@@ -598,8 +601,9 @@ func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rba
 	return rb, nil
 }
 
-// getWorkerStatefulSet gets the worker StatefulSet controlled by this MPIJob.
-func (c *MPIJobController) getWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int) (*appsv1.StatefulSet, error) {
+// getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
+// MPIJob, or creates one if it doesn't exist.
+func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int) (*appsv1.StatefulSet, error) {
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
