@@ -7,11 +7,7 @@ RUN wget -q https://storage.googleapis.com/kubernetes-release/release/${K8S_VERS
 RUN chmod +x ./kubectl
 RUN mv ./kubectl /bin/kubectl
 
-# Copy all project.
-# This layer is rebuilt when ever a file has changed in the project directory.
-COPY . /go/src/github.com/kubeflow/mpi-operator/
-
 FROM alpine:3.7
 COPY --from=build /bin/kubectl /bin/kubectl
-COPY --from=build /go/src/github.com/kubeflow/mpi-operator/cmd/kubectl-delivery/deliver_kubectl.sh .
+COPY deliver_kubectl.sh .
 ENTRYPOINT ["./deliver_kubectl.sh"]
