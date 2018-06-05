@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mpi-operator
+  namespace: mpi-operator
+  labels:
+    app: mpi-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mpi-operator
+  template:
+    metadata:
+      labels:
+        app: mpi-operator
+    spec:
+      serviceAccountName: mpi-operator
+      containers:
+      - name: mpi-operator
+        image: rongou/mpi-operator:0.1.0
+        args: [
+          "--gpus-per-node", "8",
+          "--kubectl-delivery-image",
+          "rongou/kubectl-delivery:0.1.0"
+        ]
+        imagePullPolicy: Always

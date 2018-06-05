@@ -1,5 +1,11 @@
 approvers:
-  -anfeng
-  -rongou
+  - anfeng
+  - rongou
 reviewers:
-  -yncxcw
+  - beberg
+  - everpeace
+  - gaocegege
+  - pdmack
+  - ryanolson
+  - vditya
+  - yncxcw

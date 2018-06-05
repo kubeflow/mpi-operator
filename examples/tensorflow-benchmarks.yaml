@@ -1,0 +1,12 @@
+# This file shows how to run multi-node training benchmarks using an MPIJob.
+apiVersion: kubeflow.org/v1alpha1
+kind: MPIJob
+metadata:
+  name: tensorflow-benchmarks-16
+spec:
+  gpus: 16
+  template:
+    spec:
+      containers:
+      - image: rongou/tensorflow_benchmarks:latest
+        name: tensorflow-benchmarks
