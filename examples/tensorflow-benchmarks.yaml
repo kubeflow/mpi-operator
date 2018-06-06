@@ -8,5 +8,5 @@ spec:
   template:
     spec:
       containers:
-      - image: rongou/tensorflow_benchmarks:latest
+      - image: mpioperator/tensorflow-benchmarks:latest
         name: tensorflow-benchmarks
