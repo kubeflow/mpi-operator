@@ -49,6 +49,7 @@ rules:
   verbs:
   - create
   - list
+  - update
   - watch
 - apiGroups:
   - batch
@@ -57,6 +58,7 @@ rules:
   verbs:
   - create
   - list
+  - update
   - watch
 - apiGroups:
   - apiextensions.k8s.io
