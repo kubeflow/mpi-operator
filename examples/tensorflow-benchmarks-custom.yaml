@@ -3,9 +3,9 @@
 apiVersion: kubeflow.org/v1alpha1
 kind: MPIJob
 metadata:
-  name: tensorflow-benchmarks-8
+  name: tensorflow-benchmarks-16-custom
 spec:
-  replicas: 8
+  replicas: 4
   template:
     spec:
       containers:
@@ -13,4 +13,4 @@ spec:
         name: tensorflow-benchmarks
         resources:
           limits:
-            nvidia.com/gpu: 1
+            nvidia.com/gpu: 4

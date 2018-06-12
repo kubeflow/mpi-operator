@@ -3,9 +3,9 @@
 apiVersion: kubeflow.org/v1alpha1
 kind: MPIJob
 metadata:
-  name: tensorflow-benchmarks-1-gpu
+  name: tensorflow-benchmarks-16
 spec:
-  gpus: 1
+  gpus: 16
   template:
     spec:
       containers:
