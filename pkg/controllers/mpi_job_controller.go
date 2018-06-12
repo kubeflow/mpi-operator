@@ -398,11 +398,10 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
 
-	totalGPUs := getTotalGPUs(mpiJob)
-	workerReplicas := c.getWorkerReplicas(totalGPUs, done)
-	gpusPerWorker := totalGPUs
-	if totalGPUs > c.gpusPerNode {
-		gpusPerWorker = c.gpusPerNode
+	workerReplicas, gpusPerWorker, err := allocateGPUs(mpiJob, c.gpusPerNode, done)
+	if err != nil {
+		runtime.HandleError(err)
+		return nil
 	}
 
 	if !done {
@@ -427,7 +426,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 	}
 
-	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas)
+	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas, gpusPerWorker)
 	if err != nil {
 		return err
 	}
@@ -435,11 +434,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// If the worker is ready, start the launcher.
 	workerReady := workerReplicas == 0 || int(worker.Status.ReadyReplicas) == workerReplicas
 	if workerReady && launcher == nil {
-		launcherGPUs := totalGPUs
-		if launcherGPUs > c.gpusPerNode {
-			launcherGPUs = c.gpusPerNode
-		}
-		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(newLauncher(mpiJob, launcherGPUs, c.kubectlDeliveryImage))
+		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(newLauncher(mpiJob, c.kubectlDeliveryImage))
 		if err != nil {
 			return err
 		}
@@ -480,13 +475,36 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 	return launcher, nil
 }
 
-// getTotalGPUs gets the total number of desired GPUs. Defaults to 1 if not specified.
-func getTotalGPUs(mpiJob *kubeflow.MPIJob) int {
-	totalGPUs := 1
+// allocateGPUs allocates the worker replicas and GPUs per worker.
+func allocateGPUs(mpiJob *kubeflow.MPIJob, gpusPerNode int, done bool) (workerReplicas int, gpusPerWorker int, err error) {
+	workerReplicas = 0
+	gpusPerWorker = 0
+	err = nil
 	if mpiJob.Spec.GPUs != nil {
-		totalGPUs = int(*mpiJob.Spec.GPUs)
+		totalGPUs := int(*mpiJob.Spec.GPUs)
+		if totalGPUs < gpusPerNode {
+			workerReplicas = 1
+			gpusPerWorker = totalGPUs
+		} else if totalGPUs % gpusPerNode == 0 {
+			workerReplicas = totalGPUs / gpusPerNode
+			gpusPerWorker = gpusPerNode
+		} else {
+			err = fmt.Errorf("specified #GPUs is not a multiple of GPUs per node (%d)", gpusPerNode)
+		}
+	} else if mpiJob.Spec.Replicas != nil {
+		workerReplicas = int(*mpiJob.Spec.Replicas)
+		container := mpiJob.Spec.Template.Spec.Containers[0]
+		if container.Resources.Limits != nil {
+			if val, ok := container.Resources.Limits[gpuResourceName]; ok {
+				gpus, _ := val.AsInt64()
+				gpusPerWorker = int(gpus)
+			}
+		}
 	}
-	return totalGPUs
+	if done {
+		workerReplicas = 0
+	}
+	return workerReplicas, gpusPerWorker, err
 }
 
 // getWorkerReplicas gets the desired number of worker replicas.
@@ -603,11 +621,11 @@ func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rba
 
 // getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
 // MPIJob, or creates one if it doesn't exist.
-func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int) (*appsv1.StatefulSet, error) {
+func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int, gpusPerWorker int) (*appsv1.StatefulSet, error) {
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, int32(workerReplicas), c.gpusPerNode))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, int32(workerReplicas), gpusPerWorker))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -626,7 +644,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 	// If the worker is out of date, update the worker.
 	if worker != nil && int(*worker.Spec.Replicas) != workerReplicas {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, int32(workerReplicas), c.gpusPerNode))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, int32(workerReplicas), gpusPerWorker))
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
@@ -727,10 +745,14 @@ shift
 %s/kubectl exec ${POD_NAME} -- /bin/sh -c "$*"
 `, kubectlMountPath)
 
+	// If no GPU is specified, default to 1 slot.
+	slots := 1
+	if gpusPerWorker > 0 {
+		slots = gpusPerWorker
+	}
 	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf("localhost slots=%d max_slots=%d\n", gpusPerWorker, gpusPerWorker))
 	for i := 0; i < workerReplicas; i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d max_slots=%d\n", mpiJob.Name, workerSuffix, i, gpusPerWorker, gpusPerWorker))
+		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d max_slots=%d\n", mpiJob.Name, workerSuffix, i, slots, slots))
 	}
 
 	return &corev1.ConfigMap{
@@ -903,7 +925,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 // newLauncher creates a new launcher Job for an MPIJob resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
-func newLauncher(mpiJob *kubeflow.MPIJob, gpus int, kubectlDeliveryImage string) *batchv1.Job {
+func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.Job {
 	launcherName := mpiJob.Name + launcherSuffix
 	labels := map[string]string{
 		"app": launcherName,
@@ -938,10 +960,9 @@ func newLauncher(mpiJob *kubeflow.MPIJob, gpus int, kubectlDeliveryImage string)
 			Name:  "OMPI_MCA_orte_default_hostfile",
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		})
-	if container.Resources.Limits == nil {
-		container.Resources.Limits = make(corev1.ResourceList)
+	if container.Resources.Limits != nil {
+		delete(container.Resources.Limits, gpuResourceName)
 	}
-	container.Resources.Limits[gpuResourceName] = *resource.NewQuantity(int64(gpus), resource.DecimalExponent)
 	container.VolumeMounts = append(container.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      kubectlVolumeName,

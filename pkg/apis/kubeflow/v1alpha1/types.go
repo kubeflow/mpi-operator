@@ -39,8 +39,15 @@ type MPIJobList struct {
 
 type MPIJobSpec struct {
 	// Specifies the desired number of GPUs the MPIJob should run on.
+	// Mutually exclusive with the `Replicas` field.
 	// +optional
 	GPUs *int32 `json:"gpus,omitempty"`
+
+	// Specifies the desired number of replicas the MPIJob should run on.
+	// The `PodSpec` should specify the number of GPUs.
+	// Mutually exclusive with the `GPUs` field.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Describes the pod that will be created when executing an MPIJob.
 	Template corev1.PodTemplateSpec `json:"template,omitempty"`
