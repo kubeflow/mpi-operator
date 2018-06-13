@@ -1,5 +1,5 @@
 # This file shows how to run multi-node training benchmarks using an MPIJob,
-# specifying GPUs explicitly.
+# specifying GPUs explicitly per replica.
 apiVersion: kubeflow.org/v1alpha1
 kind: MPIJob
 metadata:
