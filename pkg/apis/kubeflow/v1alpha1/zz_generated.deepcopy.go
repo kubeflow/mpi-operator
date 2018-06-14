@@ -95,6 +95,15 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 			**out = **in
 		}
 	}
+	if in.Replicas != nil {
+		in, out := &in.Replicas, &out.Replicas
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(int32)
+			**out = **in
+		}
+	}
 	in.Template.DeepCopyInto(&out.Template)
 	return
 }

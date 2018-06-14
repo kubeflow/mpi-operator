@@ -36,6 +36,7 @@ import (
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -90,6 +91,34 @@ func newMPIJob(name string, gpus *int32) *kubeflow.MPIJob {
 						{
 							Name:  "foo",
 							Image: "bar",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newMPIJobWithCustomResources(name string, replicas *int32, gpusPerReplica int64) *kubeflow.MPIJob {
+	return &kubeflow.MPIJob{
+		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			Replicas: replicas,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "foo",
+							Image: "bar",
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									"nvidia.com/gpu": *resource.NewQuantity(gpusPerReplica, resource.DecimalExponent),
+								},
+							},
 						},
 					},
 				},
@@ -415,7 +444,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, 64, "kubectl-delivery")
+	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
@@ -428,7 +457,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, 64, "kubectl-delivery")
+	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
@@ -445,7 +474,7 @@ func TestLauncherFailed(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, 64, "kubectl-delivery")
+	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Failed = 1
 	f.setUpLauncher(launcher)
 
@@ -462,19 +491,47 @@ func TestLauncherDoesNotExist(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	expConfigMap := newConfigMap(mpiJob, 7, 8)
+	expConfigMap := newConfigMap(mpiJob, 8, 8)
 	f.expectCreateConfigMapAction(expConfigMap)
 
 	expServiceAccount := newLauncherServiceAccount(mpiJob)
 	f.expectCreateServiceAccountAction(expServiceAccount)
 
-	expRole := newLauncherRole(mpiJob, 7)
+	expRole := newLauncherRole(mpiJob, 8)
 	f.expectCreateRoleAction(expRole)
 
 	expRoleBinding := newLauncherRoleBinding(mpiJob)
 	f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 7, 8)
+	expWorker := newWorker(mpiJob, 8, 8)
+	f.expectCreateStatefulSetAction(expWorker)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.WorkerReplicas = 0
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(getKey(mpiJob, t))
+}
+
+func TestLauncherDoesNotExistWithCustomResources(t *testing.T) {
+	f := newFixture(t)
+
+	mpiJob := newMPIJobWithCustomResources("test", int32Ptr(4), 4)
+	f.setUpMPIJob(mpiJob)
+
+	expConfigMap := newConfigMap(mpiJob, 4, 4)
+	f.expectCreateConfigMapAction(expConfigMap)
+
+	expServiceAccount := newLauncherServiceAccount(mpiJob)
+	f.expectCreateServiceAccountAction(expServiceAccount)
+
+	expRole := newLauncherRole(mpiJob, 4)
+	f.expectCreateRoleAction(expRole)
+
+	expRoleBinding := newLauncherRoleBinding(mpiJob)
+	f.expectCreateRoleBindingAction(expRoleBinding)
+
+	expWorker := newWorker(mpiJob, 4, 4)
 	f.expectCreateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -490,7 +547,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, 7, 8)
+	configMap := newConfigMap(mpiJob, 8, 8)
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
@@ -503,7 +560,7 @@ func TestServiceAccountNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 7, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
 
 	serviceAccount := newLauncherServiceAccount(mpiJob)
 	serviceAccount.OwnerReferences = nil
@@ -518,10 +575,10 @@ func TestRoleNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 7, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 
-	role := newLauncherRole(mpiJob, 7)
+	role := newLauncherRole(mpiJob, 8)
 	role.OwnerReferences = nil
 	f.setUpRole(role)
 
@@ -534,9 +591,9 @@ func TestRoleBindingNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 7, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
-	f.setUpRole(newLauncherRole(mpiJob, 7))
+	f.setUpRole(newLauncherRole(mpiJob, 8))
 
 	roleBinding := newLauncherRoleBinding(mpiJob)
 	roleBinding.OwnerReferences = nil
@@ -551,11 +608,11 @@ func TestShutdownWorker(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, 64, "kubectl-delivery")
+	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 7, 8)
+	worker := newWorker(mpiJob, 8, 8)
 	f.setUpWorker(worker)
 
 	expWorker := newWorker(mpiJob, 0, 8)
@@ -575,31 +632,14 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64))
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 7, 8))
-	f.setUpRbac(mpiJob, 7)
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
+	f.setUpRbac(mpiJob, 8)
 
-	worker := newWorker(mpiJob, 7, 8)
+	worker := newWorker(mpiJob, 8, 8)
 	worker.OwnerReferences = nil
 	f.setUpWorker(worker)
 
 	f.runExpectError(getKey(mpiJob, t))
-}
-
-func TestWorkerNotNeeded(t *testing.T) {
-	f := newFixture(t)
-
-	mpiJob := newMPIJob("test", int32Ptr(8))
-	f.setUpMPIJob(mpiJob)
-
-	f.setUpConfigMap(newConfigMap(mpiJob, 0, 8))
-	f.setUpRbac(mpiJob, 0)
-
-	expLauncher := newLauncher(mpiJob, 8, "kubectl-delivery")
-	f.expectCreateJobAction(expLauncher)
-
-	f.expectUpdateMPIJobStatusAction(mpiJob)
-
-	f.run(getKey(mpiJob, t))
 }
 
 func TestLauncherActive(t *testing.T) {
@@ -608,12 +648,15 @@ func TestLauncherActive(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8))
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 0, 8))
-	f.setUpRbac(mpiJob, 0)
+	f.setUpConfigMap(newConfigMap(mpiJob, 1, 8))
+	f.setUpRbac(mpiJob, 1)
 
-	launcher := newLauncher(mpiJob, 64, "kubectl-delivery")
+	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
+
+	worker := newWorker(mpiJob, 1, 8)
+	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherActive
@@ -628,18 +671,18 @@ func TestWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(16))
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1, 8))
-	f.setUpRbac(mpiJob, 1)
+	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
+	f.setUpRbac(mpiJob, 2)
 
-	worker := newWorker(mpiJob, 1, 8)
-	worker.Status.ReadyReplicas = 1
+	worker := newWorker(mpiJob, 2, 8)
+	worker.Status.ReadyReplicas = 2
 	f.setUpWorker(worker)
 
-	expLauncher := newLauncher(mpiJob, 8, "kubectl-delivery")
+	expLauncher := newLauncher(mpiJob, "kubectl-delivery")
 	f.expectCreateJobAction(expLauncher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.WorkerReplicas = 1
+	mpiJobCopy.Status.WorkerReplicas = 2
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
