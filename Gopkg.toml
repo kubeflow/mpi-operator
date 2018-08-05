@@ -1,13 +1,20 @@
 required = ["k8s.io/code-generator/cmd/client-gen"]
 
-[[override]]
+[[constraint]]
+  name = "k8s.io/code-generator"
+  # We can not use master since the generated package name is changed from tensorflow to kubeflow.
+  revision = "961bc077103364eb5bda2c40e2b560d068c9a8c6"
+
+[[constraint]]
   name = "k8s.io/api"
   branch = "release-1.9"
 
-[[override]]
+[[constraint]]
   name = "k8s.io/apimachinery"
   branch = "release-1.9"
 
-[[override]]
+[[constraint]]
   name = "k8s.io/client-go"
   version = "~6.0.0"
+
+
