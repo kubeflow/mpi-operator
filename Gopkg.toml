@@ -2,12 +2,12 @@ required = ["k8s.io/code-generator/cmd/client-gen"]
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.10.3"
+  branch = "release-1.9"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.10.3"
+  branch = "release-1.9"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.10.3"
+  version = "~6.0.0"
