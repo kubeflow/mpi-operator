@@ -62,6 +62,8 @@ const (
 	kubectlTargetDirEnv = "TARGET_DIR"
 	kubectlVolumeName   = "mpi-job-kubectl"
 	kubectlMountPath    = "/opt/kube"
+	launcher            = "launcher"
+	worker              = "worker"
 	launcherSuffix      = "-launcher"
 	workerSuffix        = "-worker"
 	gpuResourceName     = "nvidia.com/gpu"
@@ -865,7 +867,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  mpiJob.Name + workerSuffix,
-		labelMPIRoleType: workerSuffix,
+		labelMPIRoleType: worker,
 	}
 
 	podSpec := mpiJob.Spec.Template.DeepCopy()
@@ -943,7 +945,7 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 		// "app": launcherName,
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  launcherName,
-		labelMPIRoleType: launcherSuffix,
+		labelMPIRoleType: launcher,
 	}
 
 	podSpec := mpiJob.Spec.Template.DeepCopy()
