@@ -65,6 +65,8 @@ const (
 	launcherSuffix      = "-launcher"
 	workerSuffix        = "-worker"
 	gpuResourceName     = "nvidia.com/gpu"
+	labelGroupName      = "group_name"
+	labelMPIJobName     = "mpi_job_name"
 )
 
 const (
@@ -485,7 +487,7 @@ func allocateGPUs(mpiJob *kubeflow.MPIJob, gpusPerNode int, done bool) (workerRe
 		if totalGPUs < gpusPerNode {
 			workerReplicas = 1
 			gpusPerWorker = totalGPUs
-		} else if totalGPUs % gpusPerNode == 0 {
+		} else if totalGPUs%gpusPerNode == 0 {
 			workerReplicas = totalGPUs / gpusPerNode
 			gpusPerWorker = gpusPerNode
 		} else {
@@ -860,11 +862,20 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 // discover the MPIJob resource that 'owns' it.
 func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1.StatefulSet {
 	labels := map[string]string{
-		"app": mpiJob.Name + workerSuffix,
+		// "app": mpiJob.Name + workerSuffix,
+		labelGroupName:  "kubeflow.org",
+		labelMPIJobName: mpiJob.Name + workerSuffix,
 	}
 
 	podSpec := mpiJob.Spec.Template.DeepCopy()
-	podSpec.Labels = labels
+	// keep the labels which are set in PodTemplate
+	if len(podSpec.Labels) == 0 {
+		podSpec.Labels = make(map[string]string)
+	}
+
+	for key, value := range labels {
+		podSpec.Labels[key] = value
+	}
 
 	container := podSpec.Spec.Containers[0]
 	container.Command = []string{"sleep"}
@@ -928,11 +939,20 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.Job {
 	launcherName := mpiJob.Name + launcherSuffix
 	labels := map[string]string{
-		"app": launcherName,
+		// "app": launcherName,
+		labelGroupName:  "kubeflow.org",
+		labelMPIJobName: launcherName,
 	}
 
 	podSpec := mpiJob.Spec.Template.DeepCopy()
-	podSpec.Labels = labels
+	// copy the labels and annotations to pod from PodTemplate
+	if len(podSpec.Labels) == 0 {
+		podSpec.Labels = make(map[string]string)
+	}
+	for key, value := range labels {
+		podSpec.Labels[key] = value
+	}
+
 	podSpec.Spec.ServiceAccountName = launcherName
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
 		Name:  kubectlDeliveryName,
