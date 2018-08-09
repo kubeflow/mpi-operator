@@ -67,6 +67,7 @@ const (
 	gpuResourceName     = "nvidia.com/gpu"
 	labelGroupName      = "group_name"
 	labelMPIJobName     = "mpi_job_name"
+	labelMPIRoleType    = "mpi_role_type"
 )
 
 const (
@@ -862,8 +863,9 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 // discover the MPIJob resource that 'owns' it.
 func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1.StatefulSet {
 	labels := map[string]string{
-		labelGroupName:  "kubeflow.org",
-		labelMPIJobName: mpiJob.Name + workerSuffix,
+		labelGroupName:   "kubeflow.org",
+		labelMPIJobName:  mpiJob.Name + workerSuffix,
+		labelMPIRoleType: workerSuffix,
 	}
 
 	podSpec := mpiJob.Spec.Template.DeepCopy()
@@ -939,8 +941,9 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 	launcherName := mpiJob.Name + launcherSuffix
 	labels := map[string]string{
 		// "app": launcherName,
-		labelGroupName:  "kubeflow.org",
-		labelMPIJobName: launcherName,
+		labelGroupName:   "kubeflow.org",
+		labelMPIJobName:  launcherName,
+		labelMPIRoleType: launcherSuffix,
 	}
 
 	podSpec := mpiJob.Spec.Template.DeepCopy()
