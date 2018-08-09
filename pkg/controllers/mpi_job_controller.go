@@ -862,7 +862,6 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 // discover the MPIJob resource that 'owns' it.
 func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1.StatefulSet {
 	labels := map[string]string{
-		// "app": mpiJob.Name + workerSuffix,
 		labelGroupName:  "kubeflow.org",
 		labelMPIJobName: mpiJob.Name + workerSuffix,
 	}
