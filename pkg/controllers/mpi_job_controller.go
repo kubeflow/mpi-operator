@@ -987,6 +987,9 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 	if container.Resources.Limits != nil {
 		delete(container.Resources.Limits, gpuResourceName)
 	}
+	if container.Resources.Requests != nil {
+		delete(container.Resources.Requests, gpuResourceName)
+	}
 	container.VolumeMounts = append(container.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      kubectlVolumeName,
