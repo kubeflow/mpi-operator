@@ -918,7 +918,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 	// set default BackoofLimit
 	if mpiJob.Spec.BackoffLimit == nil {
 		mpiJob.Spec.BackoffLimit = new(int32)
-		*mpiJob.Spec.BackoffLimit = 0
+		*mpiJob.Spec.BackoffLimit = 6
 	}
 
 	return &appsv1.StatefulSet{
