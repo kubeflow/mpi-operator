@@ -866,7 +866,7 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1.StatefulSet {
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
-		labelMPIJobName:  mpiJob.Name + workerSuffix,
+		labelMPIJobName:  mpiJob.Name,
 		labelMPIRoleType: worker,
 	}
 
@@ -942,9 +942,8 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.Job {
 	launcherName := mpiJob.Name + launcherSuffix
 	labels := map[string]string{
-		// "app": launcherName,
 		labelGroupName:   "kubeflow.org",
-		labelMPIJobName:  launcherName,
+		labelMPIJobName:  mpiJob.Name,
 		labelMPIRoleType: launcher,
 	}
 
