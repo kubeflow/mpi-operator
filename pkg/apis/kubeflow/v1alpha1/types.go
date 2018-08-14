@@ -43,6 +43,11 @@ type MPIJobSpec struct {
 	// +optional
 	GPUs *int32 `json:"gpus,omitempty"`
 
+	// Optional number of retries before marking this job failed.
+	// Defaults to 0
+	// +optional
+	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
+
 	// Specifies the desired number of replicas the MPIJob should run on.
 	// The `PodSpec` should specify the number of GPUs.
 	// Mutually exclusive with the `GPUs` field.
