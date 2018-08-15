@@ -87,6 +87,9 @@ const (
 	// MessageResourceSynced is the message used for an Event fired when an
 	// MPIJob is synced successfully.
 	MessageResourceSynced = "MPIJob synced successfully"
+
+	// LabelNodeRoleMaster specifies that a node is a master
+	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -989,12 +992,35 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 			Name:  "OMPI_MCA_orte_default_hostfile",
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		})
-	if container.Resources.Limits != nil {
-		delete(container.Resources.Limits, gpuResourceName)
+	// Not assign any resource limits and requests to launcher pod
+	container.Resources.Limits = nil
+	container.Resources.Requests = nil
+	// support Tolerate
+	podSpec.Spec.Tolerations = []corev1.Toleration{
+		{
+			Key:    LabelNodeRoleMaster,
+			Effect: corev1.TaintEffectNoSchedule,
+		},
 	}
-	if container.Resources.Requests != nil {
-		delete(container.Resources.Requests, gpuResourceName)
+	// prefer to assign pod to master node
+	podSpec.Spec.Affinity = &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Weight: 50,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      LabelNodeRoleMaster,
+								Operator: corev1.NodeSelectorOpExists,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
+
 	container.VolumeMounts = append(container.VolumeMounts,
 		corev1.VolumeMount{
 			Name:      kubectlVolumeName,
