@@ -995,20 +995,22 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 	// Not assign any resource limits and requests to launcher pod
 	container.Resources.Limits = nil
 	container.Resources.Requests = nil
-	// support Tolerate
-	podSpec.Spec.Tolerations = []corev1.Toleration{
-		{
-			Key:    LabelNodeRoleMaster,
-			Effect: corev1.TaintEffectNoSchedule,
-		},
-	}
-	// prefer to assign pod to master node
-	podSpec.Spec.Affinity = &corev1.Affinity{
-		NodeAffinity: &corev1.NodeAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-				{
-					Weight: 50,
-					Preference: corev1.NodeSelectorTerm{
+
+	// determine if run the launcher on the master node
+	if mpiJob.LauncherOnMaster {
+
+		// support Tolerate
+		podSpec.Spec.Tolerations = []corev1.Toleration{
+			{
+				Key:    LabelNodeRoleMaster,
+				Effect: corev1.TaintEffectNoSchedule,
+			},
+		}
+		// prefer to assign pod to master node
+		podSpec.Spec.Affinity = &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
 							{
 								Key:      LabelNodeRoleMaster,
@@ -1018,7 +1020,7 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 					},
 				},
 			},
-		},
+		}
 	}
 
 	container.VolumeMounts = append(container.VolumeMounts,
