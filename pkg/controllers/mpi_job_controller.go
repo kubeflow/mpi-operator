@@ -757,7 +757,7 @@ shift
 	}
 	var buffer bytes.Buffer
 	for i := 0; i < workerReplicas; i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d max_slots=%d\n", mpiJob.Name, workerSuffix, i, slots, slots))
+		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
 	}
 
 	return &corev1.ConfigMap{
