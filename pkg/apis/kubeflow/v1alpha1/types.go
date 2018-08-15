@@ -43,8 +43,13 @@ type MPIJobSpec struct {
 	// +optional
 	GPUs *int32 `json:"gpus,omitempty"`
 
+	// Run the launcher on the master.
+	// Optional: Default to false
+	// +optional
+	LauncherOnMaster bool `json:"launcherOnMaster,omitempty"`
+
 	// Optional number of retries before marking this job failed.
-	// Defaults to 0
+	// Defaults to 6
 	// +optional
 	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
 
