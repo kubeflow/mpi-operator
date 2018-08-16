@@ -46,7 +46,7 @@ type MPIJobSpec struct {
 	// Run the launcher on the master.
 	// Optional: Default to false
 	// +optional
-	LauncherOnMaster bool
+	LauncherOnMaster bool `json:"launcherOnMaster,omitempty"`
 
 	// Optional number of retries before marking this job failed.
 	// Defaults to 6
