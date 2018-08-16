@@ -997,7 +997,7 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 	container.Resources.Requests = nil
 
 	// determine if run the launcher on the master node
-	if mpiJob.LauncherOnMaster {
+	if mpiJob.Spec.LauncherOnMaster {
 
 		// support Tolerate
 		podSpec.Spec.Tolerations = []corev1.Toleration{
@@ -1010,11 +1010,13 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 		podSpec.Spec.Affinity = &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					{
-						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{
-								Key:      LabelNodeRoleMaster,
-								Operator: corev1.NodeSelectorOpExists,
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      LabelNodeRoleMaster,
+									Operator: corev1.NodeSelectorOpExists,
+								},
 							},
 						},
 					},
