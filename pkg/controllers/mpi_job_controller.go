@@ -882,6 +882,8 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 	for key, value := range labels {
 		podSpec.Labels[key] = value
 	}
+	// always set restartPolicy to restartAlways for statefulset
+	podSpec.Spec.RestartPolicy = corev1.RestartPolicyAlways
 
 	container := podSpec.Spec.Containers[0]
 	container.Command = []string{"sleep"}
