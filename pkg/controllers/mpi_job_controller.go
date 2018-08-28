@@ -1037,7 +1037,10 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 			MountPath: configMountPath,
 		})
 	podSpec.Spec.Containers[0] = container
-	podSpec.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
+	// Only a `RestartPolicy` equal to `Never` or `OnFailure` is allowed for `Job`.
+	if podSpec.Spec.RestartPolicy != corev1.RestartPolicyNever {
+		podSpec.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
+	}
 	scriptsMode := int32(0555)
 	hostfileMode := int32(0444)
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes,
