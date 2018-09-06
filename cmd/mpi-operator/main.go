@@ -16,8 +16,6 @@ package main
 
 import (
 	"flag"
-	"time"
-
 	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -57,8 +55,8 @@ func main() {
 		glog.Fatalf("Error building kubeflow clientset: %s", err.Error())
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, time.Second*30)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, 0)
 
 	controller := controllers.NewMPIJobController(
 		kubeClient,
