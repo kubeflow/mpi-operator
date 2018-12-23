@@ -16,6 +16,7 @@ package main
 
 import (
 	"flag"
+
 	"github.com/golang/glog"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +33,7 @@ var (
 	kubeConfig           string
 	gpusPerNode          int
 	kubectlDeliveryImage string
+	informerNamespace    string
 )
 
 func main() {
@@ -55,7 +57,12 @@ func main() {
 		glog.Fatalf("Error building kubeflow clientset: %s", err.Error())
 	}
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	var kubeInformerFactory kubeinformers.SharedInformerFactory
+	if informerNamespace == "" {
+		kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	} else {
+		kubeInformerFactory = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, informerNamespace, nil)
+	}
 	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, 0)
 
 	controller := controllers.NewMPIJobController(
@@ -84,4 +91,5 @@ func init() {
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeConfig. Only required if out-of-cluster.")
 	flag.IntVar(&gpusPerNode, "gpus-per-node", 1, "The maximum number of GPUs available per node.")
 	flag.StringVar(&kubectlDeliveryImage, "kubectl-delivery-image", "", "The container image used to deliver the kubectl binary.")
+	flag.StringVar(&informerNamespace, "informer-namespace", "", "The namespace name used for Kubernetes informers to obtain the listers.")
 }
