@@ -33,7 +33,7 @@ var (
 	kubeConfig           string
 	gpusPerNode          int
 	kubectlDeliveryImage string
-	informerNamespace    string
+	namespace            string
 )
 
 func main() {
@@ -58,10 +58,10 @@ func main() {
 	}
 
 	var kubeInformerFactory kubeinformers.SharedInformerFactory
-	if informerNamespace == "" {
+	if namespace == "" {
 		kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	} else {
-		kubeInformerFactory = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, informerNamespace, nil)
+		kubeInformerFactory = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, namespace, nil)
 	}
 	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, 0)
 
@@ -91,5 +91,5 @@ func init() {
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeConfig. Only required if out-of-cluster.")
 	flag.IntVar(&gpusPerNode, "gpus-per-node", 1, "The maximum number of GPUs available per node.")
 	flag.StringVar(&kubectlDeliveryImage, "kubectl-delivery-image", "", "The container image used to deliver the kubectl binary.")
-	flag.StringVar(&informerNamespace, "informer-namespace", "", "The namespace name used for Kubernetes informers to obtain the listers.")
+	flag.StringVar(&namespace, "namespace", "", "The namespace used for Kubernetes to obtain the listers.")
 }
