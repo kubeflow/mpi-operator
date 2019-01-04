@@ -20,6 +20,7 @@ spec:
       - name: mpi-operator
         image: mpioperator/mpi-operator:latest
         args: [
+          "-alsologtostderr",
           "--gpus-per-node", "8",
           "--kubectl-delivery-image",
           "mpioperator/kubectl-delivery:latest"
