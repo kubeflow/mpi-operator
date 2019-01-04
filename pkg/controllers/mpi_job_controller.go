@@ -83,7 +83,7 @@ const (
 
 	// MessageResourceExists is the message used for Events when a resource
 	// fails to sync due to dependent resources already existing.
-	MessageResourceExists = "Resource %q already exists and is not managed by MPIJob"
+	MessageResourceExists = "Resource %q of Kind %q already exists and is not managed by MPIJob"
 	// MessageResourceSynced is the message used for an Event fired when an
 	// MPIJob is synced successfully.
 	MessageResourceSynced = "MPIJob synced successfully"
@@ -475,7 +475,7 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 	// If the launcher is not controlled by this MPIJob resource, we should log
 	// a warning to the event recorder and return.
 	if !metav1.IsControlledBy(launcher, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, launcher.Name)
+		msg := fmt.Sprintf(MessageResourceExists, launcher.Name, launcher.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return launcher, fmt.Errorf(msg)
 	}
@@ -545,7 +545,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 	// If the ConfigMap is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
 	if !metav1.IsControlledBy(cm, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, cm.Name)
+		msg := fmt.Sprintf(MessageResourceExists, cm.Name, cm.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
@@ -570,7 +570,7 @@ func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MP
 	// If the launcher ServiceAccount is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
 	if !metav1.IsControlledBy(sa, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, sa.Name)
+		msg := fmt.Sprintf(MessageResourceExists, sa.Name, sa.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
@@ -594,7 +594,7 @@ func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, work
 	// If the launcher Role is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
 	if !metav1.IsControlledBy(role, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, role.Name)
+		msg := fmt.Sprintf(MessageResourceExists, role.Name, role.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
@@ -619,7 +619,7 @@ func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rba
 	// If the launcher RoleBinding is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
 	if !metav1.IsControlledBy(rb, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, rb.Name)
+		msg := fmt.Sprintf(MessageResourceExists, rb.Name, rb.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
@@ -645,7 +645,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	// If the worker is not controlled by this MPIJob resource, we should log
 	// a warning to the event recorder and return.
 	if worker != nil && !metav1.IsControlledBy(worker, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, worker.Name)
+		msg := fmt.Sprintf(MessageResourceExists, worker.Name, worker.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
