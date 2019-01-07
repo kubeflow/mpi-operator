@@ -131,3 +131,10 @@ total images/sec: 264.26
 total images/sec: 264.26
 ----------------------------------------------------------------
 ```
+
+# Docker Images
+
+Docker images are being built and pushed automatically to [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator). You may find the following Dockerfiles to build the images yourself:
+
+* [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
+* [kubectl-delivery](https://github.com/kubeflow/mpi-operator/blob/master/cmd/kubectl-delivery/Dockerfile)
