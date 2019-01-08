@@ -515,19 +515,6 @@ func allocateGPUs(mpiJob *kubeflow.MPIJob, gpusPerNode int, done bool) (workerRe
 	return workerReplicas, gpusPerWorker, err
 }
 
-// getWorkerReplicas gets the desired number of worker replicas.
-func (c *MPIJobController) getWorkerReplicas(totalGPUs int, done bool) int {
-	workerReplicas := 0
-	if totalGPUs > c.gpusPerNode {
-		// The launcher also does work, so the # worker replicas needed is deducted by 1.
-		workerReplicas = totalGPUs/c.gpusPerNode - 1
-	}
-	if done {
-		workerReplicas = 0
-	}
-	return workerReplicas
-}
-
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int, gpusPerWorker int) (*corev1.ConfigMap, error) {
