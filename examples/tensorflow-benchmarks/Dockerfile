@@ -1,8 +1,8 @@
-FROM uber/horovod:0.13.11-tf1.10.0-torch0.4.0-py2.7
+FROM uber/horovod:0.15.2-tf1.12.0-torch1.0.0-py2.7
 
 RUN mkdir /tensorflow
 WORKDIR "/tensorflow"
-RUN git clone https://github.com/tensorflow/benchmarks
+RUN git clone -b cnn_tf_v1.12_compatible https://github.com/tensorflow/benchmarks
 WORKDIR "/tensorflow/benchmarks"
 
 CMD mpirun \
