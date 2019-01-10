@@ -145,6 +145,7 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 		k8sI.Batch().V1().Jobs(),
 		i.Kubeflow().V1alpha1().MPIJobs(),
 		8,
+		"nvidia.com/gpu",
 		"kubectl-delivery")
 
 	c.configMapSynced = alwaysReady
@@ -503,7 +504,7 @@ func TestLauncherDoesNotExist(t *testing.T) {
 	expRoleBinding := newLauncherRoleBinding(mpiJob)
 	f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 8, 8)
+	expWorker := newWorker(mpiJob, 8, 8, gpuResourceName)
 	f.expectCreateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -531,7 +532,7 @@ func TestLauncherDoesNotExistWithCustomResources(t *testing.T) {
 	expRoleBinding := newLauncherRoleBinding(mpiJob)
 	f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 4, 4)
+	expWorker := newWorker(mpiJob, 4, 4, gpuResourceName)
 	f.expectCreateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -612,10 +613,10 @@ func TestShutdownWorker(t *testing.T) {
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, 8)
+	worker := newWorker(mpiJob, 8, 8, gpuResourceName)
 	f.setUpWorker(worker)
 
-	expWorker := newWorker(mpiJob, 0, 8)
+	expWorker := newWorker(mpiJob, 0, 8, gpuResourceName)
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -635,7 +636,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
 	f.setUpRbac(mpiJob, 8)
 
-	worker := newWorker(mpiJob, 8, 8)
+	worker := newWorker(mpiJob, 8, 8, gpuResourceName)
 	worker.OwnerReferences = nil
 	f.setUpWorker(worker)
 
@@ -655,7 +656,7 @@ func TestLauncherActive(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 1, 8)
+	worker := newWorker(mpiJob, 1, 8, gpuResourceName)
 	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -674,7 +675,7 @@ func TestWorkerReady(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
 	f.setUpRbac(mpiJob, 2)
 
-	worker := newWorker(mpiJob, 2, 8)
+	worker := newWorker(mpiJob, 2, 8, gpuResourceName)
 	worker.Status.ReadyReplicas = 2
 	f.setUpWorker(worker)
 

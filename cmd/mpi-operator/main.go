@@ -29,11 +29,12 @@ import (
 )
 
 var (
-	masterURL            string
-	kubeConfig           string
-	gpusPerNode          int
-	kubectlDeliveryImage string
-	namespace            string
+	masterURL              string
+	kubeConfig             string
+	processingUnitsPerNode int
+	processingResourceType string
+	kubectlDeliveryImage   string
+	namespace              string
 )
 
 func main() {
@@ -77,7 +78,8 @@ func main() {
 		kubeInformerFactory.Apps().V1().StatefulSets(),
 		kubeInformerFactory.Batch().V1().Jobs(),
 		kubeflowInformerFactory.Kubeflow().V1alpha1().MPIJobs(),
-		gpusPerNode,
+		processingUnitsPerNode,
+		processingResourceType,
 		kubectlDeliveryImage)
 
 	go kubeInformerFactory.Start(stopCh)
@@ -92,10 +94,11 @@ func init() {
 	flag.StringVar(&kubeConfig, "kubeConfig", "", "Path to a kubeConfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeConfig. Only required if out-of-cluster.")
 	flag.IntVar(
-		&gpusPerNode,
-		"gpus-per-node",
+		&processingUnitsPerNode,
+		"processing-units-per-node",
 		1,
 		"The maximum number of GPUs available per node. Note that this will be ignored if the GPU resources are explicitly specified in the MPIJob pod spec.")
 	flag.StringVar(&kubectlDeliveryImage, "kubectl-delivery-image", "", "The container image used to deliver the kubectl binary.")
 	flag.StringVar(&namespace, "namespace", "", "The namespace used to obtain the listers.")
+	flag.StringVar(&processingResourceType, "processing-resource-type", "nvidia.com/gpu", "The compute resource name, e.g. 'nvidia.com/gpu' or 'cpu'.")
 }
