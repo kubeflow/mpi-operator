@@ -86,7 +86,7 @@ status:
 ```
 
 
-Training should run for 100 steps and takes a few minutes on a GPU cluster. Logs can be inspected to see its training progress. Once everything starts, the logs can be accessed from the `launcher` pod:
+Training should run for 100 steps and takes a few minutes on a GPU cluster. You can inspect the logs to see the training progress. When the job starts, access the logs from the `launcher` pod:
 
 ```
 PODNAME=$(kubectl get pods -l mpi_job_name=tensorflow-benchmarks-16,mpi_role_type=launcher -o name)
@@ -134,7 +134,7 @@ total images/sec: 264.26
 
 # Docker Images
 
-Docker images are being built and pushed automatically to [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator). You may find the following Dockerfiles to build the images yourself:
+Docker images are built and pushed automatically to [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator). You can use the following Dockerfiles to build the images yourself:
 
 * [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
 * [kubectl-delivery](https://github.com/kubeflow/mpi-operator/blob/master/cmd/kubectl-delivery/Dockerfile)
