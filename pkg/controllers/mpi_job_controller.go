@@ -73,10 +73,6 @@ const (
 	labelMPIRoleType    = "mpi_role_type"
 )
 
-var (
-	processingResourceType string
-)
-
 const (
 	// SuccessSynced is used as part of the Event 'reason' when an MPIJob is
 	// synced.
@@ -442,7 +438,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 	}
 
-	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas, processingUnitsPerWorker)
+	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas, processingUnitsPerWorker, c.processingResourceType)
 	if err != nil {
 		return err
 	}
@@ -630,7 +626,7 @@ func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rba
 
 // getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
 // MPIJob, or creates one if it doesn't exist.
-func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int, processingUnitsPerWorker int) (*appsv1.StatefulSet, error) {
+func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int, processingUnitsPerWorker int, processingResourceType string) (*appsv1.StatefulSet, error) {
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
@@ -905,7 +901,6 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits i
 	if container.Resources.Limits == nil {
 		container.Resources.Limits = make(corev1.ResourceList)
 	}
-	// TODO: Validate processingResourceType
 	container.Resources.Limits[convertProcessingResourceType(processingResourceType)] = *resource.NewQuantity(int64(processingUnits), resource.DecimalExponent)
 
 	// We need the kubexec.sh script here because Open MPI checks for the path
