@@ -17,6 +17,7 @@ RUN dep ensure -vendor-only
 # This layer is rebuilt when ever a file has changed in the project directory.
 COPY . /go/src/github.com/kubeflow/mpi-operator/
 RUN go build -o /bin/mpi-operator github.com/kubeflow/mpi-operator/cmd/mpi-operator
+RUN go test github.com/kubeflow/mpi-operator/...
 
 FROM alpine:3.7
 COPY --from=build /bin/mpi-operator /bin/mpi-operator

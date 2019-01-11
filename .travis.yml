@@ -1,15 +1,21 @@
-language: go
-go_import_path: github.com/kubeflow/mpi-operator
-
-go:
-- 1.10.2
-
-before_install:
-- go get -u github.com/golang/dep/cmd/dep
-- dep ensure
-
-install:
-- go get -t -d ./...
+services:
+  - docker
 
 script:
-- go test ./...
+  - docker build -t mpioperator/mpi-operator .
+  - docker build -t mpioperator/kubectl-delivery cmd/kubectl-delivery
+  - docker build -t mpioperator/tensorflow-benchmarks examples/tensorflow-benchmarks
+
+after_script:
+  - docker images
+
+before_deploy:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+deploy:
+  provider: script
+  script: docker push mpioperator/mpi-operator \
+    && docker push mpioperator/kubectl-delivery \
+    && docker push mpioperator/tensorflow-benchmarks
+  on:
+    branch: master
