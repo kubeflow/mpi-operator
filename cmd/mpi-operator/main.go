@@ -97,5 +97,5 @@ func init() {
 		1,
 		"The maximum number of GPUs available per node. Note that this will be ignored if the GPU resources are explicitly specified in the MPIJob pod spec.")
 	flag.StringVar(&kubectlDeliveryImage, "kubectl-delivery-image", "", "The container image used to deliver the kubectl binary.")
-	flag.StringVar(&namespace, "namespace", "", "The namespace used for Kubernetes to obtain the listers.")
+	flag.StringVar(&namespace, "namespace", "", "The namespace used to obtain the listers.")
 }
