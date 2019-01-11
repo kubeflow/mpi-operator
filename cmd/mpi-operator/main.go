@@ -58,12 +58,14 @@ func main() {
 	}
 
 	var kubeInformerFactory kubeinformers.SharedInformerFactory
+	var kubeflowInformerFactory informers.SharedInformerFactory
 	if namespace == "" {
 		kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+		kubeflowInformerFactory = informers.NewSharedInformerFactory(kubeflowClient, 0)
 	} else {
-		kubeInformerFactory = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, namespace, nil)
+		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace), nil)
+		kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(kubeflowClient, 0, informers.WithNamespace(namespace), nil)
 	}
-	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, 0)
 
 	controller := controllers.NewMPIJobController(
 		kubeClient,
