@@ -58,12 +58,14 @@ func main() {
 	}
 
 	var kubeInformerFactory kubeinformers.SharedInformerFactory
+	var kubeflowInformerFactory informers.SharedInformerFactory
 	if namespace == "" {
 		kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+		kubeflowInformerFactory = informers.NewSharedInformerFactory(kubeflowClient, 0)
 	} else {
-		kubeInformerFactory = kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 0, namespace, nil)
+		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace), nil)
+		kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(kubeflowClient, 0, informers.WithNamespace(namespace), nil)
 	}
-	kubeflowInformerFactory := informers.NewSharedInformerFactory(kubeflowClient, 0)
 
 	controller := controllers.NewMPIJobController(
 		kubeClient,
@@ -95,5 +97,5 @@ func init() {
 		1,
 		"The maximum number of GPUs available per node. Note that this will be ignored if the GPU resources are explicitly specified in the MPIJob pod spec.")
 	flag.StringVar(&kubectlDeliveryImage, "kubectl-delivery-image", "", "The container image used to deliver the kubectl binary.")
-	flag.StringVar(&namespace, "namespace", "", "The namespace used for Kubernetes to obtain the listers.")
+	flag.StringVar(&namespace, "namespace", "", "The namespace used to obtain the listers.")
 }
