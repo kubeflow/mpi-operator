@@ -40,8 +40,14 @@ type MPIJobList struct {
 type MPIJobSpec struct {
 	// Specifies the desired number of GPUs the MPIJob should run on.
 	// Mutually exclusive with the `Replicas` field.
+	// Note that this is deprecated in favor of `ProcessingUnits` field.
 	// +optional
 	GPUs *int32 `json:"gpus,omitempty"`
+
+	// Specifies the desired number of processing units the MPIJob should run on.
+	// Mutually exclusive with the `Replicas` field.
+	// +optional
+	ProcessingUnits *int32 `json:"processingUnits,omitempty"`
 
 	// Run the launcher on the master.
 	// Optional: Default to false

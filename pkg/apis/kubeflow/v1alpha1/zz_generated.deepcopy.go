@@ -91,6 +91,11 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.ProcessingUnits != nil {
+		in, out := &in.ProcessingUnits, &out.ProcessingUnits
+		*out = new(int32)
+		**out = **in
+	}
 	if in.BackoffLimit != nil {
 		in, out := &in.BackoffLimit, &out.BackoffLimit
 		*out = new(int32)

@@ -145,7 +145,8 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 		k8sI.Batch().V1().Jobs(),
 		i.Kubeflow().V1alpha1().MPIJobs(),
 		8,
-		"nvidia.com/gpu",
+		8,
+		gpuResourceName,
 		"kubectl-delivery")
 
 	c.configMapSynced = alwaysReady

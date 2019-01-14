@@ -125,6 +125,8 @@ type MPIJobController struct {
 	// Kubernetes API.
 	recorder record.EventRecorder
 	// The maximum number of GPUs per node.
+	gpusPerNode int
+	// The maximum number of processing units per node.
 	processingUnitsPerNode int
 	// The processing resource name, e.g. "nvidia.com/gpu" or "cpu"
 	processingResourceType string
@@ -143,6 +145,7 @@ func NewMPIJobController(
 	statefulSetInformer appsinformers.StatefulSetInformer,
 	jobInformer batchinformers.JobInformer,
 	mpiJobInformer informers.MPIJobInformer,
+	gpusPerNode int,
 	processingUnitsPerNode int,
 	processingResourceType string,
 	kubectlDeliveryImage string) *MPIJobController {
@@ -176,7 +179,9 @@ func NewMPIJobController(
 		mpiJobSynced:           mpiJobInformer.Informer().HasSynced,
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
 		recorder:               recorder,
+		gpusPerNode:            gpusPerNode,
 		processingUnitsPerNode: processingUnitsPerNode,
+		processingResourceType: processingResourceType,
 		kubectlDeliveryImage:   kubectlDeliveryImage,
 	}
 
@@ -410,7 +415,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
 
-	workerReplicas, processingUnitsPerWorker, err := allocateProcessingUnits(mpiJob, c.processingUnitsPerNode, c.processingResourceType, done)
+	workerReplicas, processingUnitsPerWorker, err := allocateProcessingUnits(mpiJob, c.gpusPerNode, c.processingUnitsPerNode, c.processingResourceType, done)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
@@ -490,24 +495,40 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 // allocateProcessingUnits allocates the worker replicas and processing units per worker.
 func allocateProcessingUnits(
 	mpiJob *kubeflow.MPIJob,
+	gpusPerNode int,
 	processingUnitsPerNode int,
 	processingResourceType string,
 	done bool) (workerReplicas int, processingUnitsPerWorker int, err error) {
 	workerReplicas = 0
 	processingUnitsPerWorker = 0
 	err = nil
-	// TODO: Update MPIJob spec
-	if mpiJob.Spec.GPUs != nil {
-		totalProcessingUnits := int(*mpiJob.Spec.GPUs)
-		if totalProcessingUnits < processingUnitsPerNode {
-			workerReplicas = 1
-			processingUnitsPerWorker = totalProcessingUnits
-		} else if totalProcessingUnits%processingUnitsPerNode == 0 {
-			workerReplicas = totalProcessingUnits / processingUnitsPerNode
-			processingUnitsPerWorker = processingUnitsPerNode
+	if mpiJob.Spec.GPUs != nil || mpiJob.Spec.ProcessingUnits != nil {
+		if mpiJob.Spec.ProcessingUnits != nil && mpiJob.Spec.GPUs != nil {
+			err = fmt.Errorf("Cannot specify both GPUs and ProcessingUnits at the same time")
 		} else {
-			// TODO: Update error message
-			err = fmt.Errorf("specified #GPUs is not a multiple of GPUs per node (%d)", processingUnitsPerNode)
+			totalProcessingUnits := 0
+			usedSpecField := ""
+			pusPerNode := 0
+			if mpiJob.Spec.GPUs != nil {
+				fmt.Println("GPUs field is deprecated. Please switch to use ProcessingUnits.")
+				totalProcessingUnits = int(*mpiJob.Spec.GPUs)
+				pusPerNode = gpusPerNode
+				usedSpecField = "GPUs"
+			} else if mpiJob.Spec.ProcessingUnits != nil {
+				totalProcessingUnits = int(*mpiJob.Spec.ProcessingUnits)
+				pusPerNode = processingUnitsPerNode
+				usedSpecField = "ProcessingUnits"
+			}
+			if totalProcessingUnits < pusPerNode {
+				workerReplicas = 1
+				processingUnitsPerWorker = totalProcessingUnits
+			} else if totalProcessingUnits%pusPerNode == 0 {
+				workerReplicas = totalProcessingUnits / pusPerNode
+				processingUnitsPerWorker = pusPerNode
+			} else {
+				err = fmt.Errorf(
+					"specified #%s is not a multiple of %s per node (%d)", usedSpecField, usedSpecField, processingUnitsPerNode)
+			}
 		}
 	} else if mpiJob.Spec.Replicas != nil {
 		workerReplicas = int(*mpiJob.Spec.Replicas)
@@ -862,15 +883,15 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 
 func convertProcessingResourceType(processingResourceType string) corev1.ResourceName {
 	if processingResourceType == gpuResourceName {
-		return corev1.ResourceNvidiaGPU
+		return gpuResourceName
 	} else if processingResourceType == cpuResourceName {
-		return corev1.ResourceCPU
+		return cpuResourceName
 	}
 	fmt.Printf(
 		"Unsupported processing resource type specified: %q. \nSwitching to use NVIDIA GPU by default.",
 		processingResourceType)
 
-	return corev1.ResourceNvidiaGPU
+	return gpuResourceName
 }
 
 // newWorker creates a new worker StatefulSet for an MPIJob resource. It also
