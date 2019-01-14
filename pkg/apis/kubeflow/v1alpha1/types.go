@@ -49,6 +49,10 @@ type MPIJobSpec struct {
 	// +optional
 	ProcessingUnits *int32 `json:"processingUnits,omitempty"`
 
+	// Specifies the number of slots per worker used in hostfile.
+	// +optional
+	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
+
 	// Run the launcher on the master.
 	// Optional: Default to false
 	// +optional

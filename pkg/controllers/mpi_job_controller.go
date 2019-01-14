@@ -773,8 +773,10 @@ shift
 
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1
-	if processingUnitsPerWorker > 0 {
+	if mpiJob.Spec.SlotsPerWorker == nil && processingUnitsPerWorker > 0 {
 		slots = processingUnitsPerWorker
+	} else {
+		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
 	for i := 0; i < workerReplicas; i++ {
