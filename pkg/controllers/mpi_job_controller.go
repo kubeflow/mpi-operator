@@ -907,7 +907,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gpus int) *appsv1
 		},
 	})
 
-	// set default BackoofLimit
+	// set default BackoffLimit
 	if mpiJob.Spec.BackoffLimit == nil {
 		mpiJob.Spec.BackoffLimit = new(int32)
 		*mpiJob.Spec.BackoffLimit = 6
@@ -1070,8 +1070,9 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 			},
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit: mpiJob.Spec.BackoffLimit,
-			Template:     *podSpec,
+			BackoffLimit:          mpiJob.Spec.BackoffLimit,
+			ActiveDeadlineSeconds: mpiJob.Spec.ActiveDeadlineSeconds,
+			Template:              *podSpec,
 		},
 	}
 }

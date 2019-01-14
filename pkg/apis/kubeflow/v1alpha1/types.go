@@ -48,10 +48,16 @@ type MPIJobSpec struct {
 	// +optional
 	LauncherOnMaster bool `json:"launcherOnMaster,omitempty"`
 
-	// Optional number of retries before marking this job failed.
+	// Specifies the number of retries before marking this job failed.
 	// Defaults to 6
 	// +optional
 	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
+
+	// Specifies the duration in seconds relative to the start time that
+	// the job may be active before the system tries to terminate it.
+	// Note that this takes precedence over `BackoffLimit` field.
+	// +optional
+	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 
 	// Specifies the desired number of replicas the MPIJob should run on.
 	// The `PodSpec` should specify the number of GPUs.
