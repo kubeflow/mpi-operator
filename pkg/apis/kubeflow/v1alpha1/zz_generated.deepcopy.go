@@ -98,7 +98,7 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 	}
 	if in.ActiveDeadlineSeconds != nil {
 		in, out := &in.ActiveDeadlineSeconds, &out.ActiveDeadlineSeconds
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.Replicas != nil {
