@@ -18,7 +18,7 @@ spec:
       properties:
         spec:
           title: The MPIJob spec
-          description: Either `gpus` or `replicas` should be specified, but not both
+          description: Only one of `gpus`, `processingUnits`, or `replicas` should be specified
           oneOf:
           - properties:
               gpus:
@@ -33,12 +33,42 @@ spec:
                 - type: integer
                   multipleOf: 8
                   minimum: 8
+              slotsPerWorker:
+                title: The number of slots per worker used in hostfile
+                description: Defaults to the number of processing units per worker
+                type: integer
+                minimum: 1
             required:
             - gpus
+          - properties:
+              processingUnits:
+                title: Total number of processing units
+                description: Valid values are 1, 2, 4, or any multiple of 8
+                oneOf:
+                - type: integer
+                  enum:
+                  - 1
+                  - 2
+                  - 4
+                - type: integer
+                  multipleOf: 8
+                  minimum: 8
+              slotsPerWorker:
+                title: The number of slots per worker used in hostfile
+                description: Defaults to the number of processing units per worker
+                type: integer
+                minimum: 1
+            required:
+            - processingUnits
           - properties:
               replicas:
                 title: Total number of replicas
                 description: The GPU resource limit should be specified for each replica
+                type: integer
+                minimum: 1
+              slotsPerWorker:
+                title: The number of slots per worker used in hostfile
+                description: Defaults to the number of processing units per worker
                 type: integer
                 minimum: 1
             required:
