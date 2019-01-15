@@ -99,7 +99,30 @@ func newMPIJob(name string, gpus *int32) *kubeflow.MPIJob {
 	}
 }
 
-func newMPIJobWithCustomResources(name string, replicas *int32, gpusPerReplica int64) *kubeflow.MPIJob {
+func newMPIJobWithCPUs(name string, cpus *int32) *kubeflow.MPIJob {
+	return &kubeflow.MPIJob{
+		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceDefault,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			ProcessingUnits: cpus,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "foo",
+							Image: "bar",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newMPIJobWithCustomResources(name string, replicas *int32, pusPerReplica int64, processingResourceType string) *kubeflow.MPIJob {
 	return &kubeflow.MPIJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +139,7 @@ func newMPIJobWithCustomResources(name string, replicas *int32, gpusPerReplica i
 							Image: "bar",
 							Resources: corev1.ResourceRequirements{
 								Limits: corev1.ResourceList{
-									"nvidia.com/gpu": *resource.NewQuantity(gpusPerReplica, resource.DecimalExponent),
+									convertProcessingResourceType(processingResourceType): *resource.NewQuantity(pusPerReplica, resource.DecimalExponent),
 								},
 							},
 						},
@@ -127,7 +150,7 @@ func newMPIJobWithCustomResources(name string, replicas *int32, gpusPerReplica i
 	}
 }
 
-func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(processingResourceType string) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
@@ -145,6 +168,8 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 		k8sI.Batch().V1().Jobs(),
 		i.Kubeflow().V1alpha1().MPIJobs(),
 		8,
+		8,
+		processingResourceType,
 		"kubectl-delivery")
 
 	c.configMapSynced = alwaysReady
@@ -187,16 +212,16 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 	return c, i, k8sI
 }
 
-func (f *fixture) run(mpiJobName string) {
-	f.runController(mpiJobName, true, false)
+func (f *fixture) run(mpiJobName string, processingResourceType string) {
+	f.runController(mpiJobName, true, false, processingResourceType)
 }
 
-func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true)
+func (f *fixture) runExpectError(mpiJobName string, processingResourceType string) {
+	f.runController(mpiJobName, true, true, processingResourceType)
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers bool, expectError bool) {
-	c, i, k8sI := f.newController()
+func (f *fixture) runController(mpiJobName string, startInformers bool, expectError bool, processingResourceType string) {
+	c, i, k8sI := f.newController(processingResourceType)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -429,13 +454,13 @@ func getKey(mpiJob *kubeflow.MPIJob, t *testing.T) string {
 
 func TestDoNothingWithInvalidKey(t *testing.T) {
 	f := newFixture(t)
-	f.run("foo/bar/baz")
+	f.run("foo/bar/baz", gpuResourceName)
 }
 
 func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	f := newFixture(t)
 	mpiJob := newMPIJob("test", int32Ptr(64))
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherNotControlledByUs(t *testing.T) {
@@ -448,7 +473,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherSucceeded(t *testing.T) {
@@ -465,7 +490,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherSucceeded
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherFailed(t *testing.T) {
@@ -482,7 +507,7 @@ func TestLauncherFailed(t *testing.T) {
 	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherFailed
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherDoesNotExist(t *testing.T) {
@@ -503,42 +528,45 @@ func TestLauncherDoesNotExist(t *testing.T) {
 	expRoleBinding := newLauncherRoleBinding(mpiJob)
 	f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 8, 8)
+	expWorker := newWorker(mpiJob, 8, 8, gpuResourceName)
 	f.expectCreateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.WorkerReplicas = 0
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherDoesNotExistWithCustomResources(t *testing.T) {
-	f := newFixture(t)
+	resourceNames := []string{cpuResourceName, gpuResourceName}
+	for _, resourceName := range resourceNames {
+		f := newFixture(t)
 
-	mpiJob := newMPIJobWithCustomResources("test", int32Ptr(4), 4)
-	f.setUpMPIJob(mpiJob)
+		mpiJob := newMPIJobWithCustomResources("test", int32Ptr(4), 4, resourceName)
+		f.setUpMPIJob(mpiJob)
 
-	expConfigMap := newConfigMap(mpiJob, 4, 4)
-	f.expectCreateConfigMapAction(expConfigMap)
+		expConfigMap := newConfigMap(mpiJob, 4, 4)
+		f.expectCreateConfigMapAction(expConfigMap)
 
-	expServiceAccount := newLauncherServiceAccount(mpiJob)
-	f.expectCreateServiceAccountAction(expServiceAccount)
+		expServiceAccount := newLauncherServiceAccount(mpiJob)
+		f.expectCreateServiceAccountAction(expServiceAccount)
 
-	expRole := newLauncherRole(mpiJob, 4)
-	f.expectCreateRoleAction(expRole)
+		expRole := newLauncherRole(mpiJob, 4)
+		f.expectCreateRoleAction(expRole)
 
-	expRoleBinding := newLauncherRoleBinding(mpiJob)
-	f.expectCreateRoleBindingAction(expRoleBinding)
+		expRoleBinding := newLauncherRoleBinding(mpiJob)
+		f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 4, 4)
-	f.expectCreateStatefulSetAction(expWorker)
+		expWorker := newWorker(mpiJob, 4, 4, resourceName)
+		f.expectCreateStatefulSetAction(expWorker)
 
-	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.WorkerReplicas = 0
-	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+		mpiJobCopy := mpiJob.DeepCopy()
+		mpiJobCopy.Status.WorkerReplicas = 0
+		f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+		f.run(getKey(mpiJob, t), resourceName)
+	}
 }
 
 func TestConfigMapNotControlledByUs(t *testing.T) {
@@ -551,7 +579,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestServiceAccountNotControlledByUs(t *testing.T) {
@@ -566,7 +594,7 @@ func TestServiceAccountNotControlledByUs(t *testing.T) {
 	serviceAccount.OwnerReferences = nil
 	f.setUpServiceAccount(serviceAccount)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestRoleNotControlledByUs(t *testing.T) {
@@ -582,7 +610,7 @@ func TestRoleNotControlledByUs(t *testing.T) {
 	role.OwnerReferences = nil
 	f.setUpRole(role)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestRoleBindingNotControlledByUs(t *testing.T) {
@@ -599,7 +627,7 @@ func TestRoleBindingNotControlledByUs(t *testing.T) {
 	roleBinding.OwnerReferences = nil
 	f.setUpRoleBinding(roleBinding)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestShutdownWorker(t *testing.T) {
@@ -612,10 +640,10 @@ func TestShutdownWorker(t *testing.T) {
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, 8)
+	worker := newWorker(mpiJob, 8, 8, gpuResourceName)
 	f.setUpWorker(worker)
 
-	expWorker := newWorker(mpiJob, 0, 8)
+	expWorker := newWorker(mpiJob, 0, 8, gpuResourceName)
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -623,7 +651,7 @@ func TestShutdownWorker(t *testing.T) {
 	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherSucceeded
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestWorkerNotControlledByUs(t *testing.T) {
@@ -635,11 +663,11 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
 	f.setUpRbac(mpiJob, 8)
 
-	worker := newWorker(mpiJob, 8, 8)
+	worker := newWorker(mpiJob, 8, 8, gpuResourceName)
 	worker.OwnerReferences = nil
 	f.setUpWorker(worker)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherActive(t *testing.T) {
@@ -655,14 +683,14 @@ func TestLauncherActive(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 1, 8)
+	worker := newWorker(mpiJob, 1, 8, gpuResourceName)
 	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherActive
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestWorkerReady(t *testing.T) {
@@ -674,7 +702,7 @@ func TestWorkerReady(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
 	f.setUpRbac(mpiJob, 2)
 
-	worker := newWorker(mpiJob, 2, 8)
+	worker := newWorker(mpiJob, 2, 8, gpuResourceName)
 	worker.Status.ReadyReplicas = 2
 	f.setUpWorker(worker)
 
@@ -685,7 +713,30 @@ func TestWorkerReady(t *testing.T) {
 	mpiJobCopy.Status.WorkerReplicas = 2
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(getKey(mpiJob, t), gpuResourceName)
+}
+
+func TestWorkerReadyWithCPUs(t *testing.T) {
+	f := newFixture(t)
+
+	mpiJob := newMPIJobWithCPUs("test", int32Ptr(16))
+	f.setUpMPIJob(mpiJob)
+
+	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
+	f.setUpRbac(mpiJob, 2)
+
+	worker := newWorker(mpiJob, 2, 8, cpuResourceName)
+	worker.Status.ReadyReplicas = 2
+	f.setUpWorker(worker)
+
+	expLauncher := newLauncher(mpiJob, "kubectl-delivery")
+	f.expectCreateJobAction(expLauncher)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.WorkerReplicas = 2
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(getKey(mpiJob, t), cpuResourceName)
 }
 
 func int32Ptr(i int32) *int32 { return &i }

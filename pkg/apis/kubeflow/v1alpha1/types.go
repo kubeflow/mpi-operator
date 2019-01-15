@@ -40,16 +40,27 @@ type MPIJobList struct {
 type MPIJobSpec struct {
 	// Specifies the desired number of GPUs the MPIJob should run on.
 	// Mutually exclusive with the `Replicas` field.
+	// Note that this is deprecated in favor of `ProcessingUnits` field.
 	// +optional
 	GPUs *int32 `json:"gpus,omitempty"`
 
+	// Specifies the desired number of processing units the MPIJob should run on.
+	// Mutually exclusive with the `Replicas` field.
+	// +optional
+	ProcessingUnits *int32 `json:"processingUnits,omitempty"`
+
+	// Specifies the number of slots per worker used in hostfile.
+	// Defaults to the number of processing units per worker.
+	// +optional
+	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
+
 	// Run the launcher on the master.
-	// Optional: Default to false
+	// Defaults to false.
 	// +optional
 	LauncherOnMaster bool `json:"launcherOnMaster,omitempty"`
 
 	// Specifies the number of retries before marking this job failed.
-	// Defaults to 6
+	// Defaults to 6.
 	// +optional
 	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
 
@@ -61,7 +72,7 @@ type MPIJobSpec struct {
 
 	// Specifies the desired number of replicas the MPIJob should run on.
 	// The `PodSpec` should specify the number of GPUs.
-	// Mutually exclusive with the `GPUs` field.
+	// Mutually exclusive with the `GPUs` or `ProcessingUnits` fields.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
