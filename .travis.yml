@@ -2,10 +2,10 @@ language: go
 go_import_path: github.com/kubeflow/mpi-operator
 
 go:
-- 1.10.2
+- 1.11.4
 
 before_install:
-- go get -u github.com/golang/dep/cmd/dep
+- DEP_RELEASE_TAG=v0.5.0 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 - dep ensure
 
 install:
