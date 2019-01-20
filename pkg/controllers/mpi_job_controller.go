@@ -415,6 +415,18 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
 
+	// TODO (terrytangyuan): Remove these flags from main.go for next major release
+	// and update deploy/*.yaml
+	if mpiJob.Spec.GPUsPerNode != nil {
+		c.gpusPerNode = int(*mpiJob.Spec.GPUsPerNode)
+	}
+	if mpiJob.Spec.ProcessingUnitsPerNode != nil {
+		c.processingUnitsPerNode = int(*mpiJob.Spec.ProcessingUnitsPerNode)
+	}
+	if mpiJob.Spec.ProcessingResourceType != "" {
+		c.processingResourceType = mpiJob.Spec.ProcessingResourceType
+	}
+
 	workerReplicas, processingUnitsPerWorker, err := allocateProcessingUnits(mpiJob, c.gpusPerNode, c.processingUnitsPerNode, c.processingResourceType, done)
 	if err != nil {
 		runtime.HandleError(err)

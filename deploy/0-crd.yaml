@@ -38,6 +38,11 @@ spec:
                 description: Defaults to the number of processing units per worker
                 type: integer
                 minimum: 1
+              gpusPerNode:
+                title: The maximum number of GPUs available per node
+                description: Defaults to the number of GPUs per worker
+                type: integer
+                minimum: 1
             required:
             - gpus
           - properties:
@@ -58,12 +63,24 @@ spec:
                 description: Defaults to the number of processing units per worker
                 type: integer
                 minimum: 1
+              processingUnitsPerNode:
+                title: The maximum number of processing units available per node
+                description: Defaults to the number of processing units per worker
+                type: integer
+                minimum: 1
+              processingResourceType:
+                title: The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'
+                description: Defaults to 'nvidia.com/gpu'
+                type: string
+                enum:
+                  - nvidia.com/gpu
+                  - cpu
             required:
             - processingUnits
           - properties:
               replicas:
                 title: Total number of replicas
-                description: The GPU resource limit should be specified for each replica
+                description: The processing resource limit should be specified for each replica
                 type: integer
                 minimum: 1
               slotsPerWorker:
@@ -71,5 +88,12 @@ spec:
                 description: Defaults to the number of processing units per worker
                 type: integer
                 minimum: 1
+              processingResourceType:
+                title: The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'
+                description: Defaults to 'nvidia.com/gpu'
+                type: string
+                enum:
+                  - nvidia.com/gpu
+                  - cpu
             required:
             - replicas
