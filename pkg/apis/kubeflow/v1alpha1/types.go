@@ -44,10 +44,27 @@ type MPIJobSpec struct {
 	// +optional
 	GPUs *int32 `json:"gpus,omitempty"`
 
+	// The maximum number of GPUs available per node.
+	// Note that this will be ignored if the GPU resources are explicitly
+	// specified in the MPIJob pod spec.
+	// This is deprecated in favor of `ProcessingUnitsPerNode` field.
+	GPUsPerNode *int32 `json:"gpusPerNode,omitempty"`
+
 	// Specifies the desired number of processing units the MPIJob should run on.
 	// Mutually exclusive with the `Replicas` field.
 	// +optional
 	ProcessingUnits *int32 `json:"processingUnits,omitempty"`
+
+	// The maximum number of processing units available per node.
+	// Note that this will be ignored if the processing resources are explicitly
+	// specified in the MPIJob pod spec.
+	// +optional
+	ProcessingUnitsPerNode *int32 `json:"processingUnitsPerNode,omitempty"`
+
+	// The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'.
+	// Defaults to 'nvidia.com/gpu'
+	// +optional
+	ProcessingResourceType string `json:"processingResourceType,omitempty"`
 
 	// Specifies the number of slots per worker used in hostfile.
 	// Defaults to the number of processing units per worker.
@@ -71,7 +88,7 @@ type MPIJobSpec struct {
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 
 	// Specifies the desired number of replicas the MPIJob should run on.
-	// The `PodSpec` should specify the number of GPUs.
+	// The `PodSpec` should specify the number of processing units.
 	// Mutually exclusive with the `GPUs` or `ProcessingUnits` fields.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`

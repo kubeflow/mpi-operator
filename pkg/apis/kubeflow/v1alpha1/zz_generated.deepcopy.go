@@ -91,8 +91,18 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.GPUsPerNode != nil {
+		in, out := &in.GPUsPerNode, &out.GPUsPerNode
+		*out = new(int32)
+		**out = **in
+	}
 	if in.ProcessingUnits != nil {
 		in, out := &in.ProcessingUnits, &out.ProcessingUnits
+		*out = new(int32)
+		**out = **in
+	}
+	if in.ProcessingUnitsPerNode != nil {
+		in, out := &in.ProcessingUnitsPerNode, &out.ProcessingUnitsPerNode
 		*out = new(int32)
 		**out = **in
 	}

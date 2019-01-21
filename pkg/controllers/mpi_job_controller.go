@@ -415,7 +415,22 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
 
-	workerReplicas, processingUnitsPerWorker, err := allocateProcessingUnits(mpiJob, c.gpusPerNode, c.processingUnitsPerNode, c.processingResourceType, done)
+	// TODO (terrytangyuan): Remove these flags from main.go for next major release
+	// and update deploy/*.yaml
+	var gpusPerNode = c.gpusPerNode
+	var processingUnitsPerNode = c.processingUnitsPerNode
+	var processingResourceType = c.processingResourceType
+	if mpiJob.Spec.GPUsPerNode != nil {
+		gpusPerNode = int(*mpiJob.Spec.GPUsPerNode)
+	}
+	if mpiJob.Spec.ProcessingUnitsPerNode != nil {
+		processingUnitsPerNode = int(*mpiJob.Spec.ProcessingUnitsPerNode)
+	}
+	if mpiJob.Spec.ProcessingResourceType != "" {
+		processingResourceType = mpiJob.Spec.ProcessingResourceType
+	}
+
+	workerReplicas, processingUnitsPerWorker, err := allocateProcessingUnits(mpiJob, gpusPerNode, processingUnitsPerNode, processingResourceType, done)
 	if err != nil {
 		runtime.HandleError(err)
 		return nil
@@ -443,7 +458,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 	}
 
-	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas, processingUnitsPerWorker, c.processingResourceType)
+	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas, processingUnitsPerWorker, processingResourceType)
 	if err != nil {
 		return err
 	}
