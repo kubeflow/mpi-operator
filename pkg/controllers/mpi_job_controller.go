@@ -23,15 +23,18 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appsinformers "k8s.io/client-go/informers/apps/v1"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -39,6 +42,7 @@ import (
 	appslisters "k8s.io/client-go/listers/apps/v1"
 	batchlisters "k8s.io/client-go/listers/batch/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	policylisters "k8s.io/client-go/listers/policy/v1beta1"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -66,6 +70,7 @@ const (
 	worker              = "worker"
 	launcherSuffix      = "-launcher"
 	workerSuffix        = "-worker"
+	pdbSuffix           = "-pdb"
 	gpuResourceName     = "nvidia.com/gpu"
 	cpuResourceName     = "cpu"
 	labelGroupName      = "group_name"
@@ -112,6 +117,8 @@ type MPIJobController struct {
 	statefulSetSynced    cache.InformerSynced
 	jobLister            batchlisters.JobLister
 	jobSynced            cache.InformerSynced
+	pdbLister            policylisters.PodDisruptionBudgetLister
+	pdbSynced            cache.InformerSynced
 	mpiJobLister         listers.MPIJobLister
 	mpiJobSynced         cache.InformerSynced
 
@@ -132,6 +139,8 @@ type MPIJobController struct {
 	processingResourceType string
 	// The container image used to deliver the kubectl binary.
 	kubectlDeliveryImage string
+	// Whether to enable gang scheduling by kube-batch
+	enableGangScheduling bool
 }
 
 // NewMPIJobController returns a new MPIJob controller.
@@ -144,11 +153,13 @@ func NewMPIJobController(
 	roleBindingInformer rbacinformers.RoleBindingInformer,
 	statefulSetInformer appsinformers.StatefulSetInformer,
 	jobInformer batchinformers.JobInformer,
+	pdbInformer policyinformers.PodDisruptionBudgetInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	gpusPerNode int,
 	processingUnitsPerNode int,
 	processingResourceType string,
-	kubectlDeliveryImage string) *MPIJobController {
+	kubectlDeliveryImage string,
+	enableGangScheduling bool) *MPIJobController {
 
 	// Create event broadcaster.
 	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
@@ -175,6 +186,8 @@ func NewMPIJobController(
 		statefulSetSynced:      statefulSetInformer.Informer().HasSynced,
 		jobLister:              jobInformer.Lister(),
 		jobSynced:              jobInformer.Informer().HasSynced,
+		pdbLister:              pdbInformer.Lister(),
+		pdbSynced:              pdbInformer.Informer().HasSynced,
 		mpiJobLister:           mpiJobInformer.Lister(),
 		mpiJobSynced:           mpiJobInformer.Informer().HasSynced,
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
@@ -183,6 +196,7 @@ func NewMPIJobController(
 		processingUnitsPerNode: processingUnitsPerNode,
 		processingResourceType: processingResourceType,
 		kubectlDeliveryImage:   kubectlDeliveryImage,
+		enableGangScheduling:   enableGangScheduling,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -282,6 +296,21 @@ func NewMPIJobController(
 			oldJob := old.(*batchv1.Job)
 			if newJob.ResourceVersion == oldJob.ResourceVersion {
 				// Periodic re-sync will send update events for all known Jobs.
+				// Two different versions of the same Job will always have
+				// different RVs.
+				return
+			}
+			controller.handleObject(new)
+		},
+		DeleteFunc: controller.handleObject,
+	})
+	pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.handleObject,
+		UpdateFunc: func(old, new interface{}) {
+			newPolicy := new.(*policyv1beta1.PodDisruptionBudget)
+			oldPolicy := old.(*policyv1beta1.PodDisruptionBudget)
+			if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
+				// Periodic re-sync will send update events for all known PodDisruptionBudgets.
 				// Two different versions of the same Job will always have
 				// different RVs.
 				return
@@ -456,6 +485,13 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if rb, err := c.getLauncherRoleBinding(mpiJob); rb == nil || err != nil {
 			return err
 		}
+
+		// Get the PDB for this MPIJob
+		if c.enableGangScheduling {
+			if pdb, err := c.getOrCreatePDB(mpiJob, workerReplicas); pdb == nil || err != nil {
+				return err
+			}
+		}
 	}
 
 	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas, processingUnitsPerWorker, processingResourceType)
@@ -559,6 +595,36 @@ func allocateProcessingUnits(
 		workerReplicas = 0
 	}
 	return workerReplicas, processingUnitsPerWorker, err
+}
+
+// getOrCreatePDB will create a PDB for gang scheduling by kube-batch.
+func (c *MPIJobController) getOrCreatePDB(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int) (*policyv1beta1.PodDisruptionBudget, error) {
+
+	// Gang scheduling is only suitable for distributed training
+	if minAvailableWorkerReplicas < 2 {
+		return nil, nil
+	}
+
+	pdb, err := c.pdbLister.PodDisruptionBudgets(mpiJob.Namespace).Get(mpiJob.Name + pdbSuffix)
+	// If the PDB doesn't exist, we'll create it.
+	if errors.IsNotFound(err) {
+		pdb, err = c.kubeClient.PolicyV1beta1().PodDisruptionBudgets(mpiJob.Namespace).Create(newPDB(mpiJob, minAvailableWorkerReplicas))
+	}
+	// If an error occurs during Get/Create, we'll requeue the item so we
+	// can attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return nil, err
+	}
+	// If the PDB is not controlled by this MPIJob resource, we
+	// should log a warning to the event recorder and return.
+	if !metav1.IsControlledBy(pdb, mpiJob) {
+		msg := fmt.Sprintf(MessageResourceExists, pdb.Name, pdb.Kind)
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
+		return nil, fmt.Errorf(msg)
+	}
+
+	return pdb, nil
 }
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
@@ -896,6 +962,30 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 			APIGroup: rbacv1.GroupName,
 			Kind:     "Role",
 			Name:     launcherName,
+		},
+	}
+}
+
+// newPDB creates a new launcher PodDisruptionBudget for an MPIJob
+// resource. It also sets the appropriate OwnerReferences on the resource so
+// handleObject can discover the MPIJob resource that 'owns' it.
+func newPDB(mpiJob *kubeflow.MPIJob, minAvailableReplicas int) *policyv1beta1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt(minAvailableReplicas)
+	return &policyv1beta1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mpiJob.Name + pdbSuffix,
+			Namespace: mpiJob.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
+			},
+		},
+		Spec: policyv1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": mpiJob.Name,
+				},
+			},
 		},
 	}
 }
