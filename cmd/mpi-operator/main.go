@@ -36,6 +36,7 @@ var (
 	processingResourceType string
 	kubectlDeliveryImage   string
 	namespace              string
+	enableGangScheduling   bool
 )
 
 func main() {
@@ -78,11 +79,13 @@ func main() {
 		kubeInformerFactory.Rbac().V1().RoleBindings(),
 		kubeInformerFactory.Apps().V1().StatefulSets(),
 		kubeInformerFactory.Batch().V1().Jobs(),
+		kubeInformerFactory.Policy().V1beta1().PodDisruptionBudgets(),
 		kubeflowInformerFactory.Kubeflow().V1alpha1().MPIJobs(),
 		gpusPerNode,
 		processingUnitsPerNode,
 		processingResourceType,
-		kubectlDeliveryImage)
+		kubectlDeliveryImage,
+		enableGangScheduling)
 
 	go kubeInformerFactory.Start(stopCh)
 	go kubeflowInformerFactory.Start(stopCh)
@@ -108,4 +111,5 @@ func init() {
 		1,
 		"(Deprecated. This will be overwritten by MPIJobSpec) The maximum number of processing units available per node. Note that this will be ignored if the processing resources are explicitly specified in the MPIJob pod spec.")
 	flag.StringVar(&processingResourceType, "processing-resource-type", "nvidia.com/gpu", "(Deprecated. This will be overwritten by MPIJobSpec) The compute resource name, e.g. 'nvidia.com/gpu' or 'cpu'.")
+	flag.BoolVar(&enableGangScheduling, "enable-gang-scheduling", false, "Whether to enable gang scheduling by kube-batch.")
 }

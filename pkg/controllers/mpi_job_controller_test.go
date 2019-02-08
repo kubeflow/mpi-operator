@@ -22,6 +22,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,6 +58,7 @@ type fixture struct {
 	roleBindingLister    []*rbacv1.RoleBinding
 	statefulSetLister    []*appsv1.StatefulSet
 	jobLister            []*batchv1.Job
+	pdbLister            []*policyv1beta1.PodDisruptionBudget
 	mpiJobLister         []*kubeflow.MPIJob
 
 	// Actions expected to happen on the client.
@@ -166,11 +168,14 @@ func (f *fixture) newController(processingResourceType string) (*MPIJobControlle
 		k8sI.Rbac().V1().RoleBindings(),
 		k8sI.Apps().V1().StatefulSets(),
 		k8sI.Batch().V1().Jobs(),
+		k8sI.Policy().V1beta1().PodDisruptionBudgets(),
 		i.Kubeflow().V1alpha1().MPIJobs(),
 		8,
 		8,
 		processingResourceType,
-		"kubectl-delivery")
+		"kubectl-delivery",
+		false,
+	)
 
 	c.configMapSynced = alwaysReady
 	c.serviceAccountSynced = alwaysReady
@@ -178,6 +183,7 @@ func (f *fixture) newController(processingResourceType string) (*MPIJobControlle
 	c.roleBindingSynced = alwaysReady
 	c.statefulSetSynced = alwaysReady
 	c.jobSynced = alwaysReady
+	c.pdbSynced = alwaysReady
 	c.mpiJobSynced = alwaysReady
 	c.recorder = &record.FakeRecorder{}
 
@@ -203,6 +209,10 @@ func (f *fixture) newController(processingResourceType string) (*MPIJobControlle
 
 	for _, job := range f.jobLister {
 		k8sI.Batch().V1().Jobs().Informer().GetIndexer().Add(job)
+	}
+
+	for _, pdb := range f.pdbLister {
+		k8sI.Policy().V1beta1().PodDisruptionBudgets().Informer().GetIndexer().Add(pdb)
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
@@ -332,6 +342,8 @@ func filterInformerActions(actions []core.Action) []core.Action {
 				action.Matches("watch", "pods") ||
 				action.Matches("list", "jobs") ||
 				action.Matches("watch", "jobs") ||
+				action.Matches("list", "poddisruptionbudgets") ||
+				action.Matches("watch", "poddisruptionbudgets") ||
 				action.Matches("list", "mpijobs") ||
 				action.Matches("watch", "mpijobs")) {
 			continue
