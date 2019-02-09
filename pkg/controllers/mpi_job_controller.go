@@ -600,11 +600,6 @@ func allocateProcessingUnits(
 // getOrCreatePDB will create a PDB for gang scheduling by kube-batch.
 func (c *MPIJobController) getOrCreatePDB(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int) (*policyv1beta1.PodDisruptionBudget, error) {
 
-	// Gang scheduling is only suitable for distributed training
-	if minAvailableWorkerReplicas < 2 {
-		return nil, nil
-	}
-
 	pdb, err := c.pdbLister.PodDisruptionBudgets(mpiJob.Namespace).Get(mpiJob.Name + pdbSuffix)
 	// If the PDB doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
