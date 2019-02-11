@@ -117,4 +117,14 @@ type MPIJobStatus struct {
 	// The number of available worker replicas.
 	// +optional
 	WorkerReplicas int32 `json:"workerReplicas,omitempty"`
+
+	// Represents time when the job was acknowledged by the job controller.
+	// It is not guaranteed to be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// Represents time when the job was completed. It is not guaranteed to
+	// be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }

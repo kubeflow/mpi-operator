@@ -769,10 +769,17 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	// Or create a copy manually for better performance
 	mpiJobCopy := mpiJob.DeepCopy()
 	if launcher != nil {
+		now := metav1.Now()
 		if launcher.Status.Active > 0 {
 			mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherActive
+			if mpiJobCopy.Status.StartTime == nil {
+				mpiJobCopy.Status.StartTime = &now
+			}
 		} else if launcher.Status.Succeeded > 0 {
 			mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherSucceeded
+			if mpiJobCopy.Status.CompletionTime == nil {
+				mpiJobCopy.Status.CompletionTime = &now
+			}
 		} else if launcher.Status.Failed > 0 {
 			mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherFailed
 		}
