@@ -872,6 +872,9 @@ shift
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name + configSuffix,
 			Namespace: mpiJob.Namespace,
+			Labels: map[string]string{
+				"app": mpiJob.Name,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
