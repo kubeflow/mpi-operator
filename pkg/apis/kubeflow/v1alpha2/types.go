@@ -36,23 +36,30 @@ type MPIJobList struct {
 	Items           []MPIJob `json:"items"`
 }
 
-type MPIJobSpec struct {
-
+type ProcessingSpec struct {
 	// Specifies the desired number of processing units the MPIJob should run on.
-	// Mutually exclusive with the `Replicas` field.
+	// Mutually exclusive with `ReplicaSpec.Replicas` in `MPIReplicaSpecs`.
 	// +optional
-	ProcessingUnits *int32 `json:"processingUnits,omitempty"`
+	Units *int32 `json:"units,omitempty"`
 
 	// The maximum number of processing units available per node.
 	// Note that this will be ignored if the processing resources are explicitly
 	// specified in the MPIJob pod spec.
 	// +optional
-	ProcessingUnitsPerNode *int32 `json:"processingUnitsPerNode,omitempty"`
+	UnitsPerNode *int32 `json:"unitsPerNode,omitempty"`
 
 	// The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'.
 	// Defaults to 'nvidia.com/gpu'
 	// +optional
-	ProcessingResourceType string `json:"processingResourceType,omitempty"`
+	ResourceType string `json:"resourceType,omitempty"`
+}
+
+type MPIJobSpec struct {
+
+	// Specifies the processing spec, including number of units,
+	// units per node, resource type, etc.
+	// +optional
+	ProcessingSpec *ProcessingSpec `json:"processingSpec,omitempty"`
 
 	// Specifies the number of slots per worker used in hostfile.
 	// Defaults to the number of processing units per worker.
@@ -75,14 +82,8 @@ type MPIJobSpec struct {
 	// +optional
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 
-	// Specifies the desired number of replicas the MPIJob should run on.
-	// The `PodSpec` should specify the number of processing units.
-	// Mutually exclusive with the `ProcessingUnits` fields.
-	// +optional
-	Replicas *int32 `json:"replicas,omitempty"`
-
-	// MPIReplicaSpecs is map of MPIReplicaType and ReplicaSpec that
-	// specifies the MPI replicas to run.
+	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
+	// specify the MPI replicas to run.
 	MPIReplicaSpecs map[MPIReplicaType]*ReplicaSpec `json:"pytorchReplicaSpecs"`
 }
 
