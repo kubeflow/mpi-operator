@@ -15,6 +15,7 @@
 package v1alpha2
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,14 +45,14 @@ type ProcessingSpec struct {
 
 	// The maximum number of processing units available per node.
 	// Note that this will be ignored if the processing resources are explicitly
-	// specified in the MPIJob pod spec.
+	// specified in `ReplicaSpec.Template` in `MPIReplicaSpecs`.
 	// +optional
 	UnitsPerNode *int32 `json:"unitsPerNode,omitempty"`
 
-	// The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'.
-	// Defaults to 'nvidia.com/gpu'
+	// The processing resource type, e.g. `ResourceTypeGPU` or `ResourceTypeCPU`.
+	// Defaults to `ResourceTypeGPU`.
 	// +optional
-	ResourceType string `json:"resourceType,omitempty"`
+	ResourceType ResourceType `json:"resourceType,omitempty"`
 }
 
 type MPIJobSpec struct {
@@ -96,4 +97,15 @@ const (
 
 	// MPIReplicaTypeWorker is the type for worker replicas.
 	MPIReplicaTypeWorker MPIReplicaType = "Worker"
+)
+
+// ResourceType is the type for processing resource.
+type ResourceType corev1.ResourceName
+
+const (
+	// ResourceTypeGPU is the type for GPUs.
+	ResourceTypeGPU ResourceType = "nvidia.com/gpu"
+
+	// ResourceTypeCPU is the type for CPUs.
+	ResourceTypeCPU ResourceType = "cpu"
 )
