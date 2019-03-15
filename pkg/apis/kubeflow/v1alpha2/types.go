@@ -37,30 +37,7 @@ type MPIJobList struct {
 	Items           []MPIJob `json:"items"`
 }
 
-type ProcessingSpec struct {
-	// Specifies the desired number of processing units the MPIJob should run on.
-	// Mutually exclusive with `ReplicaSpec.Replicas` in `MPIReplicaSpecs`.
-	// +optional
-	Units *int32 `json:"units,omitempty"`
-
-	// The maximum number of processing units available per node.
-	// Note that this will be ignored if the processing resources are explicitly
-	// specified in `ReplicaSpec.Template` in `MPIReplicaSpecs`.
-	// +optional
-	UnitsPerNode *int32 `json:"unitsPerNode,omitempty"`
-
-	// The processing resource type, e.g. `ResourceTypeGPU` or `ResourceTypeCPU`.
-	// Defaults to `ResourceTypeGPU`.
-	// +optional
-	ResourceType ResourceType `json:"resourceType,omitempty"`
-}
-
 type MPIJobSpec struct {
-
-	// Specifies the processing spec, including number of units,
-	// units per node, resource type, etc.
-	// +optional
-	ProcessingSpec *ProcessingSpec `json:"processingSpec,omitempty"`
 
 	// Specifies the number of slots per worker used in hostfile.
 	// Defaults to the number of processing units per worker.
@@ -72,11 +49,13 @@ type MPIJobSpec struct {
 	// +optional
 	LauncherOnMaster bool `json:"launcherOnMaster,omitempty"`
 
+	// TODO: Move this to `RunPolicy` in common operator, see discussion in https://github.com/kubeflow/tf-operator/issues/960
 	// Specifies the number of retries before marking this job failed.
 	// Defaults to 6.
 	// +optional
 	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
 
+	// TODO: Move this to `RunPolicy` in common operator, see discussion in https://github.com/kubeflow/tf-operator/issues/960
 	// Specifies the duration in seconds relative to the start time that
 	// the job may be active before the system tries to terminate it.
 	// Note that this takes precedence over `BackoffLimit` field.
@@ -85,7 +64,7 @@ type MPIJobSpec struct {
 
 	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
-	MPIReplicaSpecs map[MPIReplicaType]*ReplicaSpec `json:"pytorchReplicaSpecs"`
+	MPIReplicaSpecs map[MPIReplicaType]*ReplicaSpec `json:"mpiReplicaSpecs"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
