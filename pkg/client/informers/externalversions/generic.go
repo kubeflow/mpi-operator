@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1"
+	v1alpha2 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -53,6 +54,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=kubeflow.org, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("mpijobs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeflow().V1alpha1().MPIJobs().Informer()}, nil
+
+		// Group=kubeflow.org, Version=v1alpha2
+	case v1alpha2.SchemeGroupVersion.WithResource("mpijobs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeflow().V1alpha2().MPIJobs().Informer()}, nil
 
 	}
 
