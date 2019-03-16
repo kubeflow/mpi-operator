@@ -15,7 +15,6 @@
 package v1alpha2
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,7 +39,7 @@ type MPIJobList struct {
 type MPIJobSpec struct {
 
 	// Specifies the number of slots per worker used in hostfile.
-	// Defaults to the number of processing units per worker.
+	// Defaults to 1.
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
@@ -76,15 +75,4 @@ const (
 
 	// MPIReplicaTypeWorker is the type for worker replicas.
 	MPIReplicaTypeWorker MPIReplicaType = "Worker"
-)
-
-// ResourceType is the type for processing resource.
-type ResourceType corev1.ResourceName
-
-const (
-	// ResourceTypeGPU is the type for GPUs.
-	ResourceTypeGPU ResourceType = "nvidia.com/gpu"
-
-	// ResourceTypeCPU is the type for CPUs.
-	ResourceTypeCPU ResourceType = "cpu"
 )
