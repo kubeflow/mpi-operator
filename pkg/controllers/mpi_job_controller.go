@@ -521,7 +521,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 // getLauncherJob gets the launcher Job controlled by this MPIJob.
 func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job, error) {
-	launcher, err := c.jobLister.Jobs(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+	launcher, err := c.jobLister.Jobs(mpiJob.Namespace).Get(getLaunchName(mpiJob))
 	if errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -650,7 +650,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 // getOrCreateLauncherServiceAccount gets the launcher ServiceAccount controlled
 // by this MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MPIJob) (*corev1.ServiceAccount, error) {
-	sa, err := c.serviceAccountLister.ServiceAccounts(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+	sa, err := c.serviceAccountLister.ServiceAccounts(mpiJob.Namespace).Get(getLaunchName(mpiJob))
 	// If the ServiceAccount doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
 		sa, err = c.kubeClient.CoreV1().ServiceAccounts(mpiJob.Namespace).Create(newLauncherServiceAccount(mpiJob))
@@ -674,7 +674,7 @@ func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MP
 
 // getOrCreateLauncherRole gets the launcher Role controlled by this MPIJob.
 func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) (*rbacv1.Role, error) {
-	role, err := c.roleLister.Roles(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+	role, err := c.roleLister.Roles(mpiJob.Namespace).Get(getLaunchName(mpiJob))
 	// If the Role doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
 		role, err = c.kubeClient.RbacV1().Roles(mpiJob.Namespace).Create(newLauncherRole(mpiJob, workerReplicas))
@@ -699,7 +699,7 @@ func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, work
 // getLauncherRoleBinding gets the launcher RoleBinding controlled by this
 // MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rbacv1.RoleBinding, error) {
-	rb, err := c.roleBindingLister.RoleBindings(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+	rb, err := c.roleBindingLister.RoleBindings(mpiJob.Namespace).Get(getLaunchName(mpiJob))
 	// If the RoleBinding doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
 		rb, err = c.kubeClient.RbacV1().RoleBindings(mpiJob.Namespace).Create(newLauncherRoleBinding(mpiJob))
@@ -872,9 +872,7 @@ shift
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name + configSuffix,
 			Namespace: mpiJob.Namespace,
-			Labels: map[string]string{
-				"app": mpiJob.Name,
-			},
+			Labels:    getLabelMap(mpiJob),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
@@ -892,11 +890,9 @@ shift
 func newLauncherServiceAccount(mpiJob *kubeflow.MPIJob) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name + launcherSuffix,
+			Name:      getLaunchName(mpiJob),
 			Namespace: mpiJob.Namespace,
-			Labels: map[string]string{
-				"app": mpiJob.Name,
-			},
+			Labels:    getLabelMap(mpiJob),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
@@ -914,11 +910,9 @@ func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) *rbacv1.Role {
 	}
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name + launcherSuffix,
+			Name:      getLaunchName(mpiJob),
 			Namespace: mpiJob.Namespace,
-			Labels: map[string]string{
-				"app": mpiJob.Name,
-			},
+			Labels:    getLabelMap(mpiJob),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
@@ -940,18 +934,26 @@ func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) *rbacv1.Role {
 	}
 }
 
+func getLaunchName(mpiJob *kubeflow.MPIJob) string {
+	return mpiJob.Name + launcherSuffix
+}
+
+func getLabelMap(mpiJob *kubeflow.MPIJob) map[string]string {
+	return map[string]string{
+		"app": mpiJob.Name,
+	}
+}
+
 // newLauncherRoleBinding creates a new launcher RoleBinding for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
-	launcherName := mpiJob.Name + launcherSuffix
+	launcherName := getLaunchName(mpiJob)
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      launcherName,
 			Namespace: mpiJob.Namespace,
-			Labels: map[string]string{
-				"app": mpiJob.Name,
-			},
+			Labels:    getLabelMap(mpiJob),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
@@ -987,9 +989,7 @@ func newPDB(mpiJob *kubeflow.MPIJob, minAvailableReplicas int) *policyv1beta1.Po
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{
 			MinAvailable: &minAvailable,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": mpiJob.Name,
-				},
+				MatchLabels: getLabelMap(mpiJob),
 			},
 		},
 	}
@@ -1096,7 +1096,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits i
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
 func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.Job {
-	launcherName := mpiJob.Name + launcherSuffix
+	launcherName := getLaunchName(mpiJob)
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  mpiJob.Name,
