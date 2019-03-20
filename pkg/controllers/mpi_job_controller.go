@@ -1225,12 +1225,12 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 	}
 }
 
-func getLauncherName(mpiJob *kubeflow.MPIJob) string {
-	return mpiJob.Name + launcherSuffix
-}
-
 func getLabelsMap(mpiJob *kubeflow.MPIJob) map[string]string {
 	return map[string]string{
 		"app": mpiJob.Name,
 	}
+}
+
+func getLauncherName(mpiJob *kubeflow.MPIJob) string {
+	return mpiJob.Name + launcherSuffix
 }
