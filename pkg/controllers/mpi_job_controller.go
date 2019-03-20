@@ -934,6 +934,16 @@ func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) *rbacv1.Role {
 	}
 }
 
+func getLaunchName(mpiJob *kubeflow.MPIJob) string {
+	return mpiJob.Name + launcherSuffix
+}
+
+func getLabelMap(mpiJob *kubeflow.MPIJob) map[string]string {
+	return map[string]string{
+		"app": mpiJob.Name,
+	}
+}
+
 // newLauncherRoleBinding creates a new launcher RoleBinding for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
