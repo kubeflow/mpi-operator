@@ -804,4 +804,20 @@ func TestEnableGangScheduling(t *testing.T) {
 	assert.Equal(t, gangSchedulerName, worker.Spec.Template.Spec.SchedulerName)
 }
 
+func TestEnableGangSchedulingWithDupScheduler(t *testing.T) {
+	f := newFixture(t)
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	mpiJob := newMPIJobWithCPUs("test", int32Ptr(16), &startTime, &completionTime)
+	f.setUpMPIJob(mpiJob)
+	mpiJob.Spec.Template.Spec.SchedulerName = "xyz"
+
+	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
+	f.setUpRbac(mpiJob, 2)
+
+	worker := newWorker(mpiJob, 2, 8, cpuResourceName, true)
+	assert.Equal(t, "xyz", worker.Spec.Template.Spec.SchedulerName)
+}
+
 func int32Ptr(i int32) *int32 { return &i }

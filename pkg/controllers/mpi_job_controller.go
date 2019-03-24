@@ -1061,7 +1061,9 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits i
 	//add SchedulerName to podSpec
 	if enableGangScheduling {
 		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
-
+			errMsg := fmt.Sprintf(
+				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
+			glog.Warning(errMsg)
 		} else {
 			podSpec.Spec.SchedulerName = gangSchedulerName
 		}
