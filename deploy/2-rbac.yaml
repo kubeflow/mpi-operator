@@ -47,7 +47,9 @@ rules:
   resources:
   - poddisruptionbudgets
   verbs:
+  - create
   - list
+  - update
   - watch
 - apiGroups:
   - apps
