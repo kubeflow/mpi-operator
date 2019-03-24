@@ -125,32 +125,6 @@
   version = "v1.1.5"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d6ec8799b1f86397187016bfc7e129e51726e9b46106b0ca52f5478f4279a4e8"
-  name = "github.com/kubeflow/mpi-operator"
-  packages = [
-    "pkg/apis/kubeflow/v1alpha1",
-    "pkg/apis/kubeflow/v1alpha2",
-    "pkg/client/clientset/versioned",
-    "pkg/client/clientset/versioned/fake",
-    "pkg/client/clientset/versioned/scheme",
-    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha1",
-    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha1/fake",
-    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha2",
-    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha2/fake",
-    "pkg/client/informers/externalversions",
-    "pkg/client/informers/externalversions/internalinterfaces",
-    "pkg/client/informers/externalversions/kubeflow",
-    "pkg/client/informers/externalversions/kubeflow/v1alpha1",
-    "pkg/client/informers/externalversions/kubeflow/v1alpha2",
-    "pkg/client/listers/kubeflow/v1alpha1",
-    "pkg/client/listers/kubeflow/v1alpha2",
-    "pkg/controllers",
-  ]
-  pruneopts = ""
-  revision = "bb15f1bc8468a7c9e983c49f8f15d80311c371e9"
-
-[[projects]]
   digest = "1:0c0ff2a89c1bb0d01887e1dac043ad7efbf3ec77482ef058ac423d13497e16fd"
   name = "github.com/modern-go/concurrent"
   packages = ["."]
