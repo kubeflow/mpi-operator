@@ -96,6 +96,9 @@ const (
 
 	// LabelNodeRoleMaster specifies that a node is a master
 	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
+
+	// gang scheduler name.
+	gangSchedulerName = "kube-batch"
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -727,7 +730,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, int32(workerReplicas), processingUnitsPerWorker, processingResourceType))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, int32(workerReplicas), processingUnitsPerWorker, processingResourceType, c.enableGangScheduling))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -746,7 +749,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 	// If the worker is out of date, update the worker.
 	if worker != nil && int(*worker.Spec.Replicas) != workerReplicas {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, int32(workerReplicas), processingUnitsPerWorker, processingResourceType))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, int32(workerReplicas), processingUnitsPerWorker, processingResourceType, c.enableGangScheduling))
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
@@ -1001,7 +1004,7 @@ func convertProcessingResourceType(processingResourceType string) corev1.Resourc
 // newWorker creates a new worker StatefulSet for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
-func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits int, processingResourceType string) *appsv1.StatefulSet {
+func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits int, processingResourceType string, enableGangScheduling bool) *appsv1.StatefulSet {
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  mpiJob.Name,
@@ -1054,6 +1057,17 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits i
 			},
 		},
 	})
+
+	//add SchedulerName to podSpec
+	if enableGangScheduling {
+		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
+			errMsg := fmt.Sprintf(
+				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
+			glog.Warning(errMsg)
+		} else {
+			podSpec.Spec.SchedulerName = gangSchedulerName
+		}
+	}
 
 	// set default BackoffLimit
 	if mpiJob.Spec.BackoffLimit == nil {

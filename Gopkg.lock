@@ -157,12 +157,28 @@
   version = "v2.0.1"
 
 [[projects]]
+  digest = "1:256484dbbcd271f9ecebc6795b2df8cad4c458dd0f5fd82a8c2fa0c29f233411"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = ""
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:cbaf13cdbfef0e4734ed8a7504f57fe893d471d62a35b982bf6fb3f036449a66"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = ""
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
+
+[[projects]]
+  digest = "1:381bcbeb112a51493d9d998bbba207a529c73dbb49b3fd789e48c63fac1f192c"
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  pruneopts = ""
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -632,6 +648,24 @@
   analyzer-version = 1
   input-imports = [
     "github.com/golang/glog",
+    "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha1/fake",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha2/fake",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/internalinterfaces",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/controllers",
+    "github.com/stretchr/testify/assert",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",

@@ -15,6 +15,7 @@
 package controllers
 
 import (
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
@@ -550,7 +551,7 @@ func TestLauncherDoesNotExist(t *testing.T) {
 	expRoleBinding := newLauncherRoleBinding(mpiJob)
 	f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 8, 8, gpuResourceName)
+	expWorker := newWorker(mpiJob, 8, 8, gpuResourceName, false)
 	f.expectCreateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -583,7 +584,7 @@ func TestLauncherDoesNotExistWithCustomResources(t *testing.T) {
 		expRoleBinding := newLauncherRoleBinding(mpiJob)
 		f.expectCreateRoleBindingAction(expRoleBinding)
 
-		expWorker := newWorker(mpiJob, 4, 4, resourceName)
+		expWorker := newWorker(mpiJob, 4, 4, resourceName, false)
 		f.expectCreateStatefulSetAction(expWorker)
 
 		mpiJobCopy := mpiJob.DeepCopy()
@@ -676,10 +677,10 @@ func TestShutdownWorker(t *testing.T) {
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, 8, gpuResourceName)
+	worker := newWorker(mpiJob, 8, 8, gpuResourceName, false)
 	f.setUpWorker(worker)
 
-	expWorker := newWorker(mpiJob, 0, 8, gpuResourceName)
+	expWorker := newWorker(mpiJob, 0, 8, gpuResourceName, false)
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -702,7 +703,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 8, 8))
 	f.setUpRbac(mpiJob, 8)
 
-	worker := newWorker(mpiJob, 8, 8, gpuResourceName)
+	worker := newWorker(mpiJob, 8, 8, gpuResourceName, false)
 	worker.OwnerReferences = nil
 	f.setUpWorker(worker)
 
@@ -725,7 +726,7 @@ func TestLauncherActive(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 1, 8, gpuResourceName)
+	worker := newWorker(mpiJob, 1, 8, gpuResourceName, false)
 	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -747,7 +748,7 @@ func TestWorkerReady(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
 	f.setUpRbac(mpiJob, 2)
 
-	worker := newWorker(mpiJob, 2, 8, gpuResourceName)
+	worker := newWorker(mpiJob, 2, 8, gpuResourceName, false)
 	worker.Status.ReadyReplicas = 2
 	f.setUpWorker(worker)
 
@@ -773,7 +774,7 @@ func TestWorkerReadyWithCPUs(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
 	f.setUpRbac(mpiJob, 2)
 
-	worker := newWorker(mpiJob, 2, 8, cpuResourceName)
+	worker := newWorker(mpiJob, 2, 8, cpuResourceName, false)
 	worker.Status.ReadyReplicas = 2
 	f.setUpWorker(worker)
 
@@ -786,6 +787,37 @@ func TestWorkerReadyWithCPUs(t *testing.T) {
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t), cpuResourceName)
+}
+
+func TestEnableGangScheduling(t *testing.T) {
+	f := newFixture(t)
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	mpiJob := newMPIJobWithCPUs("test", int32Ptr(16), &startTime, &completionTime)
+	f.setUpMPIJob(mpiJob)
+
+	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
+	f.setUpRbac(mpiJob, 2)
+
+	worker := newWorker(mpiJob, 2, 8, cpuResourceName, true)
+	assert.Equal(t, gangSchedulerName, worker.Spec.Template.Spec.SchedulerName)
+}
+
+func TestEnableGangSchedulingWithDupScheduler(t *testing.T) {
+	f := newFixture(t)
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	mpiJob := newMPIJobWithCPUs("test", int32Ptr(16), &startTime, &completionTime)
+	f.setUpMPIJob(mpiJob)
+	mpiJob.Spec.Template.Spec.SchedulerName = "xyz"
+
+	f.setUpConfigMap(newConfigMap(mpiJob, 2, 8))
+	f.setUpRbac(mpiJob, 2)
+
+	worker := newWorker(mpiJob, 2, 8, cpuResourceName, true)
+	assert.Equal(t, "xyz", worker.Spec.Template.Spec.SchedulerName)
 }
 
 func int32Ptr(i int32) *int32 { return &i }
