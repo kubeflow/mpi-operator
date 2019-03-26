@@ -22,11 +22,7 @@
 
 ## Go Dev
 
-* GIT_TRAINING should be the location where you checked out https://github.com/kubeflow/mpi-operator
-
-Resolve dependencies (if you don't have dep installed, check how to do it [here](https://github.com/golang/dep))
-
-Install dependencies by `dep ensure`
+install [dep](https://github.com/golang/dep) and then run `dep ensure`
 
 add dependent library into [Gopkg.toml](https://github.com/kubeflow/mpi-operator/blob/master/Gopkg.toml)
 and run `dep ensure`, and make sure [Gopkg.lock](https://github.com/kubeflow/mpi-operator/blob/master/Gopkg.lock) file is correct.
