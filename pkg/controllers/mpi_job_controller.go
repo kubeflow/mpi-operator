@@ -854,8 +854,8 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int, processingUnitsPe
 set -x
 POD_NAME=$1
 shift
-%s/kubectl exec ${POD_NAME} -- /bin/sh -c "$*"
-`, kubectlMountPath)
+%s/kubectl exec ${POD_NAME} -- /bin/sh -n%s -c "$*"
+`, kubectlMountPath, mpiJob.Namespace)
 
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1
