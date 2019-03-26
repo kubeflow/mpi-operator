@@ -38,6 +38,4 @@ run `go test ./...` as what's done in Travis
 
 For ubuntu follow the [install guide](https://github.com/golang/go/wiki/Ubuntu)
 
-## Code Style
-
-[Go code review notes](https://github.com/golang/go/wiki/CodeReviewComments)
+## [Code Style](https://github.com/golang/go/wiki/CodeReviewComments)
