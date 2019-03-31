@@ -1,5 +1,9 @@
 # MPI Operator
 
+[![Build Status](https://travis-ci.org/kubeflow/mpi-operator.svg?branch=master)](https://travis-ci.org/kubeflow/mpi-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/mpi-operator)](https://goreportcard.com/report/github.com/kubeflow/mpi-operator)
+
+
 The MPI Operator makes it easy to run allreduce-style distributed training.
 
 ## Installation
