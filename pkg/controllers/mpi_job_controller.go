@@ -400,6 +400,7 @@ func (c *MPIJobController) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// MPIJob resource to be synced.
 		if err := c.syncHandler(key); err != nil {
+			c.queue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
@@ -803,7 +804,7 @@ func (c *MPIJobController) enqueueMPIJob(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.queue.AddRateLimited(key)
+	c.queue.Add(key)
 }
 
 // handleObject will take any resource implementing metav1.Object and attempt
