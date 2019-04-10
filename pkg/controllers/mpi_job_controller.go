@@ -176,7 +176,7 @@ func NewMPIJobController(
 	var pdbLister policylisters.PodDisruptionBudgetLister
 	var pdbSynced cache.InformerSynced
 
-	if !enableGangScheduling {
+	if enableGangScheduling {
 		pdbLister = pdbInformer.Lister()
 		pdbSynced = pdbInformer.Informer().HasSynced
 	}

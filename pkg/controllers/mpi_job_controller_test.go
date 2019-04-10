@@ -150,7 +150,7 @@ func (f *fixture) newController(processingResourceType string, enableGangSchedul
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 	var pdbInformer policyinformers.PodDisruptionBudgetInformer
-	if !enableGangScheduling {
+	if enableGangScheduling {
 		pdbInformer = k8sI.Policy().V1beta1().PodDisruptionBudgets()
 	}
 	c := NewMPIJobController(

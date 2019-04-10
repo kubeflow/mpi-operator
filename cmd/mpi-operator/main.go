@@ -72,7 +72,7 @@ func main() {
 	}
 
 	var pdbInformer policyinformers.PodDisruptionBudgetInformer
-	if !enableGangScheduling {
+	if enableGangScheduling {
 		pdbInformer = kubeInformerFactory.Policy().V1beta1().PodDisruptionBudgets()
 	}
 	controller := controllers.NewMPIJobController(
