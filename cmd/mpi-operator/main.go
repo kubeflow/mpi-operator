@@ -26,6 +26,7 @@ import (
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	"github.com/kubeflow/mpi-operator/pkg/controllers"
+	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 )
 
 var (
@@ -70,6 +71,10 @@ func main() {
 		kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(kubeflowClient, 0, informers.WithNamespace(namespace), nil)
 	}
 
+	var pdbInformer policyinformers.PodDisruptionBudgetInformer
+	if enableGangScheduling {
+		pdbInformer = kubeInformerFactory.Policy().V1beta1().PodDisruptionBudgets()
+	}
 	controller := controllers.NewMPIJobController(
 		kubeClient,
 		kubeflowClient,
@@ -79,7 +84,7 @@ func main() {
 		kubeInformerFactory.Rbac().V1().RoleBindings(),
 		kubeInformerFactory.Apps().V1().StatefulSets(),
 		kubeInformerFactory.Batch().V1().Jobs(),
-		kubeInformerFactory.Policy().V1beta1().PodDisruptionBudgets(),
+		pdbInformer,
 		kubeflowInformerFactory.Kubeflow().V1alpha1().MPIJobs(),
 		gpusPerNode,
 		processingUnitsPerNode,

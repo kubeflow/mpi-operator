@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/diff"
 	kubeinformers "k8s.io/client-go/informers"
+	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -142,13 +143,16 @@ func newMPIJobWithCustomResources(name string, replicas *int32, pusPerReplica in
 	return mpiJob
 }
 
-func (f *fixture) newController(processingResourceType string) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(processingResourceType string, enableGangScheduling bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
-
+	var pdbInformer policyinformers.PodDisruptionBudgetInformer
+	if enableGangScheduling {
+		pdbInformer = k8sI.Policy().V1beta1().PodDisruptionBudgets()
+	}
 	c := NewMPIJobController(
 		f.kubeClient,
 		f.client,
@@ -158,13 +162,13 @@ func (f *fixture) newController(processingResourceType string) (*MPIJobControlle
 		k8sI.Rbac().V1().RoleBindings(),
 		k8sI.Apps().V1().StatefulSets(),
 		k8sI.Batch().V1().Jobs(),
-		k8sI.Policy().V1beta1().PodDisruptionBudgets(),
+		pdbInformer,
 		i.Kubeflow().V1alpha1().MPIJobs(),
 		8,
 		8,
 		processingResourceType,
 		"kubectl-delivery",
-		false,
+		enableGangScheduling,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -213,15 +217,20 @@ func (f *fixture) newController(processingResourceType string) (*MPIJobControlle
 }
 
 func (f *fixture) run(mpiJobName string, processingResourceType string) {
-	f.runController(mpiJobName, true, false, processingResourceType)
+	f.runController(mpiJobName, true, false, processingResourceType, false)
+}
+
+func (f *fixture) runWithGangScheduling(mpiJobName string, processingResourceType string) {
+	f.runController(mpiJobName, true, false, processingResourceType, true)
 }
 
 func (f *fixture) runExpectError(mpiJobName string, processingResourceType string) {
-	f.runController(mpiJobName, true, true, processingResourceType)
+	f.runController(mpiJobName, true, true, processingResourceType, false)
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers bool, expectError bool, processingResourceType string) {
-	c, i, k8sI := f.newController(processingResourceType)
+func (f *fixture) runController(
+	mpiJobName string, startInformers bool, expectError bool, processingResourceType string, enableGangScheduling bool) {
+	c, i, k8sI := f.newController(processingResourceType, enableGangScheduling)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -490,6 +499,26 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	f.setUpLauncher(launcher)
 
 	f.runExpectError(getKey(mpiJob, t), gpuResourceName)
+}
+
+func TestLauncherSucceededWithGang(t *testing.T) {
+	f := newFixture(t)
+
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+	mpiJob := newMPIJob("test", int32Ptr(64), &startTime, &completionTime)
+	f.setUpMPIJob(mpiJob)
+
+	launcher := newLauncher(mpiJob, "kubectl-delivery")
+	launcher.Status.Succeeded = 1
+	f.setUpLauncher(launcher)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherSucceeded
+	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.runWithGangScheduling(getKey(mpiJob, t), gpuResourceName)
 }
 
 func TestLauncherSucceeded(t *testing.T) {

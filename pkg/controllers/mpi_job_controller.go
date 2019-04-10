@@ -173,6 +173,13 @@ func NewMPIJobController(
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
+	var pdbLister policylisters.PodDisruptionBudgetLister
+	var pdbSynced cache.InformerSynced
+
+	if enableGangScheduling {
+		pdbLister = pdbInformer.Lister()
+		pdbSynced = pdbInformer.Informer().HasSynced
+	}
 
 	controller := &MPIJobController{
 		kubeClient:             kubeClient,
@@ -189,8 +196,8 @@ func NewMPIJobController(
 		statefulSetSynced:      statefulSetInformer.Informer().HasSynced,
 		jobLister:              jobInformer.Lister(),
 		jobSynced:              jobInformer.Informer().HasSynced,
-		pdbLister:              pdbInformer.Lister(),
-		pdbSynced:              pdbInformer.Informer().HasSynced,
+		pdbLister:              pdbLister,
+		pdbSynced:              pdbSynced,
 		mpiJobLister:           mpiJobInformer.Lister(),
 		mpiJobSynced:           mpiJobInformer.Informer().HasSynced,
 		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
@@ -307,21 +314,26 @@ func NewMPIJobController(
 		},
 		DeleteFunc: controller.handleObject,
 	})
-	pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newPolicy := new.(*policyv1beta1.PodDisruptionBudget)
-			oldPolicy := old.(*policyv1beta1.PodDisruptionBudget)
-			if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
-				// Periodic re-sync will send update events for all known PodDisruptionBudgets.
-				// Two different versions of the same Job will always have
-				// different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
-		DeleteFunc: controller.handleObject,
-	})
+
+	// there are cases pdbInformer is nil,
+	// i.e. We should only create the pbdInformer when gang scheduling is enabled.
+	if pdbInformer != nil {
+		pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: controller.handleObject,
+			UpdateFunc: func(old, new interface{}) {
+				newPolicy := new.(*policyv1beta1.PodDisruptionBudget)
+				oldPolicy := old.(*policyv1beta1.PodDisruptionBudget)
+				if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
+					// Periodic re-sync will send update events for all known PodDisruptionBudgets.
+					// Two different versions of the same Job will always have
+					// different RVs.
+					return
+				}
+				controller.handleObject(new)
+			},
+			DeleteFunc: controller.handleObject,
+		})
+	}
 
 	return controller
 }
