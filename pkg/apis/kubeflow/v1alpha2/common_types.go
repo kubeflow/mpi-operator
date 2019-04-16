@@ -129,6 +129,7 @@ const (
 // CleanPodPolicy describes how to deal with pods when the job is finished.
 type CleanPodPolicy string
 
+// Possible values for CleanPodPolicy
 const (
 	CleanPodPolicyUndefined CleanPodPolicy = ""
 	CleanPodPolicyAll       CleanPodPolicy = "All"
@@ -142,12 +143,13 @@ const (
 // is RestartPolicyAlways.
 type RestartPolicy string
 
+// Possible values for RestartPolicy 
 const (
 	RestartPolicyAlways    RestartPolicy = "Always"
 	RestartPolicyOnFailure RestartPolicy = "OnFailure"
 	RestartPolicyNever     RestartPolicy = "Never"
 
-	// `ExitCode` policy means that user should add exit code by themselves,
+	// RestartPolicyExitCode policy means that user should add exit code by themselves,
 	// The job operator will check these exit codes to
 	// determine the behavior when an error occurs:
 	// - 1-127: permanent error, do not restart.
