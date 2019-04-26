@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package v1alpha2
 
 import (
 	"reflect"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package v1alpha1
 
 import (
 	"bytes"
@@ -1071,7 +1071,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits i
 		},
 	})
 
-	//add SchedulerName to podSpec
+	//add SchedulerName to podSpec
 	if enableGangScheduling {
 		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
 			errMsg := fmt.Sprintf(
