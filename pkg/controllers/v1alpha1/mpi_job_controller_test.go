@@ -15,7 +15,6 @@
 package v1alpha1
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
