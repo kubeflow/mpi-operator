@@ -18,6 +18,7 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
+	controllersv1alpha1 "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,7 +26,6 @@ import (
 
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
-	"github.com/kubeflow/mpi-operator/pkg/controllers"
 	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 )
 
@@ -75,7 +75,7 @@ func main() {
 	if enableGangScheduling {
 		pdbInformer = kubeInformerFactory.Policy().V1beta1().PodDisruptionBudgets()
 	}
-	controller := controllers.NewMPIJobController(
+	controller := controllersv1alpha1.NewMPIJobController(
 		kubeClient,
 		kubeflowClient,
 		kubeInformerFactory.Core().V1().ConfigMaps(),
