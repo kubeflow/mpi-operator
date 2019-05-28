@@ -130,12 +130,6 @@ type MPIJobController struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
-	// The maximum number of GPUs per node.
-	gpusPerNode int
-	// The maximum number of processing units per node.
-	processingUnitsPerNode int
-	// The processing resource name, e.g. "nvidia.com/gpu" or "cpu"
-	processingResourceType string
 	// The container image used to deliver the kubectl binary.
 	kubectlDeliveryImage string
 	// Whether to enable gang scheduling by kube-batch

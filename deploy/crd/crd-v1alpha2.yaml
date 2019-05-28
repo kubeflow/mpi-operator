@@ -4,7 +4,7 @@ metadata:
   name: mpijobs.kubeflow.org
 spec:
   group: kubeflow.org
-  version: v1alpha1
+  version: v1alpha2
   scope: Namespaced
   names:
     plural: mpijobs
