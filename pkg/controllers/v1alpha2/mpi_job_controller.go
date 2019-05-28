@@ -130,12 +130,6 @@ type MPIJobController struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
-	// The maximum number of GPUs per node.
-	gpusPerNode int
-	// The maximum number of processing units per node.
-	processingUnitsPerNode int
-	// The processing resource name, e.g. "nvidia.com/gpu" or "cpu"
-	processingResourceType string
 	// The container image used to deliver the kubectl binary.
 	kubectlDeliveryImage string
 	// Whether to enable gang scheduling by kube-batch
@@ -167,6 +161,13 @@ func NewMPIJobController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
+	var pdbLister policylisters.PodDisruptionBudgetLister
+	var pdbSynced cache.InformerSynced
+	if enableGangScheduling {
+		pdbLister = pdbInformer.Lister()
+		pdbSynced = pdbInformer.Informer().HasSynced
+	}
+
 	controller := &MPIJobController{
 		kubeClient:           kubeClient,
 		kubeflowClient:       kubeflowClient,
@@ -182,8 +183,8 @@ func NewMPIJobController(
 		statefulSetSynced:    statefulSetInformer.Informer().HasSynced,
 		jobLister:            jobInformer.Lister(),
 		jobSynced:            jobInformer.Informer().HasSynced,
-		pdbLister:            pdbInformer.Lister(),
-		pdbSynced:            pdbInformer.Informer().HasSynced,
+		pdbLister:            pdbLister,
+		pdbSynced:            pdbSynced,
 		mpiJobLister:         mpiJobInformer.Lister(),
 		mpiJobSynced:         mpiJobInformer.Informer().HasSynced,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
@@ -297,22 +298,23 @@ func NewMPIJobController(
 		},
 		DeleteFunc: controller.handleObject,
 	})
-	pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newPolicy := new.(*policyv1beta1.PodDisruptionBudget)
-			oldPolicy := old.(*policyv1beta1.PodDisruptionBudget)
-			if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
-				// Periodic re-sync will send update events for all known PodDisruptionBudgets.
-				// Two different versions of the same Job will always have
-				// different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
-		DeleteFunc: controller.handleObject,
-	})
-
+	if pdbInformer != nil {
+		pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: controller.handleObject,
+			UpdateFunc: func(old, new interface{}) {
+				newPolicy := new.(*policyv1beta1.PodDisruptionBudget)
+				oldPolicy := old.(*policyv1beta1.PodDisruptionBudget)
+				if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
+					// Periodic re-sync will send update events for all known PodDisruptionBudgets.
+					// Two different versions of the same Job will always have
+					// different RVs.
+					return
+				}
+				controller.handleObject(new)
+			},
+			DeleteFunc: controller.handleObject,
+		})
+	}
 	return controller
 }
 
@@ -688,6 +690,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	mpiJobCopy := mpiJob.DeepCopy()
 
 	if launcher != nil {
+		initializeMPIJobStatuses(mpiJobCopy, kubeflow.MPIReplicaTypeLauncher)
 		now := metav1.Now()
 		if launcher.Status.Active > 0 {
 			mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active += 1
@@ -704,6 +707,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		}
 	}
 	if worker != nil {
+		initializeMPIJobStatuses(mpiJobCopy, kubeflow.MPIReplicaTypeWorker)
 		now := metav1.Now()
 		if worker.Status.ReadyReplicas > 0 {
 			mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
@@ -721,12 +725,19 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		// 	workerStatuses.Failed += workerStatuses.Failed
 		// }
 	}
-	// Until #38113 is merged, we must use Update instead of UpdateStatus to
-	// update the Status block of the MPIJob resource. UpdateStatus will not
-	// allow changes to the Spec of the resource, which is ideal for ensuring
-	// nothing other than resource status has been updated.
-	_, err := c.kubeflowClient.KubeflowV1alpha2().MPIJobs(mpiJob.Namespace).Update(mpiJobCopy)
+
+	_, err := c.kubeflowClient.KubeflowV1alpha2().MPIJobs(mpiJob.Namespace).UpdateStatus(mpiJobCopy)
 	return err
+}
+
+// initializeMPIJobStatuses initializes the ReplicaStatuses for MPIJob.
+func initializeMPIJobStatuses(mpiJob *kubeflow.MPIJob, mtype kubeflow.MPIReplicaType) {
+	replicaType := kubeflow.ReplicaType(mtype)
+	if mpiJob.Status.ReplicaStatuses == nil {
+		mpiJob.Status.ReplicaStatuses = make(map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus)
+	}
+
+	mpiJob.Status.ReplicaStatuses[replicaType] = &kubeflow.ReplicaStatus{}
 }
 
 // enqueueMPIJob takes a MPIJob resource and converts it into a namespace/name
