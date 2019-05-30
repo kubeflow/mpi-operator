@@ -75,6 +75,14 @@
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
 
 [[projects]]
+  digest = "1:ad92aa49f34cbc3546063c7eb2cabb55ee2278b72842eda80e2a20a8a06a8d73"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = ""
+  revision = "0cd6bf5da1e1c83f8b45653022c74f71af0538a4"
+  version = "v1.1.1"
+
+[[projects]]
   digest = "1:16b2837c8b3cf045fa2cdc82af0cf78b19582701394484ae76b2c3bc3c99ad73"
   name = "github.com/googleapis/gnostic"
   packages = [
@@ -125,6 +133,36 @@
   version = "v1.1.5"
 
 [[projects]]
+  branch = "master"
+  digest = "1:5c10d22407df1430d33747ecd8412a3f690ae1c55678c30c259e2a38baffccea"
+  name = "github.com/kubeflow/mpi-operator"
+  packages = [
+    "cmd/mpi-operator.v1alpha2/app",
+    "cmd/mpi-operator.v1alpha2/app/options",
+    "pkg/apis/kubeflow/v1alpha1",
+    "pkg/apis/kubeflow/v1alpha2",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/fake",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha1",
+    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha1/fake",
+    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha2",
+    "pkg/client/clientset/versioned/typed/kubeflow/v1alpha2/fake",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/informers/externalversions/kubeflow",
+    "pkg/client/informers/externalversions/kubeflow/v1alpha1",
+    "pkg/client/informers/externalversions/kubeflow/v1alpha2",
+    "pkg/client/listers/kubeflow/v1alpha1",
+    "pkg/client/listers/kubeflow/v1alpha2",
+    "pkg/controllers/v1alpha1",
+    "pkg/controllers/v1alpha2",
+    "pkg/version",
+  ]
+  pruneopts = ""
+  revision = "4a52f2af73739a5708067cec347be435aca3924e"
+
+[[projects]]
   digest = "1:0c0ff2a89c1bb0d01887e1dac043ad7efbf3ec77482ef058ac423d13497e16fd"
   name = "github.com/modern-go/concurrent"
   packages = ["."]
@@ -139,6 +177,14 @@
   pruneopts = ""
   revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
   version = "1.0.1"
+
+[[projects]]
+  digest = "1:a5484d4fa43127138ae6e7b2299a6a52ae006c7f803d98d717f60abf3e97192e"
+  name = "github.com/pborman/uuid"
+  packages = ["."]
+  pruneopts = ""
+  revision = "adf5a7427709b9deb95d29d3fa8a2bf9cfd388f1"
+  version = "v1.2"
 
 [[projects]]
   branch = "master"
@@ -387,6 +433,7 @@
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
+    "pkg/util/uuid",
     "pkg/util/validation",
     "pkg/util/validation/field",
     "pkg/util/wait",
@@ -561,6 +608,8 @@
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
     "tools/clientcmd/api/v1",
+    "tools/leaderelection",
+    "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
     "tools/record",
@@ -648,6 +697,27 @@
   analyzer-version = 1
   input-imports = [
     "github.com/golang/glog",
+    "github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app",
+    "github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options",
+    "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha1/fake",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha2/fake",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/internalinterfaces",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha1",
+    "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha2",
+    "github.com/kubeflow/mpi-operator/pkg/version",
     "github.com/stretchr/testify/assert",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
@@ -665,6 +735,7 @@
     "k8s.io/apimachinery/pkg/util/diff",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
+    "k8s.io/apimachinery/pkg/util/uuid",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
@@ -688,6 +759,8 @@
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
+    "k8s.io/client-go/tools/leaderelection",
+    "k8s.io/client-go/tools/leaderelection/resourcelock",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
