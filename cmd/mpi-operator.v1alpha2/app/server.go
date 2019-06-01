@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kubeinformers "k8s.io/client-go/informers"
-	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -42,6 +41,9 @@ import (
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	"github.com/kubeflow/mpi-operator/pkg/version"
+	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
+	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
+	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -94,7 +96,7 @@ func Run(opt *options.ServerOption) error {
 	}
 
 	// Create clients.
-	kubeClient, leaderElectionClientSet, mpiJobClientSet, err := createClientSets(cfg)
+	kubeClient, leaderElectionClientSet, mpiJobClientSet, kubeBatchClientSet, err := createClientSets(cfg)
 	if err != nil {
 		return err
 	}
@@ -107,28 +109,32 @@ func Run(opt *options.ServerOption) error {
 	run := func(ctx context.Context) {
 		var kubeInformerFactory kubeinformers.SharedInformerFactory
 		var kubeflowInformerFactory informers.SharedInformerFactory
+		var kubebatchInformerFactory kubebatchinformers.SharedInformerFactory
 		if opt.Namespace == "" {
 			kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 			kubeflowInformerFactory = informers.NewSharedInformerFactory(mpiJobClientSet, 0)
+			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactory(kubeBatchClientSet, 0)
 		} else {
 			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(opt.Namespace), nil)
 			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(opt.Namespace), nil)
+			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactoryWithOptions(kubeBatchClientSet, 0, kubebatchinformers.WithNamespace(opt.Namespace), nil)
 		}
 
-		var pdbInformer policyinformers.PodDisruptionBudgetInformer
+		var podgroupsInformer podgroupsinformer.PodGroupInformer
 		if opt.EnableGangScheduling {
-			pdbInformer = kubeInformerFactory.Policy().V1beta1().PodDisruptionBudgets()
+			podgroupsInformer = kubebatchInformerFactory.Scheduling().V1alpha2().PodGroups()
 		}
 		controller := controllersv1alpha2.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
+			kubeBatchClientSet,
 			kubeInformerFactory.Core().V1().ConfigMaps(),
 			kubeInformerFactory.Core().V1().ServiceAccounts(),
 			kubeInformerFactory.Rbac().V1().Roles(),
 			kubeInformerFactory.Rbac().V1().RoleBindings(),
 			kubeInformerFactory.Apps().V1().StatefulSets(),
 			kubeInformerFactory.Batch().V1().Jobs(),
-			pdbInformer,
+			podgroupsInformer,
 			kubeflowInformerFactory.Kubeflow().V1alpha2().MPIJobs(),
 			opt.KubectlDeliveryImage,
 			opt.EnableGangScheduling)
@@ -195,24 +201,29 @@ func Run(opt *options.ServerOption) error {
 	return fmt.Errorf("finished without leader elect")
 }
 
-func createClientSets(config *restclientset.Config) (kubeclientset.Interface, kubeclientset.Interface, mpijobclientset.Interface, error) {
+func createClientSets(config *restclientset.Config) (kubeclientset.Interface, kubeclientset.Interface, mpijobclientset.Interface, kubebatchclient.Interface, error) {
 
 	kubeClientSet, err := kubeclientset.NewForConfig(restclientset.AddUserAgent(config, "mpi-operator"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	leaderElectionClientSet, err := kubeclientset.NewForConfig(restclientset.AddUserAgent(config, "leader-election"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	mpiJobClientSet, err := mpijobclientset.NewForConfig(config)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	return kubeClientSet, leaderElectionClientSet, mpiJobClientSet, nil
+	kubeBatchClientSet, err := kubebatchclient.NewForConfig(restclientset.AddUserAgent(config, "kube-batch"))
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return kubeClientSet, leaderElectionClientSet, mpiJobClientSet, kubeBatchClientSet, nil
 }
 
 func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool {
