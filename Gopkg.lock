@@ -163,6 +163,28 @@
   revision = "4a52f2af73739a5708067cec347be435aca3924e"
 
 [[projects]]
+  branch = "master"
+  digest = "1:7f9597e4420870f6704a35709f2d6414d003c11821e0b42f8fe2815a1f3ac18c"
+  name = "github.com/kubernetes-sigs/kube-batch"
+  packages = [
+    "pkg/apis/scheduling/v1alpha1",
+    "pkg/apis/scheduling/v1alpha2",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/scheduling/v1alpha1",
+    "pkg/client/clientset/versioned/typed/scheduling/v1alpha2",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/informers/externalversions/scheduling",
+    "pkg/client/informers/externalversions/scheduling/v1alpha1",
+    "pkg/client/informers/externalversions/scheduling/v1alpha2",
+    "pkg/client/listers/scheduling/v1alpha1",
+    "pkg/client/listers/scheduling/v1alpha2",
+  ]
+  pruneopts = ""
+  revision = "c8a02d1e51b24d65b71d324bbf9d7e58e0b0f17e"
+
+[[projects]]
   digest = "1:0c0ff2a89c1bb0d01887e1dac043ad7efbf3ec77482ef058ac423d13497e16fd"
   name = "github.com/modern-go/concurrent"
   packages = ["."]
@@ -718,6 +740,11 @@
     "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha1",
     "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha2",
     "github.com/kubeflow/mpi-operator/pkg/version",
+    "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha2",
+    "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned",
+    "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions",
+    "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha2",
+    "github.com/kubernetes-sigs/kube-batch/pkg/client/listers/scheduling/v1alpha2",
     "github.com/stretchr/testify/assert",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",

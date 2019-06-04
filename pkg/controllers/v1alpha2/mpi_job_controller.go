@@ -20,20 +20,21 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	podgroupv1alpha2 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha2"
+	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
+	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha2"
+	podgroupslists "github.com/kubernetes-sigs/kube-batch/pkg/client/listers/scheduling/v1alpha2"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appsinformers "k8s.io/client-go/informers/apps/v1"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -41,7 +42,6 @@ import (
 	appslisters "k8s.io/client-go/listers/apps/v1"
 	batchlisters "k8s.io/client-go/listers/batch/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	policylisters "k8s.io/client-go/listers/policy/v1beta1"
 	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -103,6 +103,8 @@ type MPIJobController struct {
 	kubeClient kubernetes.Interface
 	// kubeflowClient is a clientset for our own API group.
 	kubeflowClient clientset.Interface
+	// kubebatchClient is a clientset for kube-batch API.
+	kubebatchClient kubebatchclient.Interface
 
 	configMapLister      corelisters.ConfigMapLister
 	configMapSynced      cache.InformerSynced
@@ -116,8 +118,8 @@ type MPIJobController struct {
 	statefulSetSynced    cache.InformerSynced
 	jobLister            batchlisters.JobLister
 	jobSynced            cache.InformerSynced
-	pdbLister            policylisters.PodDisruptionBudgetLister
-	pdbSynced            cache.InformerSynced
+	podgroupsLister      podgroupslists.PodGroupLister
+	podgroupsSynced      cache.InformerSynced
 	mpiJobLister         listers.MPIJobLister
 	mpiJobSynced         cache.InformerSynced
 
@@ -140,13 +142,14 @@ type MPIJobController struct {
 func NewMPIJobController(
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
+	kubeBatchClientSet kubebatchclient.Interface,
 	configMapInformer coreinformers.ConfigMapInformer,
 	serviceAccountInformer coreinformers.ServiceAccountInformer,
 	roleInformer rbacinformers.RoleInformer,
 	roleBindingInformer rbacinformers.RoleBindingInformer,
 	statefulSetInformer appsinformers.StatefulSetInformer,
 	jobInformer batchinformers.JobInformer,
-	pdbInformer policyinformers.PodDisruptionBudgetInformer,
+	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
 	enableGangScheduling bool) *MPIJobController {
@@ -161,11 +164,11 @@ func NewMPIJobController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	var pdbLister policylisters.PodDisruptionBudgetLister
-	var pdbSynced cache.InformerSynced
+	var podgroupsLister podgroupslists.PodGroupLister
+	var podgroupsSynced cache.InformerSynced
 	if enableGangScheduling {
-		pdbLister = pdbInformer.Lister()
-		pdbSynced = pdbInformer.Informer().HasSynced
+		podgroupsLister = podgroupsInformer.Lister()
+		podgroupsSynced = podgroupsInformer.Informer().HasSynced
 	}
 
 	controller := &MPIJobController{
@@ -183,8 +186,8 @@ func NewMPIJobController(
 		statefulSetSynced:    statefulSetInformer.Informer().HasSynced,
 		jobLister:            jobInformer.Lister(),
 		jobSynced:            jobInformer.Informer().HasSynced,
-		pdbLister:            pdbLister,
-		pdbSynced:            pdbSynced,
+		podgroupsLister:      podgroupsLister,
+		podgroupsSynced:      podgroupsSynced,
 		mpiJobLister:         mpiJobInformer.Lister(),
 		mpiJobSynced:         mpiJobInformer.Informer().HasSynced,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
@@ -298,12 +301,12 @@ func NewMPIJobController(
 		},
 		DeleteFunc: controller.handleObject,
 	})
-	if pdbInformer != nil {
-		pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if podgroupsInformer != nil {
+		podgroupsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: controller.handleObject,
 			UpdateFunc: func(old, new interface{}) {
-				newPolicy := new.(*policyv1beta1.PodDisruptionBudget)
-				oldPolicy := old.(*policyv1beta1.PodDisruptionBudget)
+				newPolicy := new.(*podgroupv1alpha2.PodGroup)
+				oldPolicy := old.(*podgroupv1alpha2.PodGroup)
 				if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
 					// Periodic re-sync will send update events for all known PodDisruptionBudgets.
 					// Two different versions of the same Job will always have
@@ -440,7 +443,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
 
 	workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
-	workerReplicas := int(*workerSpec.Replicas)
+	workerReplicas := *workerSpec.Replicas
 
 	if !done {
 		// Get the ConfigMap for this MPIJob.
@@ -465,7 +468,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 		// Get the PDB for this MPIJob
 		if c.enableGangScheduling {
-			if pdb, err := c.getOrCreatePDB(mpiJob, workerReplicas); pdb == nil || err != nil {
+			if pdb, err := c.getOrCreatePodGroups(mpiJob, workerReplicas); pdb == nil || err != nil {
 				return err
 			}
 		}
@@ -477,7 +480,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	}
 
 	// If the worker is ready, start the launcher.
-	workerReady := workerReplicas == 0 || int(worker.Status.ReadyReplicas) == workerReplicas
+	workerReady := workerReplicas == 0 || worker.Status.ReadyReplicas == workerReplicas
 	if workerReady && launcher == nil {
 		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(newLauncher(mpiJob, c.kubectlDeliveryImage))
 		if err != nil {
@@ -522,13 +525,13 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 	return launcher, nil
 }
 
-// getOrCreatePDB will create a PDB for gang scheduling by kube-batch.
-func (c *MPIJobController) getOrCreatePDB(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int) (*policyv1beta1.PodDisruptionBudget, error) {
+// getOrCreatePodGroups will create a PodGroup for gang scheduling by kube-batch.
+func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1alpha2.PodGroup, error) {
 
-	pdb, err := c.pdbLister.PodDisruptionBudgets(mpiJob.Namespace).Get(mpiJob.Name + pdbSuffix)
+	pdb, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name + pdbSuffix)
 	// If the PDB doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		pdb, err = c.kubeClient.PolicyV1beta1().PodDisruptionBudgets(mpiJob.Namespace).Create(newPDB(mpiJob, minAvailableWorkerReplicas))
+		pdb, err = c.kubebatchClient.SchedulingV1alpha2().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -549,7 +552,7 @@ func (c *MPIJobController) getOrCreatePDB(mpiJob *kubeflow.MPIJob, minAvailableW
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
-func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int) (*corev1.ConfigMap, error) {
+func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) (*corev1.ConfigMap, error) {
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
@@ -598,7 +601,7 @@ func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MP
 }
 
 // getOrCreateLauncherRole gets the launcher Role controlled by this MPIJob.
-func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) (*rbacv1.Role, error) {
+func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) (*rbacv1.Role, error) {
 	role, err := c.roleLister.Roles(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
 	// If the Role doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
@@ -648,7 +651,7 @@ func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rba
 
 // getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
 // MPIJob, or creates one if it doesn't exist.
-func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int) (*appsv1.StatefulSet, error) {
+func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob, workerReplicas int32) (*appsv1.StatefulSet, error) {
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
@@ -670,7 +673,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	}
 
 	// If the worker is out of date, update the worker.
-	if worker != nil && int(*worker.Spec.Replicas) != workerReplicas {
+	if worker != nil && *worker.Spec.Replicas != workerReplicas {
 		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, int32(workerReplicas)))
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
@@ -796,7 +799,7 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int) *corev1.ConfigMap {
+func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
@@ -810,7 +813,7 @@ shift
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
-	for i := 0; i < workerReplicas; i++ {
+	for i := 0; i < int(workerReplicas); i++ {
 		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
 	}
 
@@ -853,9 +856,9 @@ func newLauncherServiceAccount(mpiJob *kubeflow.MPIJob) *corev1.ServiceAccount {
 // newLauncherRole creates a new launcher Role for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
-func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int) *rbacv1.Role {
+func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) *rbacv1.Role {
 	var podNames []string
-	for i := 0; i < workerReplicas; i++ {
+	for i := 0; i < int(workerReplicas); i++ {
 		podNames = append(podNames, fmt.Sprintf("%s%s-%d", mpiJob.Name, workerSuffix, i))
 	}
 	return &rbacv1.Role{
@@ -917,12 +920,11 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 	}
 }
 
-// newPDB creates a new launcher PodDisruptionBudget for an MPIJob
+// newPodGroup creates a new PodGroup for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newPDB(mpiJob *kubeflow.MPIJob, minAvailableReplicas int) *policyv1beta1.PodDisruptionBudget {
-	minAvailable := intstr.FromInt(minAvailableReplicas)
-	return &policyv1beta1.PodDisruptionBudget{
+func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1alpha2.PodGroup {
+	return &podgroupv1alpha2.PodGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name + pdbSuffix,
 			Namespace: mpiJob.Namespace,
@@ -930,13 +932,8 @@ func newPDB(mpiJob *kubeflow.MPIJob, minAvailableReplicas int) *policyv1beta1.Po
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-		Spec: policyv1beta1.PodDisruptionBudgetSpec{
-			MinAvailable: &minAvailable,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": mpiJob.Name,
-				},
-			},
+		Spec: podgroupv1alpha2.PodGroupSpec{
+			MinMember: minAvailableReplicas,
 		},
 	}
 }
