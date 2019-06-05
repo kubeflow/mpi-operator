@@ -448,13 +448,16 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && isJobFinished(launcher)
 
-	// If MPIJob have done, workerReplicas will set to default 0.
+	// If MPIJob have done, workerReplicas will set to default 0,
+	// else if MPIJob haven't done or set CleanPodPolicy to false,
+	// workerReplicas will be set as defined.
 	var workerReplicas int32
-
-	if !done {
+	if !mpiJob.Spec.CleanPodPolicy || !done {
 		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
 		workerReplicas = *workerSpec.Replicas
+	}
 
+	if !done {
 		// Get the ConfigMap for this MPIJob.
 		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas); config == nil || err != nil {
 			return err
@@ -488,7 +491,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 
-	if c.enableGangScheduling && done {
+	if c.enableGangScheduling && done && mpiJob.Spec.CleanPodPolicy {
 		err = c.deletePodGroups(mpiJob)
 		if err != nil {
 			return err
