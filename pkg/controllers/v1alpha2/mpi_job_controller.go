@@ -69,7 +69,6 @@ const (
 	worker              = "worker"
 	launcherSuffix      = "-launcher"
 	workerSuffix        = "-worker"
-	pdbSuffix           = "-pdb"
 	gpuResourceName     = "nvidia.com/gpu"
 	cpuResourceName     = "cpu"
 	labelGroupName      = "group_name"
@@ -447,12 +446,15 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 	// We're done if the launcher either succeeded or failed.
-	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
+	done := launcher != nil && isJobFinished(launcher)
 
-	workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
-	workerReplicas := *workerSpec.Replicas
+	// If MPIJob have done, workerReplicas will set to default 0.
+	var workerReplicas int32
 
 	if !done {
+		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
+		workerReplicas = *workerSpec.Replicas
+
 		// Get the ConfigMap for this MPIJob.
 		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas); config == nil || err != nil {
 			return err
@@ -473,9 +475,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return err
 		}
 
-		// Get the PDB for this MPIJob
+		// Get the PodGroup for this MPIJob
 		if c.enableGangScheduling {
-			if pdb, err := c.getOrCreatePodGroups(mpiJob, workerReplicas); pdb == nil || err != nil {
+			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas); podgroup == nil || err != nil {
 				return err
 			}
 		}
@@ -484,6 +486,13 @@ func (c *MPIJobController) syncHandler(key string) error {
 	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas)
 	if err != nil {
 		return err
+	}
+
+	if c.enableGangScheduling && done {
+		err = c.deletePodGroups(mpiJob)
+		if err != nil {
+			return err
+		}
 	}
 
 	// If the worker is ready, start the launcher.
@@ -534,11 +543,10 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by kube-batch.
 func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1alpha2.PodGroup, error) {
-
-	pdb, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name + pdbSuffix)
-	// If the PDB doesn't exist, we'll create it.
+	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
+	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		pdb, err = c.kubebatchClient.SchedulingV1alpha2().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
+		podgroup, err = c.kubebatchClient.SchedulingV1alpha2().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -546,15 +554,45 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvai
 	if err != nil {
 		return nil, err
 	}
-	// If the PDB is not controlled by this MPIJob resource, we
+	// If the PodGroup is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(pdb, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, pdb.Name, pdb.Kind)
+	if !metav1.IsControlledBy(podgroup, mpiJob) {
+		msg := fmt.Sprintf(MessageResourceExists, podgroup.Name, podgroup.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
 
-	return pdb, nil
+	return podgroup, nil
+}
+
+// deletePodGroups will delete a PodGroup when MPIJob have done.
+func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
+	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	// If the PodGroup is not controlled by this MPIJob resource, we
+	// should log a warning to the event recorder and return.
+	if !metav1.IsControlledBy(podgroup, mpiJob) {
+		msg := fmt.Sprintf(MessageResourceExists, podgroup.Name, podgroup.Kind)
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
+		return fmt.Errorf(msg)
+	}
+
+	// If the PodGroup exist, we'll delete it.
+	err = c.kubebatchClient.SchedulingV1alpha1().PodGroups(mpiJob.Namespace).Delete(mpiJob.Name, &metav1.DeleteOptions{})
+	// If an error occurs during Delete, we'll requeue the item so we
+	// can attempt processing again later. This could have been caused by a
+	// temporary network failure, or any other transient reason.
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
@@ -933,7 +971,7 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1alpha2.PodGroup {
 	return &podgroupv1alpha2.PodGroup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name + pdbSuffix,
+			Name:      mpiJob.Name,
 			Namespace: mpiJob.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
@@ -1168,4 +1206,13 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 
 func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *kubeflow.ReplicaSpec) {
 	podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
+}
+
+func isJobFinished(j *batchv1.Job) bool {
+	for _, c := range j.Status.Conditions {
+		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
