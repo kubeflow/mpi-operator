@@ -20,10 +20,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	podgroupv1alpha2 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha2"
+	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
-	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha2"
-	podgroupslists "github.com/kubernetes-sigs/kube-batch/pkg/client/listers/scheduling/v1alpha2"
+	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	podgroupslists "github.com/kubernetes-sigs/kube-batch/pkg/client/listers/scheduling/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -304,8 +304,8 @@ func NewMPIJobController(
 		podgroupsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: controller.handleObject,
 			UpdateFunc: func(old, new interface{}) {
-				newPolicy := new.(*podgroupv1alpha2.PodGroup)
-				oldPolicy := old.(*podgroupv1alpha2.PodGroup)
+				newPolicy := new.(*podgroupv1alpha1.PodGroup)
+				oldPolicy := old.(*podgroupv1alpha1.PodGroup)
 				if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
 					// Periodic re-sync will send update events for all known PodDisruptionBudgets.
 					// Two different versions of the same Job will always have
@@ -535,11 +535,11 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 }
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by kube-batch.
-func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1alpha2.PodGroup, error) {
+func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1alpha1.PodGroup, error) {
 	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
 	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		podgroup, err = c.kubebatchClient.SchedulingV1alpha2().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
+		podgroup, err = c.kubebatchClient.SchedulingV1alpha1().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -961,8 +961,8 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 // newPodGroup creates a new PodGroup for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1alpha2.PodGroup {
-	return &podgroupv1alpha2.PodGroup{
+func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1alpha1.PodGroup {
+	return &podgroupv1alpha1.PodGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name,
 			Namespace: mpiJob.Namespace,
@@ -970,7 +970,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-		Spec: podgroupv1alpha2.PodGroupSpec{
+		Spec: podgroupv1alpha1.PodGroupSpec{
 			MinMember: minAvailableReplicas,
 		},
 	}
