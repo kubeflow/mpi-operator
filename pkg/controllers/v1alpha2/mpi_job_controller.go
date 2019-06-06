@@ -95,6 +95,10 @@ const (
 
 	// LabelNodeRoleMaster specifies that a node is a master
 	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
+
+	// podTemplateRestartPolicyReason is the warning reason when the restart
+	// policy is set in pod template.
+	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -434,6 +438,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 
+	// Set default for the new tfjob.
+	scheme.Scheme.Default(mpiJob)
+
 	// Get the launcher Job for this MPIJob.
 	launcher, err := c.getLauncherJob(mpiJob)
 	if err != nil {
@@ -482,7 +489,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// If the worker is ready, start the launcher.
 	workerReady := workerReplicas == 0 || worker.Status.ReadyReplicas == workerReplicas
 	if workerReady && launcher == nil {
-		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(newLauncher(mpiJob, c.kubectlDeliveryImage))
+		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
 		if err != nil {
 			return err
 		}
@@ -992,12 +999,6 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32) *appsv1.StatefulS
 		},
 	})
 
-	// set default BackoffLimit
-	if mpiJob.Spec.BackoffLimit == nil {
-		mpiJob.Spec.BackoffLimit = new(int32)
-		*mpiJob.Spec.BackoffLimit = 6
-	}
-
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name + workerSuffix,
@@ -1022,7 +1023,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32) *appsv1.StatefulS
 // newLauncher creates a new launcher Job for an MPIJob resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
-func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.Job {
+func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.Job {
 	launcherName := mpiJob.Name + launcherSuffix
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
@@ -1106,10 +1107,16 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 			MountPath: configMountPath,
 		})
 	podSpec.Spec.Containers[0] = container
-	// Only a `RestartPolicy` equal to `Never` or `OnFailure` is allowed for `Job`.
-	if podSpec.Spec.RestartPolicy != corev1.RestartPolicyNever {
-		podSpec.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
+
+	// Submit a warning event if the user specifies restart policy for
+	// the pod template. We recommend to set it from the replica level.
+	if podSpec.Spec.RestartPolicy != corev1.RestartPolicy("") {
+		errMsg := "Restart policy in pod template will be overwritten by restart policy in replica spec"
+		glog.Warning(errMsg)
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, podTemplateRestartPolicyReason, errMsg)
 	}
+	setRestartPolicy(podSpec, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher])
+
 	scriptsMode := int32(0555)
 	hostfileMode := int32(0444)
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes,
@@ -1157,4 +1164,9 @@ func newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *batchv1.
 			Template:              *podSpec,
 		},
 	}
+}
+
+func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *kubeflow.ReplicaSpec) {
+	podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
+
 }

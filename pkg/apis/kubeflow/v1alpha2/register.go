@@ -21,16 +21,19 @@ import (
 )
 
 const (
-	version   = "v1alpha2"
-	groupName = "kubeflow.org"
-	kind      = "MPIJob"
+	// GroupName is the group name use in this package.
+	GroupName = "kubeflow.org"
+	// Kind is the kind name.
+	Kind = "MPIJob"
+	// GroupVersion is the version.
+	GroupVersion = "v1alpha2"
 )
 
 var (
-	SchemeBuilder          = runtime.NewSchemeBuilder(addKnownTypes)
+	SchemeBuilder          = runtime.NewSchemeBuilder(addKnownTypes, addDefaultingFuncs)
 	AddToScheme            = SchemeBuilder.AddToScheme
-	SchemeGroupVersion     = schema.GroupVersion{Group: groupName, Version: version}
-	SchemeGroupVersionKind = schema.GroupVersionKind{Group: groupName, Version: version, Kind: kind}
+	SchemeGroupVersion     = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
+	SchemeGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion, Kind: Kind}
 )
 
 // Resource takes an unqualified resource and returns a Group qualified GroupResource.

@@ -24,3 +24,8 @@ vendor/k8s.io/code-generator/generate-groups.sh "deepcopy,client,informer,lister
   github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \
   kubeflow:v1alpha1,v1alpha2 \
   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+
+# Notice: The code in code-generator does not generate defaulter by default.
+echo "Generating defaulters for mpi-operator/v1alpha2"
+${GOPATH}/bin/defaulter-gen  --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2 \
+  -O zz_generated.defaults --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt "$@"
