@@ -13,5 +13,8 @@
 // limitations under the License.
 
 // +k8s:deepcopy-gen=package
+// +k8s:defaulter-gen=TypeMeta
+
+// Package v1alpha2 is the v1alpha2 version of the API.
 // +groupName=kubeflow.org
 package v1alpha2
