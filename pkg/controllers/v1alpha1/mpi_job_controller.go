@@ -1263,10 +1263,6 @@ func getLauncherName(mpiJob *kubeflow.MPIJob) string {
 }
 
 func IsJobFinished(launcher *batchv1.Job) bool {
-    if launcher == nil {
-        return false
-    }
-
     for _, c := range launcher.Status.Conditions {
         if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
             return true
