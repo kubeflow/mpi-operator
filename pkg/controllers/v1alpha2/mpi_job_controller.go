@@ -448,11 +448,10 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && isJobFinished(launcher)
 
-	// If MPIJob have done, workerReplicas will set to default 0,
-	// else if MPIJob haven't done or set CleanPodPolicy to false,
-	// workerReplicas will be set as defined.
+	// If MPIJob haven't done, workerReplicas will set to value in mpijob,
+	// else if MPIJob haven done, will set workerReplicas based on CleanPodPolicy.
 	var workerReplicas int32
-	if !isCleanUpPods(mpiJob.Spec.CleanPodPolicy) || !done {
+	if !done || !isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
 		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
 		workerReplicas = *workerSpec.Replicas
 	}
