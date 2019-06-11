@@ -452,7 +452,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// else if MPIJob haven't done or set CleanPodPolicy to false,
 	// workerReplicas will be set as defined.
 	var workerReplicas int32
-	if !mpiJob.Spec.CleanPodPolicy || !done {
+	if !isCleanUpPods(mpiJob.Spec.CleanPodPolicy) || !done {
 		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
 		workerReplicas = *workerSpec.Replicas
 	}
@@ -491,7 +491,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 
-	if c.enableGangScheduling && done && mpiJob.Spec.CleanPodPolicy {
+	if c.enableGangScheduling && done && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
 		err = c.deletePodGroups(mpiJob)
 		if err != nil {
 			return err
@@ -1216,6 +1216,13 @@ func isJobFinished(j *batchv1.Job) bool {
 		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
 			return true
 		}
+	}
+	return false
+}
+
+func isCleanUpPods(cleanPodPolicy *kubeflow.CleanPodPolicy) bool {
+	if *cleanPodPolicy == kubeflow.CleanPodPolicyAll || *cleanPodPolicy == kubeflow.CleanPodPolicyRunning {
+		return true
 	}
 	return false
 }

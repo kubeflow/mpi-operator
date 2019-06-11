@@ -62,8 +62,8 @@ type MPIJobSpec struct {
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
 
 	// CleanPodPolicy defines the policy that whether to kill pods after the job completes.
-	// Default to false.
-	CleanPodPolicy bool
+	// Defaults to None.
+	CleanPodPolicy *CleanPodPolicy
 
 	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
