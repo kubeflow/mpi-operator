@@ -43,11 +43,6 @@ type MPIJobSpec struct {
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
-	// Run the launcher on the master.
-	// Defaults to false.
-	// +optional
-	LauncherOnMaster bool `json:"launcherOnMaster,omitempty"`
-
 	// TODO: Move this to `RunPolicy` in common operator, see discussion in https://github.com/kubeflow/tf-operator/issues/960
 	// Specifies the number of retries before marking this job failed.
 	// Defaults to 6.

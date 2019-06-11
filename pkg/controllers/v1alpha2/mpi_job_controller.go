@@ -93,9 +93,6 @@ const (
 	// MPIJob is synced successfully.
 	MessageResourceSynced = "MPIJob synced successfully"
 
-	// LabelNodeRoleMaster specifies that a node is a master
-	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
-
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
@@ -1067,35 +1064,6 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			Name:  "OMPI_MCA_orte_default_hostfile",
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		})
-
-	// determine if run the launcher on the master node
-	if mpiJob.Spec.LauncherOnMaster {
-
-		// support Tolerate
-		podSpec.Spec.Tolerations = []corev1.Toleration{
-			{
-				Key:    LabelNodeRoleMaster,
-				Effect: corev1.TaintEffectNoSchedule,
-			},
-		}
-		// prefer to assign pod to master node
-		podSpec.Spec.Affinity = &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{
-									Key:      LabelNodeRoleMaster,
-									Operator: corev1.NodeSelectorOpExists,
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	}
 
 	container.VolumeMounts = append(container.VolumeMounts,
 		corev1.VolumeMount{
