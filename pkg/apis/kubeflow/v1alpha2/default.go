@@ -47,6 +47,12 @@ func SetDefaults_MPIJob(mpiJob *MPIJob) {
 		*mpiJob.Spec.BackoffLimit = 6
 	}
 
+	// Set default cleanpod policy to None.
+	if mpiJob.Spec.CleanPodPolicy == nil {
+		none := CleanPodPolicyNone
+		mpiJob.Spec.CleanPodPolicy = &none
+	}
+
 	// set default to Launcher
 	setDefaults_TypeLauncher(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeLauncher])
 

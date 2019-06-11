@@ -23,7 +23,7 @@ import (
 	"github.com/golang/glog"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
-	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha2"
+	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +122,7 @@ func Run(opt *options.ServerOption) error {
 
 		var podgroupsInformer podgroupsinformer.PodGroupInformer
 		if opt.EnableGangScheduling {
-			podgroupsInformer = kubebatchInformerFactory.Scheduling().V1alpha2().PodGroups()
+			podgroupsInformer = kubebatchInformerFactory.Scheduling().V1alpha1().PodGroups()
 		}
 		controller := controllersv1alpha2.NewMPIJobController(
 			kubeClient,
