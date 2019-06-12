@@ -512,6 +512,7 @@ func TestLauncherSucceededWithGang(t *testing.T) {
 
 	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = []batchv1.JobCondition{batchv1.JobCondition{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -532,6 +533,7 @@ func TestLauncherSucceeded(t *testing.T) {
 
 	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = []batchv1.JobCondition{batchv1.JobCondition{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -549,12 +551,12 @@ func TestLauncherFailed(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), &startTime, nil)
 	f.setUpMPIJob(mpiJob)
 
+	mpiJob.Status.LauncherStatus = kubeflow.LauncherFailed
 	launcher := newLauncher(mpiJob, "kubectl-delivery")
-	launcher.Status.Failed = 1
+	launcher.Status.Conditions = []batchv1.JobCondition{batchv1.JobCondition{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.LauncherStatus = kubeflow.LauncherFailed
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, nil)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -705,6 +707,7 @@ func TestShutdownWorker(t *testing.T) {
 
 	launcher := newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = []batchv1.JobCondition{batchv1.JobCondition{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 	f.setUpLauncher(launcher)
 
 	worker := newWorker(mpiJob, 8, 8, gpuResourceName, false)
