@@ -458,7 +458,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 	// We're done if the launcher either succeeded or failed.
-	done := launcher != nil && (launcher.Status.Succeeded == 1 || launcher.Status.Failed == 1)
+	done := launcher != nil && IsJobFinished(launcher)
 
 	// TODO (terrytangyuan): Remove these flags from main.go for next major release
 	// and update deploy/*.yaml
@@ -1260,4 +1260,13 @@ func getLabelsMap(mpiJob *kubeflow.MPIJob) map[string]string {
 
 func getLauncherName(mpiJob *kubeflow.MPIJob) string {
 	return mpiJob.Name + launcherSuffix
+}
+
+func IsJobFinished(launcher *batchv1.Job) bool {
+    for _, c := range launcher.Status.Conditions {
+        if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
+            return true
+        }
+    }
+    return false
 }
