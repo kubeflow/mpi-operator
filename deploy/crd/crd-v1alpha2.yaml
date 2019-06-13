@@ -13,6 +13,8 @@ spec:
     shortNames:
     - mj
     - mpij
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
