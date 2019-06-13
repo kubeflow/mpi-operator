@@ -169,6 +169,11 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.CleanPodPolicy != nil {
+		in, out := &in.CleanPodPolicy, &out.CleanPodPolicy
+		*out = new(CleanPodPolicy)
+		**out = **in
+	}
 	if in.MPIReplicaSpecs != nil {
 		in, out := &in.MPIReplicaSpecs, &out.MPIReplicaSpecs
 		*out = make(map[MPIReplicaType]*ReplicaSpec, len(*in))
