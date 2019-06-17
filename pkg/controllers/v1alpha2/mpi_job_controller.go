@@ -174,6 +174,7 @@ func NewMPIJobController(
 	controller := &MPIJobController{
 		kubeClient:           kubeClient,
 		kubeflowClient:       kubeflowClient,
+		kubebatchClient:      kubeBatchClientSet,
 		configMapLister:      configMapInformer.Lister(),
 		configMapSynced:      configMapInformer.Informer().HasSynced,
 		serviceAccountLister: serviceAccountInformer.Lister(),
