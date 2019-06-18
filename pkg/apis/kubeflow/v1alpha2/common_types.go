@@ -143,7 +143,7 @@ const (
 // is RestartPolicyAlways.
 type RestartPolicy string
 
-// Possible values for RestartPolicy 
+// Possible values for RestartPolicy
 const (
 	RestartPolicyAlways    RestartPolicy = "Always"
 	RestartPolicyOnFailure RestartPolicy = "OnFailure"

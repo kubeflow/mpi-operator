@@ -49,7 +49,6 @@ import (
 
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
-	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha2"
 	listers "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha2"
 )
@@ -70,7 +69,6 @@ const (
 	launcherSuffix      = "-launcher"
 	workerSuffix        = "-worker"
 	gpuResourceName     = "nvidia.com/gpu"
-	cpuResourceName     = "cpu"
 	labelGroupName      = "group_name"
 	labelMPIJobName     = "mpi_job_name"
 	labelMPIRoleType    = "mpi_role_type"
@@ -155,9 +153,6 @@ func NewMPIJobController(
 	enableGangScheduling bool) *MPIJobController {
 
 	// Create event broadcaster.
-	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
-	// can be logged for mpi-job-controller types.
-	kubeflowScheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -700,7 +695,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, int32(workerReplicas)))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, workerReplicas))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -719,7 +714,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 	// If the worker is out of date, update the worker.
 	if worker != nil && *worker.Spec.Replicas != workerReplicas {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, int32(workerReplicas)))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, workerReplicas))
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
