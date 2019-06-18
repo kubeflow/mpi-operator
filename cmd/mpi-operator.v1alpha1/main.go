@@ -21,10 +21,12 @@ import (
 	controllersv1alpha1 "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/sample-controller/pkg/signals"
 
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
 )
@@ -59,6 +61,13 @@ func main() {
 	kubeflowClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		glog.Fatalf("Error building kubeflow clientset: %s", err.Error())
+	}
+
+	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
+	// can be logged for mpi-job-controller types.
+	err = kubeflowScheme.AddToScheme(clientgokubescheme.Scheme)
+	if err != nil {
+		glog.Fatalf("CoreV1 Add Scheme failed: %v", err)
 	}
 
 	var kubeInformerFactory kubeinformers.SharedInformerFactory

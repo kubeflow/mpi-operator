@@ -21,8 +21,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +33,10 @@ import (
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+
+	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+	kubebatchfake "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/fake"
+	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
 
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
@@ -48,8 +52,9 @@ var (
 type fixture struct {
 	t *testing.T
 
-	client     *fake.Clientset
-	kubeClient *k8sfake.Clientset
+	client          *fake.Clientset
+	kubeClient      *k8sfake.Clientset
+	kubebatchClient *kubebatchfake.Clientset
 
 	// Objects to put in the store.
 	configMapLister      []*corev1.ConfigMap
@@ -58,7 +63,7 @@ type fixture struct {
 	roleBindingLister    []*rbacv1.RoleBinding
 	statefulSetLister    []*appsv1.StatefulSet
 	jobLister            []*batchv1.Job
-	pdbLister            []*policyv1beta1.PodDisruptionBudget
+	podGroupLister       []*podgroupv1alpha1.PodGroup
 	mpiJobLister         []*kubeflow.MPIJob
 
 	// Actions expected to happen on the client.
@@ -79,6 +84,7 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
+	cleanPodPolicyAll := kubeflow.CleanPodPolicyAll
 	mpiJob := &kubeflow.MPIJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -86,6 +92,7 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: kubeflow.MPIJobSpec{
+			CleanPodPolicy: &cleanPodPolicyAll,
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeWorker: &kubeflow.ReplicaSpec{
 					Template: corev1.PodTemplateSpec{
@@ -144,26 +151,30 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 	return mpiJob
 }
 
-func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
+	kubebatchInformerFactory := kubebatchinformers.NewSharedInformerFactory(f.kubebatchClient, 0)
+	podgroupsInformer := kubebatchInformerFactory.Scheduling().V1alpha1().PodGroups()
+
 	c := NewMPIJobController(
 		f.kubeClient,
 		f.client,
+		f.kubebatchClient,
 		k8sI.Core().V1().ConfigMaps(),
 		k8sI.Core().V1().ServiceAccounts(),
 		k8sI.Rbac().V1().Roles(),
 		k8sI.Rbac().V1().RoleBindings(),
 		k8sI.Apps().V1().StatefulSets(),
 		k8sI.Batch().V1().Jobs(),
-		k8sI.Policy().V1beta1().PodDisruptionBudgets(),
+		podgroupsInformer,
 		i.Kubeflow().V1alpha2().MPIJobs(),
 		"kubectl-delivery",
-		false,
+		enableGangScheduling,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -172,7 +183,7 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 	c.roleBindingSynced = alwaysReady
 	c.statefulSetSynced = alwaysReady
 	c.jobSynced = alwaysReady
-	c.pdbSynced = alwaysReady
+	c.podgroupsSynced = alwaysReady
 	c.mpiJobSynced = alwaysReady
 	c.recorder = &record.FakeRecorder{}
 
@@ -200,8 +211,8 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 		k8sI.Batch().V1().Jobs().Informer().GetIndexer().Add(job)
 	}
 
-	for _, pdb := range f.pdbLister {
-		k8sI.Policy().V1beta1().PodDisruptionBudgets().Informer().GetIndexer().Add(pdb)
+	for _, podGroup := range f.podGroupLister {
+		podgroupsInformer.Informer().GetIndexer().Add(podGroup)
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
@@ -212,15 +223,15 @@ func (f *fixture) newController() (*MPIJobController, informers.SharedInformerFa
 }
 
 func (f *fixture) run(mpiJobName string) {
-	f.runController(mpiJobName, true, false)
+	f.runController(mpiJobName, true, false, false)
 }
 
 func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true)
+	f.runController(mpiJobName, true, true, false)
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers bool, expectError bool) {
-	c, i, k8sI := f.newController()
+func (f *fixture) runController(mpiJobName string, startInformers bool, expectError, enableGangScheduling bool) {
+	c, i, k8sI := f.newController(enableGangScheduling)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -331,8 +342,8 @@ func filterInformerActions(actions []core.Action) []core.Action {
 				action.Matches("watch", "pods") ||
 				action.Matches("list", "jobs") ||
 				action.Matches("watch", "jobs") ||
-				action.Matches("list", "poddisruptionbudgets") ||
-				action.Matches("watch", "poddisruptionbudgets") ||
+				action.Matches("list", "podgroups") ||
+				action.Matches("watch", "podgroups") ||
 				action.Matches("list", "mpijobs") ||
 				action.Matches("watch", "mpijobs")) {
 			continue
@@ -393,8 +404,7 @@ func (f *fixture) expectUpdateJobAction(d *batchv1.Job) {
 
 func (f *fixture) expectUpdateMPIJobStatusAction(mpiJob *kubeflow.MPIJob) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "mpijobs"}, mpiJob.Namespace, mpiJob)
-	// TODO: Until #38113 is merged, we can't use Subresource
-	//action.Subresource = "status"
+	action.Subresource = "status"
 	f.actions = append(f.actions, action)
 }
 
@@ -433,7 +443,7 @@ func (f *fixture) setUpRoleBinding(roleBinding *rbacv1.RoleBinding) {
 	f.kubeObjects = append(f.kubeObjects, roleBinding)
 }
 
-func (f *fixture) setUpRbac(mpiJob *kubeflow.MPIJob, workerReplicas int) {
+func (f *fixture) setUpRbac(mpiJob *kubeflow.MPIJob, workerReplicas int32) {
 	serviceAccount := newLauncherServiceAccount(mpiJob)
 	f.setUpServiceAccount(serviceAccount)
 
@@ -484,7 +494,8 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
@@ -499,8 +510,17 @@ func TestLauncherSucceeded(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = append(launcher.Status.Conditions,
+		batchv1.JobCondition{
+			Type:               batchv1.JobComplete,
+			Status:             v1.ConditionTrue,
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+		},
+	)
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -508,11 +528,6 @@ func TestLauncherSucceeded(t *testing.T) {
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
 			Active:    0,
 			Succeeded: 1,
-			Failed:    0,
-		},
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    0,
-			Succeeded: 0,
 			Failed:    0,
 		},
 	}
@@ -530,8 +545,17 @@ func TestLauncherFailed(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, nil)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Failed = 1
+	launcher.Status.Conditions = append(launcher.Status.Conditions,
+		batchv1.JobCondition{
+			Type:               batchv1.JobFailed,
+			Status:             v1.ConditionTrue,
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+		},
+	)
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -540,11 +564,6 @@ func TestLauncherFailed(t *testing.T) {
 			Active:    0,
 			Succeeded: 0,
 			Failed:    1,
-		},
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    0,
-			Succeeded: 0,
-			Failed:    0,
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, nil)
@@ -667,8 +686,17 @@ func TestShutdownWorker(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = append(launcher.Status.Conditions,
+		batchv1.JobCondition{
+			Type:               batchv1.JobComplete,
+			Status:             v1.ConditionTrue,
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+		},
+	)
 	f.setUpLauncher(launcher)
 
 	worker := newWorker(mpiJob, 8)
@@ -678,8 +706,18 @@ func TestShutdownWorker(t *testing.T) {
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
-	mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = 1
+	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
+			Active:    0,
+			Succeeded: 1,
+			Failed:    0,
+		},
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
+			Active:    0,
+			Succeeded: 0,
+			Failed:    0,
+		},
+	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -710,17 +748,17 @@ func TestLauncherActive(t *testing.T) {
 	completionTime := metav1.Now()
 
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
-
 	f.setUpMPIJob(mpiJob)
 
 	f.setUpConfigMap(newConfigMap(mpiJob, 1))
 	f.setUpRbac(mpiJob, 1)
 
-	launcher := newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 1)
+	worker := newWorker(mpiJob, 8)
 	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -750,14 +788,15 @@ func TestWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(16), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 2))
-	f.setUpRbac(mpiJob, 2)
+	f.setUpConfigMap(newConfigMap(mpiJob, 16))
+	f.setUpRbac(mpiJob, 16)
 
-	worker := newWorker(mpiJob, 2)
-	worker.Status.ReadyReplicas = 2
+	worker := newWorker(mpiJob, 16)
+	worker.Status.ReadyReplicas = 16
 	f.setUpWorker(worker)
 
-	expLauncher := newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	f.expectCreateJobAction(expLauncher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -768,7 +807,7 @@ func TestWorkerReady(t *testing.T) {
 			Failed:    0,
 		},
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    2,
+			Active:    16,
 			Succeeded: 0,
 			Failed:    0,
 		},
@@ -780,3 +819,9 @@ func TestWorkerReady(t *testing.T) {
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func newFakeMPIJobController() *MPIJobController {
+	return &MPIJobController{
+		recorder: &record.FakeRecorder{},
+	}
+}
