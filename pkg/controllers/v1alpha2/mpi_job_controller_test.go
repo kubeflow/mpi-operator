@@ -84,7 +84,7 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
-	cleanPodPolicyNone := kubeflow.CleanPodPolicyNone
+	cleanPodPolicyAll := kubeflow.CleanPodPolicyAll
 	mpiJob := &kubeflow.MPIJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,7 +92,7 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			CleanPodPolicy: &cleanPodPolicyNone,
+			CleanPodPolicy: &cleanPodPolicyAll,
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeWorker: &kubeflow.ReplicaSpec{
 					Template: corev1.PodTemplateSpec{
@@ -213,7 +213,6 @@ func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, i
 
 	for _, podGroup := range f.podGroupLister {
 		podgroupsInformer.Informer().GetIndexer().Add(podGroup)
-		k8sI.Policy().V1beta1().PodDisruptionBudgets().Informer().GetIndexer().Add(podGroup)
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
@@ -513,14 +512,13 @@ func TestLauncherSucceeded(t *testing.T) {
 
 	fmjc := newFakeMPIJobController()
 	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher.Status.Succeeded = 1
 	launcher.Status.Conditions = append(launcher.Status.Conditions,
 		batchv1.JobCondition{
 			Type:               batchv1.JobComplete,
 			Status:             v1.ConditionTrue,
 			LastProbeTime:      metav1.Now(),
 			LastTransitionTime: metav1.Now(),
-			Reason:             "",
-			Message:            "",
 		},
 	)
 	f.setUpLauncher(launcher)
@@ -554,14 +552,13 @@ func TestLauncherFailed(t *testing.T) {
 
 	fmjc := newFakeMPIJobController()
 	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher.Status.Failed = 1
 	launcher.Status.Conditions = append(launcher.Status.Conditions,
 		batchv1.JobCondition{
 			Type:               batchv1.JobFailed,
 			Status:             v1.ConditionTrue,
 			LastProbeTime:      metav1.Now(),
 			LastTransitionTime: metav1.Now(),
-			Reason:             "",
-			Message:            "",
 		},
 	)
 	f.setUpLauncher(launcher)
@@ -701,14 +698,13 @@ func TestShutdownWorker(t *testing.T) {
 
 	fmjc := newFakeMPIJobController()
 	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher.Status.Succeeded = 1
 	launcher.Status.Conditions = append(launcher.Status.Conditions,
 		batchv1.JobCondition{
 			Type:               batchv1.JobComplete,
 			Status:             v1.ConditionTrue,
 			LastProbeTime:      metav1.Now(),
 			LastTransitionTime: metav1.Now(),
-			Reason:             "",
-			Message:            "",
 		},
 	)
 	f.setUpLauncher(launcher)
@@ -720,8 +716,18 @@ func TestShutdownWorker(t *testing.T) {
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
-	mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = 1
+	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
+			Active:    0,
+			Succeeded: 1,
+			Failed:    0,
+		},
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
+			Active:    0,
+			Succeeded: 0,
+			Failed:    0,
+		},
+	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
