@@ -72,10 +72,6 @@ type fixture struct {
 	// Objects from here are pre-loaded into NewSimpleFake.
 	kubeObjects []runtime.Object
 	objects     []runtime.Object
-
-	controller          *MPIJobController
-	kubeInformerFactory kubeinformers.SharedInformerFactory
-	mpiInformerFactory  informers.SharedInformerFactory
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -83,7 +79,6 @@ func newFixture(t *testing.T) *fixture {
 	f.t = t
 	f.objects = []runtime.Object{}
 	f.kubeObjects = []runtime.Object{}
-	f.newController()
 	return f
 }
 
@@ -153,7 +148,7 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 	return mpiJob
 }
 
-func (f *fixture) newController() {
+func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
@@ -176,7 +171,7 @@ func (f *fixture) newController() {
 		podgroupsInformer,
 		i.Kubeflow().V1alpha2().MPIJobs(),
 		"kubectl-delivery",
-		false,
+		enableGangScheduling,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -222,33 +217,27 @@ func (f *fixture) newController() {
 		i.Kubeflow().V1alpha2().MPIJobs().Informer().GetIndexer().Add(mpiJob)
 	}
 
-	// init controller and kubeInformerFactory
-	f.controller = c
-	f.kubeInformerFactory = k8sI
-	f.mpiInformerFactory = i
+	return c, i, k8sI
 }
 
 func (f *fixture) run(mpiJobName string) {
-	f.runController(mpiJobName, true, false)
+	f.runController(mpiJobName, true, false, false)
 }
 
 func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true)
+	f.runController(mpiJobName, true, true, false)
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers bool, expectError bool) {
-	if f.controller == nil {
-		f.newController()
-	}
-
+func (f *fixture) runController(mpiJobName string, startInformers bool, expectError, enableGangScheduling bool) {
+	c, i, k8sI := f.newController(enableGangScheduling)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
-		f.mpiInformerFactory.Start(stopCh)
-		f.kubeInformerFactory.Start(stopCh)
+		i.Start(stopCh)
+		k8sI.Start(stopCh)
 	}
 
-	err := f.controller.syncHandler(mpiJobName)
+	err := c.syncHandler(mpiJobName)
 	if !expectError && err != nil {
 		f.t.Errorf("error syncing mpi job: %v", err)
 	} else if expectError && err == nil {
@@ -503,7 +492,8 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := f.controller.newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
@@ -518,7 +508,8 @@ func TestLauncherSucceeded(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := f.controller.newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
@@ -549,7 +540,8 @@ func TestLauncherFailed(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, nil)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := f.controller.newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Failed = 1
 	f.setUpLauncher(launcher)
 
@@ -686,7 +678,8 @@ func TestShutdownWorker(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	launcher := f.controller.newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Succeeded = 1
 	f.setUpLauncher(launcher)
 
@@ -735,7 +728,8 @@ func TestLauncherActive(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 1))
 	f.setUpRbac(mpiJob, 1)
 
-	launcher := f.controller.newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
@@ -776,7 +770,8 @@ func TestWorkerReady(t *testing.T) {
 	worker.Status.ReadyReplicas = 2
 	f.setUpWorker(worker)
 
-	expLauncher := f.controller.newLauncher(mpiJob, "kubectl-delivery")
+	fmjc := newFakeMPIJobController()
+	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
 	f.expectCreateJobAction(expLauncher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -799,3 +794,9 @@ func TestWorkerReady(t *testing.T) {
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func newFakeMPIJobController() *MPIJobController {
+	return &MPIJobController{
+		recorder: &record.FakeRecorder{},
+	}
+}
