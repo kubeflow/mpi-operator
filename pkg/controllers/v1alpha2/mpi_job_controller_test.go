@@ -21,6 +21,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -510,7 +511,16 @@ func TestLauncherSucceeded(t *testing.T) {
 
 	fmjc := newFakeMPIJobController()
 	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
-	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = append(launcher.Status.Conditions,
+		batchv1.JobCondition{
+			Type:               batchv1.JobComplete,
+			Status:             v1.ConditionTrue,
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+			Reason:             "",
+			Message:            "",
+		},
+	)
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -542,7 +552,16 @@ func TestLauncherFailed(t *testing.T) {
 
 	fmjc := newFakeMPIJobController()
 	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
-	launcher.Status.Failed = 1
+	launcher.Status.Conditions = append(launcher.Status.Conditions,
+		batchv1.JobCondition{
+			Type:               batchv1.JobFailed,
+			Status:             v1.ConditionTrue,
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+			Reason:             "",
+			Message:            "",
+		},
+	)
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -680,7 +699,16 @@ func TestShutdownWorker(t *testing.T) {
 
 	fmjc := newFakeMPIJobController()
 	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
-	launcher.Status.Succeeded = 1
+	launcher.Status.Conditions = append(launcher.Status.Conditions,
+		batchv1.JobCondition{
+			Type:               batchv1.JobComplete,
+			Status:             v1.ConditionTrue,
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+			Reason:             "",
+			Message:            "",
+		},
+	)
 	f.setUpLauncher(launcher)
 
 	worker := newWorker(mpiJob, 8)
