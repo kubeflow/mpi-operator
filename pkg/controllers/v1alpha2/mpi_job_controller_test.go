@@ -570,11 +570,6 @@ func TestLauncherFailed(t *testing.T) {
 			Succeeded: 0,
 			Failed:    1,
 		},
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    0,
-			Succeeded: 0,
-			Failed:    0,
-		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, nil)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
@@ -758,7 +753,6 @@ func TestLauncherActive(t *testing.T) {
 	completionTime := metav1.Now()
 
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
-
 	f.setUpMPIJob(mpiJob)
 
 	f.setUpConfigMap(newConfigMap(mpiJob, 1))
@@ -769,18 +763,13 @@ func TestLauncherActive(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 1)
+	worker := newWorker(mpiJob, 8)
 	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
 			Active:    1,
-			Succeeded: 0,
-			Failed:    0,
-		},
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    0,
 			Succeeded: 0,
 			Failed:    0,
 		},
@@ -799,11 +788,11 @@ func TestWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(16), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 2))
-	f.setUpRbac(mpiJob, 2)
+	f.setUpConfigMap(newConfigMap(mpiJob, 16))
+	f.setUpRbac(mpiJob, 16)
 
-	worker := newWorker(mpiJob, 2)
-	worker.Status.ReadyReplicas = 2
+	worker := newWorker(mpiJob, 16)
+	worker.Status.ReadyReplicas = 16
 	f.setUpWorker(worker)
 
 	fmjc := newFakeMPIJobController()
@@ -818,7 +807,7 @@ func TestWorkerReady(t *testing.T) {
 			Failed:    0,
 		},
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    2,
+			Active:    16,
 			Succeeded: 0,
 			Failed:    0,
 		},
