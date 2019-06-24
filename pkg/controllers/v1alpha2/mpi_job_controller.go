@@ -200,7 +200,7 @@ func NewMPIJobController(
 	glog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
 	mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueMPIJob,
+		AddFunc: controller.addMPIJob,
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueMPIJob(new)
 		},
@@ -417,15 +417,23 @@ func (c *MPIJobController) processNextWorkItem() bool {
 // converge the two. It then updates the Status block of the MPIJob resource
 // with the current status of the resource.
 func (c *MPIJobController) syncHandler(key string) error {
+	startTime := time.Now()
+	defer func() {
+		glog.Infof("Finished syncing job %q (%v)", key, time.Since(startTime))
+	}()
+
 	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
+	if len(namespace) == 0 || len(name) == 0 {
+		return fmt.Errorf("invalid job key %q: either namespace or name is missing", key)
+	}
 
 	// Get the MPIJob with this namespace/name.
-	mpiJob, err := c.mpiJobLister.MPIJobs(namespace).Get(name)
+	sharedJob, err := c.mpiJobLister.MPIJobs(namespace).Get(name)
 	// The MPIJob may no longer exist, in which case we stop processing.
 	if errors.IsNotFound(err) {
 		runtime.HandleError(fmt.Errorf("mpi job '%s' in work queue no longer exists", key))
@@ -435,7 +443,11 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 
-	// Set default for the new tfjob.
+	// NEVER modify objects from the store. It's a read-only, local cache.
+	// You can use DeepCopy() to make a deep copy of original object and modify this copy
+	// Or create a copy manually for better performance
+	mpiJob := sharedJob.DeepCopy()
+	// Set default for the new mpiJob.
 	scheme.Scheme.Default(mpiJob)
 
 	// Get the launcher Job for this MPIJob.
@@ -511,9 +523,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return err
 	}
 
-	// TODO(terrytangyuan): update MPIJob conditions
-
-	c.recorder.Event(mpiJob, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
 }
 
@@ -732,60 +741,89 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 }
 
 func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker *appsv1.StatefulSet) error {
-	// NEVER modify objects from the store. It's a read-only, local cache.
-	// You can use DeepCopy() to make a deep copy of original object and modify this copy
-	// Or create a copy manually for better performance
-	mpiJobCopy := mpiJob.DeepCopy()
+	// set StartTime.
+	if mpiJob.Status.StartTime == nil {
+		now := metav1.Now()
+		mpiJob.Status.StartTime = &now
+	}
 
 	if launcher != nil {
-		initializeMPIJobStatuses(mpiJobCopy, kubeflow.MPIReplicaTypeLauncher)
-		now := metav1.Now()
-		if launcher.Status.Active > 0 {
-			mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active += 1
-			if mpiJobCopy.Status.StartTime == nil {
-				mpiJobCopy.Status.StartTime = &now
+		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
+		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = launcher.Status.Succeeded
+		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed = launcher.Status.Failed
+		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = launcher.Status.Active
+		if launcher.Status.Succeeded > 0 {
+			msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+			c.recorder.Event(mpiJob, corev1.EventTypeNormal, mpiJobSucceededReason, msg)
+			if mpiJob.Status.CompletionTime == nil {
+				now := metav1.Now()
+				mpiJob.Status.CompletionTime = &now
 			}
-		} else if launcher.Status.Succeeded > 0 {
-			mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded += 1
-			if mpiJobCopy.Status.CompletionTime == nil {
-				mpiJobCopy.Status.CompletionTime = &now
+			err := updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
+			if err != nil {
+				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				return err
 			}
 		} else if launcher.Status.Failed > 0 {
-			mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed += 1
-		}
-	}
-	if worker != nil {
-		initializeMPIJobStatuses(mpiJobCopy, kubeflow.MPIReplicaTypeWorker)
-		now := metav1.Now()
-		if worker.Status.ReadyReplicas > 0 {
-			mpiJobCopy.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
-			if mpiJobCopy.Status.StartTime == nil {
-				mpiJobCopy.Status.StartTime = &now
+			// if job is finished and the failed greater than zero, it must
+			// be failed because we have judge success condition above.
+			if isJobFinished(launcher) {
+				msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+				c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, msg)
+				if mpiJob.Status.CompletionTime == nil {
+					now := metav1.Now()
+					mpiJob.Status.CompletionTime = &now
+				}
+				err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobFailedReason, msg)
+				if err != nil {
+					glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+					return err
+				}
+			}
+			msg := fmt.Sprintf("MPIJob %s is running.", mpiJob.Name)
+			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
+			if err != nil {
+				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				return err
+			}
+		} else if launcher.Status.Active > 0 {
+			msg := fmt.Sprintf("MPIJob %s is running.", mpiJob.Name)
+			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
+			if err != nil {
+				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				return err
 			}
 		}
-		// TODO: Figure out to update the other statuses
-		//  else if worker.Status.Succeeded > 0 {
-		// 	workerStatuses.Succeeded += workerStatuses.Succeeded
-		// 	if mpiJobCopy.Status.CompletionTime == nil {
-		// 		mpiJobCopy.Status.CompletionTime = &now
-		// 	}
-		// } else if worker.Status.Failed > 0 {
-		// 	workerStatuses.Failed += workerStatuses.Failed
-		// }
 	}
 
-	_, err := c.kubeflowClient.KubeflowV1alpha2().MPIJobs(mpiJob.Namespace).UpdateStatus(mpiJobCopy)
+	if worker != nil {
+		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
+		if worker.Status.ReadyReplicas > 0 {
+			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
+		}
+		// TODO: Figure out to update the other statuses
+	}
+
+	_, err := c.kubeflowClient.KubeflowV1alpha2().MPIJobs(mpiJob.Namespace).UpdateStatus(mpiJob)
 	return err
 }
 
-// initializeMPIJobStatuses initializes the ReplicaStatuses for MPIJob.
-func initializeMPIJobStatuses(mpiJob *kubeflow.MPIJob, mtype kubeflow.MPIReplicaType) {
-	replicaType := kubeflow.ReplicaType(mtype)
-	if mpiJob.Status.ReplicaStatuses == nil {
-		mpiJob.Status.ReplicaStatuses = make(map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus)
+// When a mpiJob is added, set the defaults and enqueue the current mpiJob.
+func (c *MPIJobController) addMPIJob(obj interface{}) {
+	mpiJob := obj.(*kubeflow.MPIJob)
+
+	// Set default for the new mpiJob.
+	scheme.Scheme.Default(mpiJob)
+
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	// Add a created condition.
+	err := updateMPIJobConditions(mpiJob, kubeflow.JobCreated, mpiJobCreatedReason, msg)
+	if err != nil {
+		glog.Errorf("Append mpiJob condition error: %v", err)
+		return
 	}
 
-	mpiJob.Status.ReplicaStatuses[replicaType] = &kubeflow.ReplicaStatus{}
+	c.enqueueMPIJob(mpiJob)
 }
 
 // enqueueMPIJob takes a MPIJob resource and converts it into a namespace/name
