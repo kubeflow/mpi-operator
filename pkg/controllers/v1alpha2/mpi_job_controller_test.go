@@ -530,11 +530,6 @@ func TestLauncherSucceeded(t *testing.T) {
 			Succeeded: 1,
 			Failed:    0,
 		},
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
-			Active:    0,
-			Succeeded: 0,
-			Failed:    0,
-		},
 	}
 
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
@@ -770,6 +765,11 @@ func TestLauncherActive(t *testing.T) {
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
 			Active:    1,
+			Succeeded: 0,
+			Failed:    0,
+		},
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
+			Active:    0,
 			Succeeded: 0,
 			Failed:    0,
 		},
