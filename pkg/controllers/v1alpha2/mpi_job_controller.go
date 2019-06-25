@@ -434,12 +434,12 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	// Get the MPIJob with this namespace/name.
 	sharedJob, err := c.mpiJobLister.MPIJobs(namespace).Get(name)
-	// The MPIJob may no longer exist, in which case we stop processing.
-	if errors.IsNotFound(err) {
-		runtime.HandleError(fmt.Errorf("mpi job '%s' in work queue no longer exists", key))
-		return nil
-	}
 	if err != nil {
+		// The MPIJob may no longer exist, in which case we stop processing.
+		if errors.IsNotFound(err) {
+			glog.V(4).Infof("MPIJob has been deleted: %v", key)
+			return nil
+		}
 		return err
 	}
 
@@ -450,23 +450,42 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// Set default for the new mpiJob.
 	scheme.Scheme.Default(mpiJob)
 
+	// for mpi job that is terminating, just return.
+	if mpiJob.DeletionTimestamp != nil {
+		return nil
+	}
+
+	// If the MPIJob is terminated, delete its pods according to cleanPodPolicy.
+	if isSucceeded(mpiJob.Status) || isFailed(mpiJob.Status) {
+		if isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
+			// set worker StatefulSet Replicas to 0.
+			if _, err := c.getOrCreateWorkerStatefulSet(mpiJob, 0); err != nil {
+				return err
+			}
+		}
+
+		if c.enableGangScheduling {
+			if err := c.deletePodGroups(mpiJob); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
 	// Get the launcher Job for this MPIJob.
 	launcher, err := c.getLauncherJob(mpiJob)
 	if err != nil {
 		return err
 	}
+
+	var worker *appsv1.StatefulSet
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && isJobFinished(launcher)
-
-	// If MPIJob haven't done, workerReplicas will set to value in mpijob,
-	// else if MPIJob haven done, will set workerReplicas based on CleanPodPolicy.
-	var workerReplicas int32
-	if !done || !isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
-		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
-		workerReplicas = *workerSpec.Replicas
-	}
-
 	if !done {
+		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
+		workerReplicas := *workerSpec.Replicas
+
 		// Get the ConfigMap for this MPIJob.
 		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas); config == nil || err != nil {
 			return err
@@ -493,26 +512,19 @@ func (c *MPIJobController) syncHandler(key string) error {
 				return err
 			}
 		}
-	}
 
-	worker, err := c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas)
-	if err != nil {
-		return err
-	}
-
-	if c.enableGangScheduling && done && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
-		err = c.deletePodGroups(mpiJob)
+		worker, err = c.getOrCreateWorkerStatefulSet(mpiJob, workerReplicas)
 		if err != nil {
 			return err
 		}
-	}
 
-	// If the worker is ready, start the launcher.
-	workerReady := workerReplicas == 0 || worker.Status.ReadyReplicas == workerReplicas
-	if workerReady && launcher == nil {
-		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
-		if err != nil {
-			return err
+		// If the worker is ready, start the launcher.
+		workerReady := worker.Status.ReadyReplicas == workerReplicas
+		if workerReady && launcher == nil {
+			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -780,14 +792,14 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 					return err
 				}
 			}
-			msg := fmt.Sprintf("MPIJob %s is running.", mpiJob.Name)
+			msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
 		} else if launcher.Status.Active > 0 {
-			msg := fmt.Sprintf("MPIJob %s is running.", mpiJob.Name)
+			msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
