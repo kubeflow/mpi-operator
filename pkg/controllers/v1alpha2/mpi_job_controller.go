@@ -17,6 +17,7 @@ package v1alpha2
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -136,6 +137,9 @@ type MPIJobController struct {
 	kubectlDeliveryImage string
 	// Whether to enable gang scheduling by kube-batch
 	enableGangScheduling bool
+
+	// To allow injection of updateStatus for testing.
+	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
 }
 
 // NewMPIJobController returns a new MPIJob controller.
@@ -196,6 +200,8 @@ func NewMPIJobController(
 		kubectlDeliveryImage: kubectlDeliveryImage,
 		enableGangScheduling: enableGangScheduling,
 	}
+
+	controller.updateStatusHandler = controller.doUpdateJobStatus
 
 	glog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
@@ -462,6 +468,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			if _, err := c.getOrCreateWorkerStatefulSet(mpiJob, 0); err != nil {
 				return err
 			}
+			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
 		}
 
 		if c.enableGangScheduling {
@@ -470,7 +477,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 
-		return nil
+		return c.updateStatusHandler(mpiJob)
 	}
 
 	// Get the launcher Job for this MPIJob.
@@ -753,6 +760,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 }
 
 func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker *appsv1.StatefulSet) error {
+	oldStatus := mpiJob.Status.DeepCopy()
 	// set StartTime.
 	if mpiJob.Status.StartTime == nil {
 		now := metav1.Now()
@@ -816,8 +824,12 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		// TODO: Figure out to update the other statuses
 	}
 
-	_, err := c.kubeflowClient.KubeflowV1alpha2().MPIJobs(mpiJob.Namespace).UpdateStatus(mpiJob)
-	return err
+
+	// no need to update the mpijob if the status hasn't changed since last time.
+	if !reflect.DeepEqual(*oldStatus, mpiJob.Status) {
+		return c.updateStatusHandler(mpiJob)
+	}
+	return nil
 }
 
 // When a mpiJob is added, set the defaults and enqueue the current mpiJob.
@@ -889,6 +901,12 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 		c.enqueueMPIJob(mpiJob)
 		return
 	}
+}
+
+// doUpdateJobStatus updates the status of the given MPIJob by call apiServer.
+func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
+	_, err := c.kubeflowClient.KubeflowV1alpha2().MPIJobs(mpiJob.Namespace).UpdateStatus(mpiJob)
+	return err
 }
 
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
