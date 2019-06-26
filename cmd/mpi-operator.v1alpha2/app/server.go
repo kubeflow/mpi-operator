@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
 	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
@@ -103,6 +104,13 @@ func Run(opt *options.ServerOption) error {
 	if !checkCRDExists(mpiJobClientSet, opt.Namespace) {
 		glog.Info("CRD doesn't exist. Exiting")
 		os.Exit(1)
+	}
+
+	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
+	// can be logged for mpi-job-controller types.
+	err = kubeflowScheme.AddToScheme(clientgokubescheme.Scheme)
+	if err != nil {
+		return fmt.Errorf("CoreV1 Add Scheme failed: %v", err)
 	}
 
 	// Set leader election start function.

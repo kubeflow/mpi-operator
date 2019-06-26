@@ -50,7 +50,6 @@ import (
 
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
-	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha1"
 	listers "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha1"
 )
@@ -165,9 +164,6 @@ func NewMPIJobController(
 	enableGangScheduling bool) *MPIJobController {
 
 	// Create event broadcaster.
-	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
-	// can be logged for mpi-job-controller types.
-	kubeflowScheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
@@ -1263,10 +1259,10 @@ func getLauncherName(mpiJob *kubeflow.MPIJob) string {
 }
 
 func IsJobFinished(launcher *batchv1.Job) bool {
-    for _, c := range launcher.Status.Conditions {
-        if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
-            return true
-        }
-    }
-    return false
+	for _, c := range launcher.Status.Conditions {
+		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }

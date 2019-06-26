@@ -1,0 +1,30 @@
+{
+  "Vendor": true,
+  "DisableAll": true,
+  "Enable": [
+    "vet",
+    "safesql",
+    "errcheck",
+    "goconst",
+    "goimports",
+    "varcheck",
+    "gotype",
+    "lll",
+    "unconvert",
+    "misspell",
+    "unconvert"
+  ],
+  "Aggregate": true,
+  "WarnUnmatchedNolint": true,
+  "LineLength": 240,
+  "Exclude": [
+    "redundant return statement",
+    "comment or be unexported",
+    "comment on exported",
+    "pkg/apis/kubeflow/v1alpha1/zz_generated.deepcopy.go",
+    "pkg/apis/kubeflow/v1alpha2/zz_generated.deepcopy.go",
+    "pkg/apis/kubeflow/v1alpha2/zz_generated.defaults.go"
+  ],
+  "Deadline": "600s",
+  "Skip": ["pkg/client"]
+}
