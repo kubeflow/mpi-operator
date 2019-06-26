@@ -149,6 +149,9 @@ func Run(opt *options.ServerOption) error {
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
+		if opt.EnableGangScheduling {
+			go kubebatchInformerFactory.Start(ctx.Done())
+		}
 
 		if err = controller.Run(opt.Threadiness, stopCh); err != nil {
 			glog.Fatalf("Error running controller: %s", err.Error())

@@ -76,9 +76,6 @@ const (
 )
 
 const (
-	// SuccessSynced is used as part of the Event 'reason' when an MPIJob is
-	// synced.
-	SuccessSynced = "Synced"
 	// ErrResourceExists is used as part of the Event 'reason' when an MPIJob
 	// fails to sync due to dependent resources of the same name already
 	// existing.
@@ -87,13 +84,13 @@ const (
 	// MessageResourceExists is the message used for Events when a resource
 	// fails to sync due to dependent resources already existing.
 	MessageResourceExists = "Resource %q of Kind %q already exists and is not managed by MPIJob"
-	// MessageResourceSynced is the message used for an Event fired when an
-	// MPIJob is synced successfully.
-	MessageResourceSynced = "MPIJob synced successfully"
 
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
+
+	// gang scheduler name.
+	gangSchedulerName = "kube-batch"
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -339,6 +336,11 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.serviceAccountSynced, c.roleSynced, c.roleBindingSynced, c.statefulSetSynced, c.jobSynced, c.mpiJobSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
+	if c.enableGangScheduling {
+		if ok := cache.WaitForCacheSync(stopCh, c.podgroupsSynced); !ok {
+			return fmt.Errorf("failed to wait for podgroup caches to sync")
+		}
+	}
 
 	glog.Info("Starting workers")
 	// Launch workers to process MPIJob resources.
@@ -397,6 +399,7 @@ func (c *MPIJobController) processNextWorkItem() bool {
 		// Run the syncHandler, passing it the namespace/name string of the
 		// MPIJob resource to be synced.
 		if err := c.syncHandler(key); err != nil {
+			c.queue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
 		}
 		// Finally, if no error occurs we Forget this item so it does not
@@ -724,7 +727,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, workerReplicas))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, workerReplicas, c.enableGangScheduling))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -743,7 +746,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 	// If the worker is out of date, update the worker.
 	if worker != nil && *worker.Spec.Replicas != workerReplicas {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, workerReplicas))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, workerReplicas, c.enableGangScheduling))
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
@@ -1049,7 +1052,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 // newWorker creates a new worker StatefulSet for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
-func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32) *appsv1.StatefulSet {
+func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, enableGangScheduling bool) *appsv1.StatefulSet {
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  mpiJob.Name,
@@ -1099,6 +1102,23 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32) *appsv1.StatefulS
 			},
 		},
 	})
+
+	// add SchedulerName to podSpec
+	if enableGangScheduling {
+		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
+			errMsg := fmt.Sprintf(
+				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
+			glog.Warning(errMsg)
+		} else {
+			podSpec.Spec.SchedulerName = gangSchedulerName
+		}
+
+		if podSpec.Annotations == nil {
+			podSpec.Annotations = map[string]string{}
+		}
+		// we create the podGroup with the same name as the mpijob
+		podSpec.Annotations[podgroupv1alpha1.GroupNameAnnotationKey] = mpiJob.Name
+	}
 
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
