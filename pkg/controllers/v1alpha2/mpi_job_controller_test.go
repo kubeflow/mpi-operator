@@ -626,7 +626,7 @@ func TestLauncherDoesNotExist(t *testing.T) {
 	expRoleBinding := newLauncherRoleBinding(mpiJob)
 	f.expectCreateRoleBindingAction(expRoleBinding)
 
-	expWorker := newWorker(mpiJob, 4)
+	expWorker := newWorker(mpiJob, 4, false)
 	f.expectCreateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -735,10 +735,10 @@ func TestShutdownWorker(t *testing.T) {
 	)
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8)
+	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
 
-	expWorker := newWorker(mpiJob, 0)
+	expWorker := newWorker(mpiJob, 0, false)
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -766,7 +766,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 8))
 	f.setUpRbac(mpiJob, 8)
 
-	worker := newWorker(mpiJob, 8)
+	worker := newWorker(mpiJob, 8, false)
 	worker.OwnerReferences = nil
 	f.setUpWorker(worker)
 
@@ -789,7 +789,7 @@ func TestLauncherActive(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8)
+	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -865,7 +865,7 @@ func TestWorkerReady(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 16))
 	f.setUpRbac(mpiJob, 16)
 
-	worker := newWorker(mpiJob, 16)
+	worker := newWorker(mpiJob, 16, false)
 	worker.Status.ReadyReplicas = 16
 	f.setUpWorker(worker)
 
