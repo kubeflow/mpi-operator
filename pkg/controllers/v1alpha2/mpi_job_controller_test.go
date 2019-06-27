@@ -560,7 +560,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -596,8 +596,10 @@ func TestLauncherFailed(t *testing.T) {
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, nil)
+
 	msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobFailed, mpiJobFailedReason, msg)
+
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -804,7 +806,7 @@ func TestLauncherActive(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, mpiJobRunningReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -845,7 +847,7 @@ func TestLauncherRestarting(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
