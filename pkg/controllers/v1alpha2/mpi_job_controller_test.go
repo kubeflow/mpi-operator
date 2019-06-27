@@ -806,6 +806,47 @@ func TestLauncherActive(t *testing.T) {
 	f.run(getKey(mpiJob, t))
 }
 
+func TestLauncherRestarting(t *testing.T) {
+	f := newFixture(t)
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
+	f.setUpMPIJob(mpiJob)
+
+	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpRbac(mpiJob, 1)
+
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher.Status.Failed = 1
+	launcher.Status.Active = 1
+	f.setUpLauncher(launcher)
+
+	worker := newWorker(mpiJob, 8)
+	f.setUpWorker(worker)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
+			Active:    1,
+			Succeeded: 0,
+			Failed:    1,
+		},
+		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
+			Active:    0,
+			Succeeded: 0,
+			Failed:    0,
+		},
+	}
+	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+	msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(getKey(mpiJob, t))
+}
+
 func TestWorkerReady(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()

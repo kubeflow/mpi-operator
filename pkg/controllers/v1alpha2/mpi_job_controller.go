@@ -463,6 +463,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			if _, err := c.getOrCreateWorkerStatefulSet(mpiJob, 0); err != nil {
 				return err
 			}
+			initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
 			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
 		}
 
