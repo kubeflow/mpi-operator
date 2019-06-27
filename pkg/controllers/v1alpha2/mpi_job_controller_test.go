@@ -15,6 +15,7 @@
 package v1alpha2
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -296,6 +297,7 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		expObject := e.GetObject()
 		object := a.GetObject()
 
+
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
@@ -304,6 +306,17 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		e, _ := expected.(core.UpdateAction)
 		expObject := e.GetObject()
 		object := a.GetObject()
+		expMPIJob, ok1 := expObject.(*kubeflow.MPIJob)
+		gotMPIJob, ok2 := object.(*kubeflow.MPIJob)
+		if ok1 && ok2 {
+			clearConditionTime(expMPIJob)
+			clearConditionTime(gotMPIJob)
+			if !reflect.DeepEqual(expMPIJob, gotMPIJob) {
+				t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
+					a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
+			}
+			return
+		}
 
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
@@ -464,6 +477,13 @@ func setUpMPIJobTimestamp(mpiJob *kubeflow.MPIJob, startTime, completionTime *me
 	}
 }
 
+func clearConditionTime(mpiJob *kubeflow.MPIJob){
+	for _, condition := range mpiJob.Status.Conditions {
+		condition.LastTransitionTime = metav1.Time{}
+		condition.LastUpdateTime = metav1.Time{}
+	}
+}
+
 func getKey(mpiJob *kubeflow.MPIJob, t *testing.T) string {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(mpiJob)
 	if err != nil {
@@ -507,6 +527,7 @@ func TestLauncherSucceeded(t *testing.T) {
 
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
+
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
@@ -533,6 +554,10 @@ func TestLauncherSucceeded(t *testing.T) {
 	}
 
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+
+	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
+
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -567,6 +592,8 @@ func TestLauncherFailed(t *testing.T) {
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, nil)
+	msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -684,6 +711,8 @@ func TestShutdownWorker(t *testing.T) {
 	completionTime := metav1.Now()
 
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
+	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := newFakeMPIJobController()
@@ -707,11 +736,6 @@ func TestShutdownWorker(t *testing.T) {
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): &kubeflow.ReplicaStatus{
-			Active:    0,
-			Succeeded: 1,
-			Failed:    0,
-		},
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): &kubeflow.ReplicaStatus{
 			Active:    0,
 			Succeeded: 0,
@@ -775,6 +799,8 @@ func TestLauncherActive(t *testing.T) {
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))

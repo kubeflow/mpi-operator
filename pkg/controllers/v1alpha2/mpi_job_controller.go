@@ -789,14 +789,14 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 					now := metav1.Now()
 					mpiJob.Status.CompletionTime = &now
 				}
-				err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobFailedReason, msg)
+				err := updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
 				if err != nil {
 					glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 					return err
 				}
 			}
-			msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
+			msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
+			err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
