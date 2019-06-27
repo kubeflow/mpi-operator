@@ -820,9 +820,12 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		// TODO: Figure out to update the other statuses
 	}
 
-
+	fmt.Println(fmt.Sprintf("mpi status equal %v", reflect.DeepEqual(*oldStatus, mpiJob.Status)))
+	fmt.Println(fmt.Sprintf("mpi status %v", *oldStatus))
 	// no need to update the mpijob if the status hasn't changed since last time.
 	if !reflect.DeepEqual(*oldStatus, mpiJob.Status) {
+		fmt.Println("mpi status....................")
+		fmt.Println(fmt.Sprintf("mpi status %v", mpiJob.Status))
 		return c.updateStatusHandler(mpiJob)
 	}
 	return nil

@@ -292,31 +292,32 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 	}
 
 	switch a := actual.(type) {
-	case core.CreateAction:
-		e, _ := expected.(core.CreateAction)
-		expObject := e.GetObject()
-		object := a.GetObject()
-
-
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
-		}
 	case core.UpdateAction:
 		e, _ := expected.(core.UpdateAction)
 		expObject := e.GetObject()
 		object := a.GetObject()
+
 		expMPIJob, ok1 := expObject.(*kubeflow.MPIJob)
 		gotMPIJob, ok2 := object.(*kubeflow.MPIJob)
 		if ok1 && ok2 {
 			clearConditionTime(expMPIJob)
 			clearConditionTime(gotMPIJob)
+
 			if !reflect.DeepEqual(expMPIJob, gotMPIJob) {
 				t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
 					a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
 			}
 			return
 		}
+
+		if !reflect.DeepEqual(expObject, object) {
+			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
+				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
+		}
+	case core.CreateAction:
+		e, _ := expected.(core.CreateAction)
+		expObject := e.GetObject()
+		object := a.GetObject()
 
 		if !reflect.DeepEqual(expObject, object) {
 			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
@@ -478,10 +479,13 @@ func setUpMPIJobTimestamp(mpiJob *kubeflow.MPIJob, startTime, completionTime *me
 }
 
 func clearConditionTime(mpiJob *kubeflow.MPIJob){
+	var clearConditions []kubeflow.JobCondition
 	for _, condition := range mpiJob.Status.Conditions {
 		condition.LastTransitionTime = metav1.Time{}
 		condition.LastUpdateTime = metav1.Time{}
+		clearConditions = append(clearConditions, condition)
 	}
+	mpiJob.Status.Conditions = clearConditions
 }
 
 func getKey(mpiJob *kubeflow.MPIJob, t *testing.T) string {
