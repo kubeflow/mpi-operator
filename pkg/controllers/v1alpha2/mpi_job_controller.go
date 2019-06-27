@@ -463,6 +463,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			if _, err := c.getOrCreateWorkerStatefulSet(mpiJob, 0); err != nil {
 				return err
 			}
+			initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
 			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
 		}
 
@@ -789,14 +790,14 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 					now := metav1.Now()
 					mpiJob.Status.CompletionTime = &now
 				}
-				err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobFailedReason, msg)
+				err := updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
 				if err != nil {
 					glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 					return err
 				}
 			}
-			msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
+			msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
+			err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
@@ -818,7 +819,6 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		}
 		// TODO: Figure out to update the other statuses
 	}
-
 
 	// no need to update the mpijob if the status hasn't changed since last time.
 	if !reflect.DeepEqual(*oldStatus, mpiJob.Status) {
