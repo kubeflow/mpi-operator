@@ -479,6 +479,12 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return c.updateStatusHandler(mpiJob)
 	}
 
+	// first set StartTime.
+	if mpiJob.Status.StartTime == nil {
+		now := metav1.Now()
+		mpiJob.Status.StartTime = &now
+	}
+
 	// Get the launcher Job for this MPIJob.
 	launcher, err := c.getLauncherJob(mpiJob)
 	if err != nil {
@@ -760,18 +766,12 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker *appsv1.StatefulSet) error {
 	oldStatus := mpiJob.Status.DeepCopy()
-	// set StartTime.
-	if mpiJob.Status.StartTime == nil {
-		now := metav1.Now()
-		mpiJob.Status.StartTime = &now
-	}
-
 	if launcher != nil {
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
 		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = launcher.Status.Succeeded
 		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed = launcher.Status.Failed
 		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = launcher.Status.Active
-		if launcher.Status.Succeeded > 0 {
+		if isJobComplete(launcher) {
 			msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
 			c.recorder.Event(mpiJob, corev1.EventTypeNormal, mpiJobSucceededReason, msg)
 			if mpiJob.Status.CompletionTime == nil {
@@ -783,22 +783,19 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
-		} else if launcher.Status.Failed > 0 {
-			// if job is finished and the failed greater than zero, it must
-			// be failed because we have judge success condition above.
-			if isJobFinished(launcher) {
-				msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-				c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, msg)
-				if mpiJob.Status.CompletionTime == nil {
-					now := metav1.Now()
-					mpiJob.Status.CompletionTime = &now
-				}
-				err := updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
-				if err != nil {
-					glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
-					return err
-				}
+		} else if isJobFailed(launcher) {
+			msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+			c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, msg)
+			if mpiJob.Status.CompletionTime == nil {
+				now := metav1.Now()
+				mpiJob.Status.CompletionTime = &now
 			}
+			err := updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
+			if err != nil {
+				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				return err
+			}
+		} else if launcher.Status.Failed > 0 {
 			msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
 			err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
 			if err != nil {
@@ -820,7 +817,6 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		if worker.Status.ReadyReplicas > 0 {
 			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
 		}
-		// TODO: Figure out to update the other statuses
 	}
 
 	// no need to update the mpijob if the status hasn't changed since last time.
@@ -1263,8 +1259,20 @@ func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *kubeflow.Re
 }
 
 func isJobFinished(j *batchv1.Job) bool {
-	for _, c := range j.Status.Conditions {
-		if (c.Type == batchv1.JobComplete || c.Type == batchv1.JobFailed) && c.Status == corev1.ConditionTrue {
+	return isJobComplete(j) || isJobFailed(j)
+}
+
+func isJobFailed(j *batchv1.Job) bool {
+	return hasJobCondition(j, batchv1.JobFailed)
+}
+
+func isJobComplete(j *batchv1.Job) bool {
+	return hasJobCondition(j, batchv1.JobComplete)
+}
+
+func hasJobCondition(j *batchv1.Job, condType batchv1.JobConditionType) bool {
+	for _, condition := range j.Status.Conditions {
+		if condition.Type == condType && condition.Status == corev1.ConditionTrue {
 			return true
 		}
 	}
