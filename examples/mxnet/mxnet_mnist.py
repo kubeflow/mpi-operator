@@ -10,7 +10,7 @@ from mxnet import autograd, gluon, nd
 from mxnet.test_utils import download
 
 # Training settings
-parser = argparse.ArgumentParser(description='MXNet MNIST Example')
+parser = argparse.ArgumentParser(description='Apache MXNet MNIST Example')
 
 parser.add_argument('--batch-size', type=int, default=64,
                     help='training batch size (default: 64)')
@@ -93,7 +93,6 @@ def evaluate(model, data_iter, context):
         label = batch.label[0].as_in_context(context)
         output = model(data.astype(args.dtype, copy=False))
         metric.update([label], [output])
-
     return metric.get()
 
 
