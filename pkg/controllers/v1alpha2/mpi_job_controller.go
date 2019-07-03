@@ -31,6 +31,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appsinformers "k8s.io/client-go/informers/apps/v1"
@@ -880,9 +881,16 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 	}
 	glog.V(4).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		// If this object is not owned by a MPIJob, we should not do anything
-		// more with it.
-		if ownerRef.Kind != "MPIJob" {
+		// Parse the Group out of the OwnerReference to compare it to what was parsed out of the requested OwnerType
+		refGV, err := schema.ParseGroupVersion(ownerRef.APIVersion)
+		if err != nil {
+			runtime.HandleError(fmt.Errorf("Could not parse OwnerReference APIVersion: %v", err))
+			return
+		}
+
+		// Compare the OwnerReference Group and Kind against the OwnerType Group and Kind.
+		// Since we do not support conversion webhook now, we do not deal with v1alpha1 resources in this operator.
+		if ownerRef.Kind != kubeflow.Kind || refGV.Group != kubeflow.GroupName || refGV.Version != kubeflow.GroupVersion {
 			return
 		}
 
