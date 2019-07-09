@@ -29,6 +29,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - endpoints
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
   - events
   verbs:
   - create
@@ -80,6 +88,7 @@ rules:
   - kubeflow.org
   resources:
   - mpijobs
+  - mpijobs/status
   verbs:
   - "*"
 ---
