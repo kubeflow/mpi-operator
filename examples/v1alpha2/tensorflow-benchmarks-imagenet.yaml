@@ -8,6 +8,8 @@ kind: MPIJob
 metadata:
   name: tensorflow-benchmarks-imagenet
 spec:
+  slotsPerWorker: 8
+  cleanPodPolicy: Running
   mpiReplicaSpecs:
     Launcher:
       replicas: 1
@@ -18,6 +20,25 @@ spec:
             name: tensorflow-benchmarks
             command:
               - mpirun
+              - --allow-run-as-root
+              - -np
+              - "16"
+              - -bind-to
+              - none
+              - -map-by
+              - slot
+              - -x
+              - NCCL_DEBUG=INFO
+              - -x
+              - LD_LIBRARY_PATH
+              - -x
+              - PATH
+              - -mca
+              - pml
+              - ob1
+              - -mca
+              - btl
+              - ^openib
               - python
               - scripts/tf_cnn_benchmarks/tf_cnn_benchmarks.py
               - --data_format=NCHW
@@ -39,6 +60,9 @@ spec:
           containers:
           - image: mpioperator/tensorflow-benchmarks:latest
             name: tensorflow-benchmarks
+            resources:
+              limits:
+                nvidia.com/gpu: 8
             volumeMounts:
             - mountPath: /efs
               name: efs
