@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Copyright 2018 The Kubeflow Authors.
 #
@@ -22,3 +22,33 @@ fi
 : ${TARGET_DIR:?"Need to set TARGET_DIR, e.g. /opt/kube"}
 
 cp $(which kubectl) ${TARGET_DIR}
+
+file="/etc/mpi/hostfile"
+workers=()
+i=0
+IFS=$'\n'       # make newlines the only separator
+set -f          # disable globbing
+for line in $(cat < "$file"); do
+      echo "$line"
+      workers[i]=$line # Put it into the array
+      i=$(($i + 1))
+      echo $i
+done
+
+hello="hello"
+
+for(( i=0;i<${#workers[@]};i++)) do
+   worker=$(echo ${workers[i]} | awk '{print $1}')
+   echo "worker name is ${worker}"
+   while true
+     do
+        status=$(/opt/kube/kubectl exec -it ${worker} echo "hello")
+        status="${status%%[[:cntrl:]]}"
+        echo "hello is ${hello}"
+        if [[ "a${status}" == "a${hello}" ]] ;then
+            echo "${worker} is running.."
+            break
+        fi
+        sleep 1
+     done
+done;
