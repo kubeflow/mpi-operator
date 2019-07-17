@@ -521,7 +521,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 		// Get the PodGroup for this MPIJob
 		if c.enableGangScheduling {
-			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas); podgroup == nil || err != nil {
+			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas+1); podgroup == nil || err != nil {
 				return err
 			}
 		}
@@ -530,10 +530,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if err != nil {
 			return err
 		}
-
-		// If the worker is ready, start the launcher.
-		workerReady := worker.Status.ReadyReplicas == workerReplicas
-		if workerReady && launcher == nil {
+		if launcher == nil {
 			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
 			if err != nil {
 				return err
@@ -833,7 +830,6 @@ func (c *MPIJobController) addMPIJob(obj interface{}) {
 
 	// Set default for the new mpiJob.
 	scheme.Scheme.Default(mpiJob)
-
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	// Add a created condition.
 	err := updateMPIJobConditions(mpiJob, kubeflow.JobCreated, mpiJobCreatedReason, msg)
@@ -1164,11 +1160,27 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	for key, value := range labels {
 		podSpec.Labels[key] = value
 	}
+	// add SchedulerName to podSpec
+	if c.enableGangScheduling {
+		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
+			errMsg := fmt.Sprintf(
+				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
+			glog.Warning(errMsg)
+		} else {
+			podSpec.Spec.SchedulerName = gangSchedulerName
+		}
 
+		if podSpec.Annotations == nil {
+			podSpec.Annotations = map[string]string{}
+		}
+		// we create the podGroup with the same name as the mpijob
+		podSpec.Annotations[podgroupv1alpha1.GroupNameAnnotationKey] = mpiJob.Name
+	}
 	podSpec.Spec.ServiceAccountName = launcherName
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
-		Name:  kubectlDeliveryName,
-		Image: kubectlDeliveryImage,
+		Name:            kubectlDeliveryName,
+		Image:           kubectlDeliveryImage,
+		ImagePullPolicy: "Always",
 		Env: []corev1.EnvVar{
 			{
 				Name:  kubectlTargetDirEnv,
@@ -1179,6 +1191,10 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			{
 				Name:      kubectlVolumeName,
 				MountPath: kubectlMountPath,
+			},
+			{
+				Name:      configVolumeName,
+				MountPath: configMountPath,
 			},
 		},
 	})
