@@ -192,4 +192,3 @@ spec:
           "mpioperator/kubectl-delivery:latest"
         ]
         imagePullPolicy: Always
-		
