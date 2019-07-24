@@ -536,14 +536,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if err != nil {
 				return err
 			}
-		// If the worker is ready, start the launcher.
-		//workerReady := worker.Status.ReadyReplicas == workerReplicas
-		//if workerReady && launcher == nil {
-		//	launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
 	}
 
 	// Finally, we update the status block of the MPIJob resource to reflect the
