@@ -531,11 +531,14 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if err != nil {
 			return err
 		}
-	
-		launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
-		if err != nil {
+		_,lancherErr :=c.kubeClient.BatchV1().Jobs(namespace).Get(mpiJob.Name + launcherSuffix,metav1.GetOptions{})
+		if errors.IsNotFound(lancherErr){
+			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
+			if err != nil {
 				return err
 			}
+		}
+
 	}
 
 	// Finally, we update the status block of the MPIJob resource to reflect the

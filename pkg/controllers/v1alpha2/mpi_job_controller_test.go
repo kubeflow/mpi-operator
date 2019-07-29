@@ -415,6 +415,10 @@ func (f *fixture) expectCreateJobAction(d *batchv1.Job) {
 func (f *fixture) expectUpdateJobAction(d *batchv1.Job) {
 	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "jobs"}, d.Namespace, d))
 }
+func (f *fixture) expectGetJobAction(d *kubeflow.MPIJob) {
+	f.kubeActions = append(f.kubeActions, core.NewGetAction(schema.GroupVersionResource{Resource: "jobs"}, d.Namespace, d.Name))
+}
+
 
 func (f *fixture) expectUpdateMPIJobStatusAction(mpiJob *kubeflow.MPIJob) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "mpijobs"}, mpiJob.Namespace, mpiJob)
@@ -606,42 +610,6 @@ func TestLauncherFailed(t *testing.T) {
 	f.run(getKey(mpiJob, t))
 }
 
-func TestLauncherDoesNotExist(t *testing.T) {
-	f := newFixture(t)
-	startTime := metav1.Now()
-	completionTime := metav1.Now()
-
-	mpiJob := newMPIJob("test", int32Ptr(4), 4, gpuResourceName, &startTime, &completionTime)
-	f.setUpMPIJob(mpiJob)
-
-	expConfigMap := newConfigMap(mpiJob, 4)
-	f.expectCreateConfigMapAction(expConfigMap)
-
-	expServiceAccount := newLauncherServiceAccount(mpiJob)
-	f.expectCreateServiceAccountAction(expServiceAccount)
-
-	expRole := newLauncherRole(mpiJob, 4)
-	f.expectCreateRoleAction(expRole)
-
-	expRoleBinding := newLauncherRoleBinding(mpiJob)
-	f.expectCreateRoleBindingAction(expRoleBinding)
-
-	expWorker := newWorker(mpiJob, 4, false)
-	f.expectCreateStatefulSetAction(expWorker)
-
-	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
-			Active:    0,
-			Succeeded: 0,
-			Failed:    0,
-		},
-	}
-	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
-	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
-
-	f.run(getKey(mpiJob, t))
-}
 
 func TestConfigMapNotControlledByUs(t *testing.T) {
 	f := newFixture(t)
@@ -791,7 +759,7 @@ func TestLauncherActive(t *testing.T) {
 
 	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
-
+	f.expectGetJobAction(mpiJob)
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
@@ -832,7 +800,7 @@ func TestLauncherRestarting(t *testing.T) {
 
 	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
-
+	f.expectGetJobAction(mpiJob)
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
@@ -865,12 +833,14 @@ func TestWorkerReady(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 16))
 	f.setUpRbac(mpiJob, 16)
 
+
 	worker := newWorker(mpiJob, 16, false)
 	worker.Status.ReadyReplicas = 16
 	f.setUpWorker(worker)
 
 	fmjc := newFakeMPIJobController()
 	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	f.expectGetJobAction(mpiJob)
 	f.expectCreateJobAction(expLauncher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
