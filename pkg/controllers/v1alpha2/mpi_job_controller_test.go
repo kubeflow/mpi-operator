@@ -419,7 +419,6 @@ func (f *fixture) expectGetJobAction(d *kubeflow.MPIJob) {
 	f.kubeActions = append(f.kubeActions, core.NewGetAction(schema.GroupVersionResource{Resource: "jobs"}, d.Namespace, d.Name))
 }
 
-
 func (f *fixture) expectUpdateMPIJobStatusAction(mpiJob *kubeflow.MPIJob) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "mpijobs"}, mpiJob.Namespace, mpiJob)
 	action.Subresource = "status"
@@ -609,7 +608,6 @@ func TestLauncherFailed(t *testing.T) {
 
 	f.run(getKey(mpiJob, t))
 }
-
 
 func TestConfigMapNotControlledByUs(t *testing.T) {
 	f := newFixture(t)
@@ -832,7 +830,6 @@ func TestWorkerReady(t *testing.T) {
 
 	f.setUpConfigMap(newConfigMap(mpiJob, 16))
 	f.setUpRbac(mpiJob, 16)
-
 
 	worker := newWorker(mpiJob, 16, false)
 	worker.Status.ReadyReplicas = 16

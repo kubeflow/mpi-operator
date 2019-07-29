@@ -521,7 +521,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 		// Get the PodGroup for this MPIJob
 		if c.enableGangScheduling {
-		
 			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas+1); podgroup == nil || err != nil {
 				return err
 			}
@@ -531,8 +530,8 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if err != nil {
 			return err
 		}
-		_,lancherErr :=c.kubeClient.BatchV1().Jobs(namespace).Get(mpiJob.Name + launcherSuffix,metav1.GetOptions{})
-		if errors.IsNotFound(lancherErr){
+		_, lancherErr := c.kubeClient.BatchV1().Jobs(namespace).Get(mpiJob.Name+launcherSuffix, metav1.GetOptions{})
+		if errors.IsNotFound(lancherErr) {
 			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
 			if err != nil {
 				return err
@@ -833,7 +832,6 @@ func (c *MPIJobController) addMPIJob(obj interface{}) {
 
 	// Set default for the new mpiJob.
 	scheme.Scheme.Default(mpiJob)
-
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	// Add a created condition.
 	err := updateMPIJobConditions(mpiJob, kubeflow.JobCreated, mpiJobCreatedReason, msg)
@@ -1182,8 +1180,8 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	}
 	podSpec.Spec.ServiceAccountName = launcherName
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
-		Name:  kubectlDeliveryName,
-		Image: kubectlDeliveryImage,
+		Name:            kubectlDeliveryName,
+		Image:           kubectlDeliveryImage,
 		ImagePullPolicy: "Always",
 		Env: []corev1.EnvVar{
 			{
