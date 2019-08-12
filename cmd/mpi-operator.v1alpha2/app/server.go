@@ -81,6 +81,9 @@ func Run(opt *options.ServerOption) error {
 	// To help debugging, immediately log version.
 	glog.Infof("%+v", version.Info(apiVersion))
 
+	// To help debugging, immediately log opts.
+	glog.Infof("Server options: %+v", opt)
+
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
@@ -123,9 +126,9 @@ func Run(opt *options.ServerOption) error {
 			kubeflowInformerFactory = informers.NewSharedInformerFactory(mpiJobClientSet, 0)
 			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactory(kubeBatchClientSet, 0)
 		} else {
-			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(opt.Namespace), nil)
-			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(opt.Namespace), nil)
-			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactoryWithOptions(kubeBatchClientSet, 0, kubebatchinformers.WithNamespace(opt.Namespace), nil)
+			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(opt.Namespace))
+			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(opt.Namespace))
+			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactoryWithOptions(kubeBatchClientSet, 0, kubebatchinformers.WithNamespace(opt.Namespace))
 		}
 
 		var podgroupsInformer podgroupsinformer.PodGroupInformer
