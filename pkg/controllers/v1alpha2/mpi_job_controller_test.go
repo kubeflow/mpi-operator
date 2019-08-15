@@ -606,43 +606,6 @@ func TestLauncherFailed(t *testing.T) {
 	f.run(getKey(mpiJob, t))
 }
 
-func TestLauncherDoesNotExist(t *testing.T) {
-	f := newFixture(t)
-	startTime := metav1.Now()
-	completionTime := metav1.Now()
-
-	mpiJob := newMPIJob("test", int32Ptr(4), 4, gpuResourceName, &startTime, &completionTime)
-	f.setUpMPIJob(mpiJob)
-
-	expConfigMap := newConfigMap(mpiJob, 4)
-	f.expectCreateConfigMapAction(expConfigMap)
-
-	expServiceAccount := newLauncherServiceAccount(mpiJob)
-	f.expectCreateServiceAccountAction(expServiceAccount)
-
-	expRole := newLauncherRole(mpiJob, 4)
-	f.expectCreateRoleAction(expRole)
-
-	expRoleBinding := newLauncherRoleBinding(mpiJob)
-	f.expectCreateRoleBindingAction(expRoleBinding)
-
-	expWorker := newWorker(mpiJob, 4, false)
-	f.expectCreateStatefulSetAction(expWorker)
-
-	mpiJobCopy := mpiJob.DeepCopy()
-	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
-		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
-			Active:    0,
-			Succeeded: 0,
-			Failed:    0,
-		},
-	}
-	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
-	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
-
-	f.run(getKey(mpiJob, t))
-}
-
 func TestConfigMapNotControlledByUs(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
@@ -791,7 +754,6 @@ func TestLauncherActive(t *testing.T) {
 
 	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
-
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
@@ -832,7 +794,6 @@ func TestLauncherRestarting(t *testing.T) {
 
 	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
-
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
