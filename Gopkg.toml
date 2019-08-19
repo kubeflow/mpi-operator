@@ -11,6 +11,10 @@ required = [
   version = "kubernetes-1.13.2"
 
 [[override]]
+  name = "k8s.io/kubernetes"
+  version = "=1.13.2"
+
+[[override]]
   name = "k8s.io/api"
   version = "kubernetes-1.13.2"
 
@@ -21,6 +25,15 @@ required = [
 [[override]]
   name = "k8s.io/client-go"
   version = "kubernetes-1.13.2"
+
+[[override]]
+  name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.13.2"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.13.2"
+
 
 [[constraint]]
   name = "github.com/stretchr/testify"
