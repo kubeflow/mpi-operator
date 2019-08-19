@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	common "github.com/kubeflow/common/job_controller/api/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha2"
@@ -468,7 +469,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 				return err
 			}
 			initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
-			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
+			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
 		}
 
 		if c.enableGangScheduling {
@@ -766,9 +767,9 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	oldStatus := mpiJob.Status.DeepCopy()
 	if launcher != nil {
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
-		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = launcher.Status.Succeeded
-		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed = launcher.Status.Failed
-		mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = launcher.Status.Active
+		mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = launcher.Status.Succeeded
+		mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed = launcher.Status.Failed
+		mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = launcher.Status.Active
 		if isJobComplete(launcher) {
 			msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
 			c.recorder.Event(mpiJob, corev1.EventTypeNormal, mpiJobSucceededReason, msg)
@@ -776,7 +777,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				now := metav1.Now()
 				mpiJob.Status.CompletionTime = &now
 			}
-			err := updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
+			err := updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
@@ -788,21 +789,21 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				now := metav1.Now()
 				mpiJob.Status.CompletionTime = &now
 			}
-			err := updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobFailedReason, msg)
+			err := updateMPIJobConditions(mpiJob, common.JobFailed, mpiJobFailedReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
 		} else if launcher.Status.Failed > 0 {
 			msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
-			err := updateMPIJobConditions(mpiJob, kubeflow.JobRestarting, mpiJobRestartingReason, msg)
+			err := updateMPIJobConditions(mpiJob, common.JobRestarting, mpiJobRestartingReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
 		} else if launcher.Status.Active > 0 {
 			msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-			err := updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
+			err := updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
 			if err != nil {
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
@@ -813,7 +814,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	if worker != nil {
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
 		if worker.Status.ReadyReplicas > 0 {
-			mpiJob.Status.ReplicaStatuses[kubeflow.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
+			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
 		}
 	}
 
@@ -832,7 +833,7 @@ func (c *MPIJobController) addMPIJob(obj interface{}) {
 	scheme.Scheme.Default(mpiJob)
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	// Add a created condition.
-	err := updateMPIJobConditions(mpiJob, kubeflow.JobCreated, mpiJobCreatedReason, msg)
+	err := updateMPIJobConditions(mpiJob, common.JobCreated, mpiJobCreatedReason, msg)
 	if err != nil {
 		glog.Errorf("Append mpiJob condition error: %v", err)
 		return
@@ -1278,7 +1279,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	}
 }
 
-func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *kubeflow.ReplicaSpec) {
+func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *common.ReplicaSpec) {
 	podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
 }
 
@@ -1303,8 +1304,8 @@ func hasJobCondition(j *batchv1.Job, condType batchv1.JobConditionType) bool {
 	return false
 }
 
-func isCleanUpPods(cleanPodPolicy *kubeflow.CleanPodPolicy) bool {
-	if *cleanPodPolicy == kubeflow.CleanPodPolicyAll || *cleanPodPolicy == kubeflow.CleanPodPolicyRunning {
+func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
+	if *cleanPodPolicy == common.CleanPodPolicyAll || *cleanPodPolicy == common.CleanPodPolicyRunning {
 		return true
 	}
 	return false

@@ -15,6 +15,7 @@
 package v1alpha2
 
 import (
+	common "github.com/kubeflow/common/job_controller/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,8 +25,8 @@ import (
 type MPIJob struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              MPIJobSpec `json:"spec,omitempty"`
-	Status            JobStatus  `json:"status,omitempty"`
+	Spec              MPIJobSpec       `json:"spec,omitempty"`
+	Status            common.JobStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -58,15 +59,15 @@ type MPIJobSpec struct {
 
 	// CleanPodPolicy defines the policy that whether to kill pods after the job completes.
 	// Defaults to None.
-	CleanPodPolicy *CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
+	CleanPodPolicy *common.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
 
 	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
-	MPIReplicaSpecs map[MPIReplicaType]*ReplicaSpec `json:"mpiReplicaSpecs"`
+	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
-type MPIReplicaType ReplicaType
+type MPIReplicaType common.ReplicaType
 
 const (
 	// MPIReplicaTypeLauncher is the type for launcher replica.

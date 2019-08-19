@@ -18,6 +18,7 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	common "github.com/kubeflow/common/job_controller/api/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 )
 
@@ -36,24 +37,24 @@ const (
 
 // initializeMPIJobStatuses initializes the ReplicaStatuses for MPIJob.
 func initializeMPIJobStatuses(mpiJob *kubeflow.MPIJob, mtype kubeflow.MPIReplicaType) {
-	replicaType := kubeflow.ReplicaType(mtype)
+	replicaType := common.ReplicaType(mtype)
 	if mpiJob.Status.ReplicaStatuses == nil {
-		mpiJob.Status.ReplicaStatuses = make(map[kubeflow.ReplicaType]*kubeflow.ReplicaStatus)
+		mpiJob.Status.ReplicaStatuses = make(map[common.ReplicaType]*common.ReplicaStatus)
 	}
 
-	mpiJob.Status.ReplicaStatuses[replicaType] = &kubeflow.ReplicaStatus{}
+	mpiJob.Status.ReplicaStatuses[replicaType] = &common.ReplicaStatus{}
 }
 
 // updateMPIJobConditions updates the conditions of the given mpiJob.
-func updateMPIJobConditions(mpiJob *kubeflow.MPIJob, conditionType kubeflow.JobConditionType, reason, message string) error {
+func updateMPIJobConditions(mpiJob *kubeflow.MPIJob, conditionType common.JobConditionType, reason, message string) error {
 	condition := newCondition(conditionType, reason, message)
 	setCondition(&mpiJob.Status, condition)
 	return nil
 }
 
 // newCondition creates a new mpiJob condition.
-func newCondition(conditionType kubeflow.JobConditionType, reason, message string) kubeflow.JobCondition {
-	return kubeflow.JobCondition{
+func newCondition(conditionType common.JobConditionType, reason, message string) common.JobCondition {
+	return common.JobCondition{
 		Type:               conditionType,
 		Status:             v1.ConditionTrue,
 		LastUpdateTime:     metav1.Now(),
@@ -64,7 +65,7 @@ func newCondition(conditionType kubeflow.JobConditionType, reason, message strin
 }
 
 // getCondition returns the condition with the provided type.
-func getCondition(status kubeflow.JobStatus, condType kubeflow.JobConditionType) *kubeflow.JobCondition {
+func getCondition(status common.JobStatus, condType common.JobConditionType) *common.JobCondition {
 	for _, condition := range status.Conditions {
 		if condition.Type == condType {
 			return &condition
@@ -73,7 +74,7 @@ func getCondition(status kubeflow.JobStatus, condType kubeflow.JobConditionType)
 	return nil
 }
 
-func hasCondition(status kubeflow.JobStatus, condType kubeflow.JobConditionType) bool {
+func hasCondition(status common.JobStatus, condType common.JobConditionType) bool {
 	for _, condition := range status.Conditions {
 		if condition.Type == condType && condition.Status == v1.ConditionTrue {
 			return true
@@ -82,18 +83,18 @@ func hasCondition(status kubeflow.JobStatus, condType kubeflow.JobConditionType)
 	return false
 }
 
-func isSucceeded(status kubeflow.JobStatus) bool {
-	return hasCondition(status, kubeflow.JobSucceeded)
+func isSucceeded(status common.JobStatus) bool {
+	return hasCondition(status, common.JobSucceeded)
 }
 
-func isFailed(status kubeflow.JobStatus) bool {
-	return hasCondition(status, kubeflow.JobFailed)
+func isFailed(status common.JobStatus) bool {
+	return hasCondition(status, common.JobFailed)
 }
 
 // setCondition updates the mpiJob to include the provided condition.
 // If the condition that we are about to add already exists
 // and has the same status and reason then we are not going to update.
-func setCondition(status *kubeflow.JobStatus, condition kubeflow.JobCondition) {
+func setCondition(status *common.JobStatus, condition common.JobCondition) {
 	// Do nothing if MPIJobStatus have failed condition
 	if isFailed(*status) {
 		return
@@ -117,13 +118,13 @@ func setCondition(status *kubeflow.JobStatus, condition kubeflow.JobCondition) {
 }
 
 // filterOutCondition returns a new slice of mpiJob conditions without conditions with the provided type.
-func filterOutCondition(conditions []kubeflow.JobCondition, condType kubeflow.JobConditionType) []kubeflow.JobCondition {
-	var newConditions []kubeflow.JobCondition
+func filterOutCondition(conditions []common.JobCondition, condType common.JobConditionType) []common.JobCondition {
+	var newConditions []common.JobCondition
 	for _, c := range conditions {
-		if condType == kubeflow.JobRestarting && c.Type == kubeflow.JobRunning {
+		if condType == common.JobRestarting && c.Type == common.JobRunning {
 			continue
 		}
-		if condType == kubeflow.JobRunning && c.Type == kubeflow.JobRestarting {
+		if condType == common.JobRunning && c.Type == common.JobRestarting {
 			continue
 		}
 
@@ -132,7 +133,7 @@ func filterOutCondition(conditions []kubeflow.JobCondition, condType kubeflow.Jo
 		}
 
 		// Set the running condition status to be false when current condition failed or succeeded
-		if (condType == kubeflow.JobFailed || condType == kubeflow.JobSucceeded) && c.Type == kubeflow.JobRunning {
+		if (condType == common.JobFailed || condType == common.JobSucceeded) && c.Type == common.JobRunning {
 			c.Status = v1.ConditionFalse
 		}
 
