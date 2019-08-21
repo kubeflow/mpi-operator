@@ -71,6 +71,11 @@ type MPIJobSpec struct {
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
+	// Specifies the priority of the job.
+	// Defaults to 0.
+	// +optional
+	JobPriority *string `json:"jobPriority,omitempty"`
+
 	// Run the launcher on the master.
 	// Defaults to false.
 	// +optional

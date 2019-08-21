@@ -44,6 +44,11 @@ type MPIJobSpec struct {
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
+	// Specifies the priority of the job.
+	// Defaults to 0.
+	// +optional
+	JobPriority *string `json:"jobPriority,omitempty"`
+
 	// TODO: Move this to `RunPolicy` in common operator, see discussion in https://github.com/kubeflow/tf-operator/issues/960
 	// Specifies the number of retries before marking this job failed.
 	// Defaults to 6.

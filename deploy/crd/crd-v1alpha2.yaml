@@ -23,6 +23,8 @@ spec:
             slotsPerWorker:
               type: integer
               minimum: 1
+            jobPriority:
+              type: string
             mpiReplicaSpecs:
               properties:
                 Launcher:
