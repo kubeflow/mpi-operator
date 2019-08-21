@@ -1046,6 +1046,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 		},
 		Spec: podgroupv1alpha1.PodGroupSpec{
 			MinMember: minAvailableReplicas,
+			PriorityClassName: *mpiJob.Spec.JobPriority,
 		},
 	}
 }
