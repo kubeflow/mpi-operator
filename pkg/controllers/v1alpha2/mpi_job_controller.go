@@ -17,6 +17,7 @@ package v1alpha2
 import (
 	"bytes"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"time"
 
@@ -75,6 +76,8 @@ const (
 	labelGroupName      = "group_name"
 	labelMPIJobName     = "mpi_job_name"
 	labelMPIRoleType    = "mpi_role_type"
+	initContainerCpu    = "100m"
+	initContainerMem    = "512Mi"
 )
 
 const (
@@ -1196,6 +1199,16 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			{
 				Name:      configVolumeName,
 				MountPath: configMountPath,
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(initContainerCpu),
+				corev1.ResourceMemory: resource.MustParse(initContainerMem),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse(initContainerCpu),
+				corev1.ResourceMemory: resource.MustParse(initContainerMem),
 			},
 		},
 	})
