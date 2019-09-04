@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/golang/glog"
 	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
@@ -75,6 +77,8 @@ const (
 	labelGroupName      = "group_name"
 	labelMPIJobName     = "mpi_job_name"
 	labelMPIRoleType    = "mpi_role_type"
+	initContainerCpu    = "100m"
+	initContainerMem    = "512Mi"
 )
 
 const (
@@ -1196,6 +1200,16 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			{
 				Name:      configVolumeName,
 				MountPath: configMountPath,
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(initContainerCpu),
+				corev1.ResourceMemory: resource.MustParse(initContainerMem),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(initContainerCpu),
+				corev1.ResourceMemory: resource.MustParse(initContainerMem),
 			},
 		},
 	})
