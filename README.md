@@ -39,8 +39,7 @@ ks apply ${ENVIRONMENT} -c mpi-operator
 Alternatively, you can deploy the operator with default settings without using ksonnet by running the following from the repo:
 
 ```shell
-kubectl create -f deploy/crd/crd-v1alpha2.yaml
-kubectl create -f deploy/
+kubectl create -f deploy/mpi-operator.yaml
 ```
 
 ## Creating an MPI Job
