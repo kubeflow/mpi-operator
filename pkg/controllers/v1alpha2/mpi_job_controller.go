@@ -17,9 +17,10 @@ package v1alpha2
 import (
 	"bytes"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/golang/glog"
 	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
