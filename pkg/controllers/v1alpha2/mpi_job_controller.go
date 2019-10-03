@@ -805,13 +805,6 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
-		} else if launcher.Status.Active > 0 {
-			msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-			err := updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
-			if err != nil {
-				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
-				return err
-			}
 		}
 	}
 
@@ -819,6 +812,15 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
 		if worker.Status.ReadyReplicas > 0 {
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = worker.Status.ReadyReplicas
+		}
+	}
+
+	if launcher != nil && worker != nil && launcher.Status.Active > 0 && worker.Status.ReadyReplicas == *worker.Spec.Replicas {
+		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+		err := updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
+		if err != nil {
+			glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+			return err
 		}
 	}
 
