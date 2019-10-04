@@ -737,7 +737,47 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	f.runExpectError(getKey(mpiJob, t))
 }
 
-func TestLauncherActive(t *testing.T) {
+func TestLauncherActiveWorkerNotReady(t *testing.T) {
+	f := newFixture(t)
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
+	f.setUpMPIJob(mpiJob)
+
+	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpRbac(mpiJob, 1)
+
+	fmjc := newFakeMPIJobController()
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher.Status.Active = 1
+	f.setUpLauncher(launcher)
+
+	worker := newWorker(mpiJob, 8, false)
+	worker.Status.ReadyReplicas = 0
+	f.setUpWorker(worker)
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
+		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
+			Active:    1,
+			Succeeded: 0,
+			Failed:    0,
+		},
+		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
+			Active:    0,
+			Succeeded: 0,
+			Failed:    0,
+		},
+	}
+	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobRunningReason, msg)
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(getKey(mpiJob, t))
+}
+
+func TestLauncherActiveWorkerReady(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
@@ -755,6 +795,7 @@ func TestLauncherActive(t *testing.T) {
 
 	worker := newWorker(mpiJob, 8, false)
 	f.setUpWorker(worker)
+	worker.Status.ReadyReplicas = 8
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
@@ -763,14 +804,14 @@ func TestLauncherActive(t *testing.T) {
 			Failed:    0,
 		},
 		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
-			Active:    0,
+			Active:    8,
 			Succeeded: 0,
 			Failed:    0,
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobRunningReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
