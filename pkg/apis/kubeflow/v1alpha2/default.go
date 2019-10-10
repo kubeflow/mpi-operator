@@ -29,16 +29,18 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
 }
 
-// setDefaults_TypeLauncher sets the default value to launcher.
-func setDefaults_TypeLauncher(spec *common.ReplicaSpec) {
-	// Only a `RestartPolicy` equal to `Never` or `OnFailure` is allowed for `Job`.
-	if spec.RestartPolicy != common.RestartPolicyNever {
-		spec.RestartPolicy = common.RestartPolicyOnFailure
+// setDefaultsTypeLauncher sets the default value to launcher.
+func setDefaultsTypeLauncher(spec *common.ReplicaSpec) {
+	if spec != nil {
+		// Only a `RestartPolicy` equal to `Never` or `OnFailure` is allowed for `Job`.
+		if spec.RestartPolicy != common.RestartPolicyNever {
+			spec.RestartPolicy = common.RestartPolicyOnFailure
+		}
 	}
 }
 
-// setDefaults_TypeWorker sets the default value to worker.
-func setDefaults_TypeWorker(spec *common.ReplicaSpec) {
+// setDefaultsTypeWorker sets the default value to worker.
+func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
 }
 
 func SetDefaults_MPIJob(mpiJob *MPIJob) {
@@ -55,9 +57,8 @@ func SetDefaults_MPIJob(mpiJob *MPIJob) {
 	}
 
 	// set default to Launcher
-	setDefaults_TypeLauncher(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeLauncher])
+	setDefaultsTypeLauncher(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeLauncher])
 
 	// set default to Worker
-	setDefaults_TypeWorker(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeWorker])
-
+	setDefaultsTypeWorker(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeWorker])
 }
