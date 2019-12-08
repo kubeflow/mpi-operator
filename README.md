@@ -29,14 +29,13 @@ mpijobs.kubeflow.org                       4d
 
 If it is not included you can add it as follows:
 
-```
-cd ${KSONNET_APP}
-ks pkg install kubeflow/mpi-job
-ks generate mpi-operator mpi-operator
-ks apply ${ENVIRONMENT} -c mpi-operator
+```bash
+git clone https://github.com/kubeflow/manifests
+cd manifests/mpi-job/mpi-operator
+kustomize build base | kubectl apply -f -
 ```
 
-Alternatively, you can deploy the operator with default settings without using ksonnet by running the following from the repo:
+Alternatively, you can deploy the operator with default settings without using kustomize by running the following from the repo:
 
 ```shell
 kubectl create -f deploy/mpi-operator.yaml
