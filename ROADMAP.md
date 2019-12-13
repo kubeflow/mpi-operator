@@ -7,7 +7,7 @@ This document provides a high-level overview of where MPI Operator will grow in 
 * Decouple the tight dependency on Open MPI and support other collective communication frameworks.
 Related issue: [#12](https://github.com/kubeflow/mpi-operator/issues/12).
 * Support new versions of MPI Operator in [kubeflow/manifests](https://github.com/kubeflow/manifests).
-* Resign different components of MPI Operator to support fault tolerant collective communication frameworks such as [caicloud/ftlib](https://github.com/caicloud/ftlib).
+* Redesign different components of MPI Operator to support fault tolerant collective communication frameworks such as [caicloud/ftlib](https://github.com/caicloud/ftlib).
 * Allow more flexible RBAC when `MPIJob`s so existing RBAC resources can be reused. Related issue: [#20](https://github.com/kubeflow/mpi-operator/issues/20).
 * Support installation of MPI Operator via [Helm](https://github.com/helm/helm). Related issue: [#11](https://github.com/kubeflow/mpi-operator/issues/11).
 * Support [Go modules](https://blog.golang.org/migrating-to-go-modules).
