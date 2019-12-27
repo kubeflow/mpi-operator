@@ -32,7 +32,7 @@ If it is not included you can add it as follows:
 ```bash
 git clone https://github.com/kubeflow/manifests
 cd manifests/mpi-job/mpi-operator
-kustomize build base | kubectl apply -f -
+kubectl kustomize base | kubectl apply -f -
 ```
 
 Alternatively, you can deploy the operator with default settings without using kustomize by running the following from the repo:
