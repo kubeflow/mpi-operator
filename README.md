@@ -8,7 +8,13 @@ The MPI Operator makes it easy to run allreduce-style distributed training.
 
 ## Installation
 
-If you haven’t already done so please follow the [Getting Started Guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
+You can deploy the operator with default settings without using kustomize by running the following from the repo:
+
+```shell
+kubectl create -f deploy/mpi-operator.yaml
+```
+
+Alternatively, if you haven’t already done so please follow the [Getting Started Guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
 
 An alpha version of MPI support was introduced with Kubeflow 0.2.0. You must be using a version of Kubeflow newer than 0.2.0.
 
@@ -33,12 +39,6 @@ If it is not included you can add it as follows:
 git clone https://github.com/kubeflow/manifests
 cd manifests/mpi-job/mpi-operator
 kustomize build base | kubectl apply -f -
-```
-
-Alternatively, you can deploy the operator with default settings without using kustomize by running the following from the repo:
-
-```shell
-kubectl create -f deploy/mpi-operator.yaml
 ```
 
 ## Creating an MPI Job
