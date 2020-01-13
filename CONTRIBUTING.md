@@ -4,7 +4,7 @@ Welcome to MPI Operator's contributing guide!
 
 ## Set Up Development Environment
 
-If you haven't done so, please follow the instructions [here](https://help.github.com/en/github/getting-started-with-github/fork-a-repo) to fork and clone the repository, and then configure the remote repository to the cloned repository locally. Note that you'd probably want to clone your forked repository to be under your [`GOPATH`](https://github.com/golang/go/wiki/GOPATH), for example, clone:
+If you haven't done so, please follow the instructions [here](https://help.github.com/en/github/getting-started-with-github/fork-a-repo) to fork and clone the repository, and then configure the remote repository for the repository you just cloned locally. Note that you'd probably want to clone your forked repository to be under your [`GOPATH`](https://github.com/golang/go/wiki/GOPATH), for example,:
 
 ```bash
 mkdir -p ${GOPATH}/src/github.com/kubeflow
