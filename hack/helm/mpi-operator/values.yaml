@@ -1,0 +1,36 @@
+crd:
+  create: false
+
+rbac:
+  # serviceAccountName: service-account-name
+  # clusterRoleName: cluster-role-name
+  clusterResources:
+    create: false
+  namespaced:
+    create: true
+
+deployment:
+  create: true
+  gpusPerNode: 1  # for mpioperator 0.2.0
+
+image:
+  deployment:
+    replicas: 1
+    repository: mpioperator/mpi-operator
+    tag: 0.2.0
+    pullPolicy: IfNotPresent
+  kubectlDelivery:
+    repository: mpioperator/kubectl-delivery
+    tag: 0.2.0
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi

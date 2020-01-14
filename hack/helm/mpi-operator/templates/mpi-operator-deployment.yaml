@@ -1,0 +1,45 @@
+{{- if .Values.deployment.create }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "mpi-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "mpi-operator.name" . }}
+    chart: {{ template "mpi-operator.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ template "mpi-operator.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "mpi-operator.name" . }}
+        chart: {{ template "mpi-operator.chart" . }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+        component: mpi-operator
+    spec:
+      serviceAccountName: {{ template "mpi-operator.serviceAccountName" . }}
+      containers:
+      - name: {{ template "mpi-operator.fullname" . }}
+        image: "{{ .Values.image.deployment.repository }}:{{ .Values.image.deployment.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args: [
+          "-alsologtostderr",
+          "--gpus-per-node",
+          "{{ .Values.deployment.gpusPerNode }}",
+          "--kubectl-delivery-image",
+          "{{ .Values.image.kubectlDelivery.repository }}:{{ .Values.image.kubectlDelivery.tag }}",
+          "--namespace",
+          "{{ .Release.Namespace }}"
+        ]
+        env:
+        - name: KUBEFLOW_NAMESPACE
+          value: {{ .Release.Namespace }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+{{- end }}
