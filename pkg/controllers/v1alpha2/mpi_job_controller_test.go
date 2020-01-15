@@ -22,8 +22,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -190,35 +190,59 @@ func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, i
 	c.recorder = &record.FakeRecorder{}
 
 	for _, configMap := range f.configMapLister {
-		k8sI.Core().V1().ConfigMaps().Informer().GetIndexer().Add(configMap)
+		err := k8sI.Core().V1().ConfigMaps().Informer().GetIndexer().Add(configMap)
+		if err != nil {
+			fmt.Println("Failed to create config map")
+		}
 	}
 
 	for _, serviceAccount := range f.serviceAccountLister {
-		k8sI.Core().V1().ServiceAccounts().Informer().GetIndexer().Add(serviceAccount)
+		err := k8sI.Core().V1().ServiceAccounts().Informer().GetIndexer().Add(serviceAccount)
+		if err != nil {
+			fmt.Println("Failed to create service account")
+		}
 	}
 
 	for _, role := range f.roleLister {
-		k8sI.Rbac().V1().Roles().Informer().GetIndexer().Add(role)
+		err := k8sI.Rbac().V1().Roles().Informer().GetIndexer().Add(role)
+		if err != nil {
+			fmt.Println("Failed to create role")
+		}
 	}
 
 	for _, roleBinding := range f.roleBindingLister {
-		k8sI.Rbac().V1().RoleBindings().Informer().GetIndexer().Add(roleBinding)
+		err := k8sI.Rbac().V1().RoleBindings().Informer().GetIndexer().Add(roleBinding)
+		if err != nil {
+			fmt.Println("Failed to create role binding")
+		}
 	}
 
 	for _, statefulSet := range f.statefulSetLister {
-		k8sI.Apps().V1().StatefulSets().Informer().GetIndexer().Add(statefulSet)
+		err := k8sI.Apps().V1().StatefulSets().Informer().GetIndexer().Add(statefulSet)
+		if err != nil {
+			fmt.Println("Failed to create stateful set")
+		}
 	}
 
 	for _, job := range f.jobLister {
-		k8sI.Batch().V1().Jobs().Informer().GetIndexer().Add(job)
+		err := k8sI.Batch().V1().Jobs().Informer().GetIndexer().Add(job)
+		if err != nil {
+			fmt.Println("Failed to create job")
+		}
 	}
 
 	for _, podGroup := range f.podGroupLister {
-		podgroupsInformer.Informer().GetIndexer().Add(podGroup)
+		err := podgroupsInformer.Informer().GetIndexer().Add(podGroup)
+		if err != nil {
+			fmt.Println("Failed to create pod group")
+		}
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
-		i.Kubeflow().V1alpha2().MPIJobs().Informer().GetIndexer().Add(mpiJob)
+		err := i.Kubeflow().V1alpha2().MPIJobs().Informer().GetIndexer().Add(mpiJob)
+		if err != nil {
+			fmt.Println("Failed to create mpijob")
+		}
 	}
 
 	return c, i, k8sI
@@ -292,6 +316,7 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		return
 	}
 
+	//nolint
 	switch a := actual.(type) {
 	case core.UpdateAction:
 		e, _ := expected.(core.UpdateAction)
@@ -369,52 +394,12 @@ func filterInformerActions(actions []core.Action) []core.Action {
 	return ret
 }
 
-func (f *fixture) expectCreateConfigMapAction(d *corev1.ConfigMap) {
-	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "configmaps"}, d.Namespace, d))
-}
-
-func (f *fixture) expectUpdateConfigMapAction(d *corev1.ConfigMap) {
-	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "configmaps"}, d.Namespace, d))
-}
-
-func (f *fixture) expectCreateServiceAccountAction(d *corev1.ServiceAccount) {
-	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "serviceaccounts"}, d.Namespace, d))
-}
-
-func (f *fixture) expectUpdateServiceAccountAction(d *corev1.ServiceAccount) {
-	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "serviceaccounts"}, d.Namespace, d))
-}
-
-func (f *fixture) expectCreateRoleAction(d *rbacv1.Role) {
-	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "roles"}, d.Namespace, d))
-}
-
-func (f *fixture) expectUpdateRoleAction(d *rbacv1.Role) {
-	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "roles"}, d.Namespace, d))
-}
-
-func (f *fixture) expectCreateRoleBindingAction(d *rbacv1.RoleBinding) {
-	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "rolebindings"}, d.Namespace, d))
-}
-
-func (f *fixture) expectUpdateRoleBindingAction(d *rbacv1.RoleBinding) {
-	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "rolebindings"}, d.Namespace, d))
-}
-
-func (f *fixture) expectCreateStatefulSetAction(d *appsv1.StatefulSet) {
-	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "statefulsets"}, d.Namespace, d))
-}
-
 func (f *fixture) expectUpdateStatefulSetAction(d *appsv1.StatefulSet) {
 	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "statefulsets"}, d.Namespace, d))
 }
 
 func (f *fixture) expectCreateJobAction(d *batchv1.Job) {
 	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "jobs"}, d.Namespace, d))
-}
-
-func (f *fixture) expectUpdateJobAction(d *batchv1.Job) {
-	f.kubeActions = append(f.kubeActions, core.NewUpdateAction(schema.GroupVersionResource{Resource: "jobs"}, d.Namespace, d))
 }
 
 func (f *fixture) expectUpdateMPIJobStatusAction(mpiJob *kubeflow.MPIJob) {
@@ -561,8 +546,10 @@ func TestLauncherSucceeded(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, common.JobSucceeded, mpiJobSucceededReason, msg)
-
+	err := updateMPIJobConditions(mpiJobCopy, common.JobSucceeded, mpiJobSucceededReason, msg)
+	if err != nil {
+		t.Errorf("Failed to update MPIJob conditions")
+	}
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -600,7 +587,10 @@ func TestLauncherFailed(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
 	msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
+	err := updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
+	if err != nil {
+		t.Errorf("Failed to update MPIJob conditions")
+	}
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -683,7 +673,10 @@ func TestShutdownWorker(t *testing.T) {
 
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
+	err := updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
+	if err != nil {
+		t.Errorf("Failed to update MPIJob conditions")
+	}
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := newFakeMPIJobController()
@@ -809,7 +802,10 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
+	err := updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
+	if err != nil {
+		t.Errorf("Failed to update MPIJob conditions")
+	}
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -849,7 +845,10 @@ func TestLauncherRestarting(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, common.JobRestarting, mpiJobRestartingReason, msg)
+	err := updateMPIJobConditions(mpiJobCopy, common.JobRestarting, mpiJobRestartingReason, msg)
+	if err != nil {
+		t.Errorf("Failed to update MPIJob conditions")
+	}
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))

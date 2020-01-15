@@ -11,14 +11,13 @@ before_install:
 install:
 - go get -t -d ./...
 - go get github.com/mattn/goveralls
-- go get -u github.com/alecthomas/gometalinter
-- gometalinter --install
+- curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.22.2
 
 script:
 - ./hack/verify-codegen.sh
 - go build -o mpi-operator.v1alpha1 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha1
 - go build -o mpi-operator.v1alpha2 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
-- gometalinter --config=linter_config.json --vendor ./...
+- golangci-lint run
 - goveralls -service=travis-ci -v -package ./pkg/... -ignore "pkg/client/*/*.go,pkg/client/*/*/*.go,pkg/client/*/*/*/*.go,pkg/client/*/*/*/*/*.go,pkg/client/*/*/*/*/*/*.go,pkg/client/*/*/*/*/*/*/*.go,pkg/apis/tensorflow/*/zz_generated.*.go,pkg/apis/kubeflow/*/*_generated.go"
 
 notifications:
