@@ -2,7 +2,7 @@ language: go
 go_import_path: github.com/kubeflow/mpi-operator
 
 go:
-- 1.11.4
+- 1.12
 
 before_install:
 - DEP_RELEASE_TAG=v0.5.0 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
@@ -14,6 +14,7 @@ install:
 - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.22.2
 
 script:
+- export GO111MODULE=on
 - ./hack/verify-codegen.sh
 - go build -o mpi-operator.v1alpha1 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha1
 - go build -o mpi-operator.v1alpha2 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2

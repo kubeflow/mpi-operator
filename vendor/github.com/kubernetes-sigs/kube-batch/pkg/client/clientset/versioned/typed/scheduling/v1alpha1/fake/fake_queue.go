@@ -94,17 +94,6 @@ func (c *FakeQueues) Update(queue *v1alpha1.Queue) (result *v1alpha1.Queue, err 
 	return obj.(*v1alpha1.Queue), err
 }
 
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeQueues) UpdateStatus(queue *v1alpha1.Queue) (*v1alpha1.Queue, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(queuesResource, "status", queue), &v1alpha1.Queue{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.Queue), err
-}
-
 // Delete takes name of the queue and deletes it. Returns an error if one occurs.
 func (c *FakeQueues) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
@@ -123,7 +112,7 @@ func (c *FakeQueues) DeleteCollection(options *v1.DeleteOptions, listOptions v1.
 // Patch applies the patch and returns the patched queue.
 func (c *FakeQueues) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Queue, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(queuesResource, name, pt, data, subresources...), &v1alpha1.Queue{})
+		Invokes(testing.NewRootPatchSubresourceAction(queuesResource, name, data, subresources...), &v1alpha1.Queue{})
 	if obj == nil {
 		return nil, err
 	}
