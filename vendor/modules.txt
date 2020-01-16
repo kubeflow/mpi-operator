@@ -55,7 +55,7 @@ github.com/imdario/mergo
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kubeflow/common v0.0.0-20190619012831-09e1ac17011c
+# github.com/kubeflow/common v0.0.0-20200116014622-88a0cd071cf1
 github.com/kubeflow/common/job_controller/api/v1
 # github.com/kubernetes-sigs/kube-batch v0.4.2
 github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1

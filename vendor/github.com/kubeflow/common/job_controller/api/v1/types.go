@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 // JobStatus represents the current observed state of the training Job.
 type JobStatus struct {
@@ -44,10 +45,12 @@ type JobStatus struct {
 	LastReconcileTime *metav1.Time `json:"lastReconcileTime,omitempty"`
 }
 
+// +k8s:openapi-gen=true
 // ReplicaType represents the type of the replica. Each operator needs to define its
 // own set of ReplicaTypes.
 type ReplicaType string
 
+// +k8s:openapi-gen=true
 // ReplicaStatus represents the current observed state of the replica.
 type ReplicaStatus struct {
 	// The number of actively running pods.
@@ -60,6 +63,7 @@ type ReplicaStatus struct {
 	Failed int32 `json:"failed,omitempty"`
 }
 
+// +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 // ReplicaSpec is a description of the replica
 type ReplicaSpec struct {
@@ -78,6 +82,7 @@ type ReplicaSpec struct {
 	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty"`
 }
 
+// +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 // JobCondition describes the state of the job at a certain point.
 type JobCondition struct {
@@ -126,6 +131,7 @@ const (
 	JobFailed JobConditionType = "Failed"
 )
 
+// +k8s:openapi-gen=true
 // CleanPodPolicy describes how to deal with pods when the job is finished.
 type CleanPodPolicy string
 
