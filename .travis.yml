@@ -11,6 +11,7 @@ install:
 
 script:
 - export GO111MODULE=on
+- export GOFLAGS=-mod=vendor
 - go build -o mpi-operator.v1alpha1 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha1
 - go build -o mpi-operator.v1alpha2 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
 - ./bin/golangci-lint run
