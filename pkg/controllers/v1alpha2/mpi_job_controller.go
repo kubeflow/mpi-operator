@@ -59,26 +59,27 @@ import (
 )
 
 const (
-	controllerAgentName = "mpi-job-controller"
-	configSuffix        = "-config"
-	configVolumeName    = "mpi-job-config"
-	configMountPath     = "/etc/mpi"
-	kubexecScriptName   = "kubexec.sh"
-	hostfileName        = "hostfile"
-	kubectlDeliveryName = "kubectl-delivery"
-	kubectlTargetDirEnv = "TARGET_DIR"
-	kubectlVolumeName   = "mpi-job-kubectl"
-	kubectlMountPath    = "/opt/kube"
-	launcher            = "launcher"
-	worker              = "worker"
-	launcherSuffix      = "-launcher"
-	workerSuffix        = "-worker"
-	gpuResourceName     = "nvidia.com/gpu"
-	labelGroupName      = "group_name"
-	labelMPIJobName     = "mpi_job_name"
-	labelMPIRoleType    = "mpi_role_type"
-	initContainerCpu    = "100m"
-	initContainerMem    = "512Mi"
+	controllerAgentName     = "mpi-job-controller"
+	configSuffix            = "-config"
+	configVolumeName        = "mpi-job-config"
+	configMountPath         = "/etc/mpi"
+	kubexecScriptName       = "kubexec.sh"
+	hostfileName            = "hostfile"
+	kubectlDeliveryName     = "kubectl-delivery"
+	kubectlTargetDirEnv     = "TARGET_DIR"
+	kubectlVolumeName       = "mpi-job-kubectl"
+	kubectlMountPath        = "/opt/kube"
+	launcher                = "launcher"
+	worker                  = "worker"
+	launcherSuffix          = "-launcher"
+	workerSuffix            = "-worker"
+	gpuResourceName         = "nvidia.com/gpu"
+	labelGroupName          = "group_name"
+	labelMPIJobName         = "mpi_job_name"
+	labelMPIRoleType        = "mpi_role_type"
+	initContainerCpu        = "100m"
+	initContainerEphStorage = "5Gi"
+	initContainerMem        = "512Mi"
 )
 
 const (
@@ -1206,12 +1207,14 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		},
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(initContainerCpu),
-				corev1.ResourceMemory: resource.MustParse(initContainerMem),
+				corev1.ResourceCPU:              resource.MustParse(initContainerCpu),
+				corev1.ResourceMemory:           resource.MustParse(initContainerMem),
+				corev1.ResourceEphemeralStorage: resource.MustParse(initContainerEphStorage),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(initContainerCpu),
-				corev1.ResourceMemory: resource.MustParse(initContainerMem),
+				corev1.ResourceCPU:              resource.MustParse(initContainerCpu),
+				corev1.ResourceMemory:           resource.MustParse(initContainerMem),
+				corev1.ResourceEphemeralStorage: resource.MustParse(initContainerEphStorage),
 			},
 		},
 	})
