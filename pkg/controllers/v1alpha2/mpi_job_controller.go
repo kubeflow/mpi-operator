@@ -1224,6 +1224,17 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		corev1.EnvVar{
 			Name:  "OMPI_MCA_orte_default_hostfile",
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
+		},
+		// We overwrite these environment variables so that users will not
+		// be mistakenly using GPU resources for launcher due to potential
+		// issues with scheduler/container technologies.
+		corev1.EnvVar{
+			Name:  "NVIDIA_VISIBLE_DEVICES",
+			Value: "",
+		},
+		corev1.EnvVar{
+			Name:  "NVIDIA_DRIVER_CAPABILITIES",
+			Value: "",
 		})
 
 	container.VolumeMounts = append(container.VolumeMounts,
