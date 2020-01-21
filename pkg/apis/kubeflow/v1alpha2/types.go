@@ -64,6 +64,11 @@ type MPIJobSpec struct {
 	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
 	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
+
+	// Describes worker commands. Workers run this command when get started.
+	// Defaults to "sleep 365d"
+	// +optional
+	WorkerCommand string `json:"workerCommand,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
