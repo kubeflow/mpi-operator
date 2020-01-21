@@ -138,6 +138,8 @@ type MPIJobController struct {
 	kubectlDeliveryImage string
 	// Whether to enable gang scheduling by kube-batch
 	enableGangScheduling bool
+	// Name of the main container which runs the MPI code.
+	mainContainer string
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -157,7 +159,8 @@ func NewMPIJobController(
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
-	enableGangScheduling bool) *MPIJobController {
+	enableGangScheduling bool,
+	mainContainer string) *MPIJobController {
 
 	// Create event broadcaster.
 	glog.V(4).Info("Creating event broadcaster")
@@ -197,6 +200,7 @@ func NewMPIJobController(
 		recorder:             recorder,
 		kubectlDeliveryImage: kubectlDeliveryImage,
 		enableGangScheduling: enableGangScheduling,
+		mainContainer:        mainContainer,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -637,7 +641,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas))
+		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas, c.mainContainer))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -917,13 +921,16 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
+func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, mainContainer string) *corev1.ConfigMap {
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
 shift
-%s/kubectl exec ${POD_NAME} -- /bin/sh -c "$*"
-`, kubectlMountPath)
+%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+	if len(mainContainer) > 0 {
+		kubexec = fmt.Sprintf("%s --container %s", kubexec, mainContainer)
+	}
+	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"$*\"", kubexec)
 
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1

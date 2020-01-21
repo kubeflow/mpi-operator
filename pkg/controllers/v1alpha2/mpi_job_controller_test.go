@@ -605,7 +605,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, 8)
+	configMap := newConfigMap(mpiJob, 8, "")
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
@@ -620,7 +620,7 @@ func TestServiceAccountNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, ""))
 
 	serviceAccount := newLauncherServiceAccount(mpiJob)
 	serviceAccount.OwnerReferences = nil
@@ -637,7 +637,7 @@ func TestRoleNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, ""))
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 
 	role := newLauncherRole(mpiJob, 8)
@@ -655,7 +655,7 @@ func TestRoleBindingNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, ""))
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 	f.setUpRole(newLauncherRole(mpiJob, 8))
 
@@ -720,7 +720,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, ""))
 	f.setUpRbac(mpiJob, 8)
 
 	worker := newWorker(mpiJob, 8, false)
@@ -738,7 +738,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpConfigMap(newConfigMap(mpiJob, 1, ""))
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := newFakeMPIJobController()
@@ -776,7 +776,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpConfigMap(newConfigMap(mpiJob, 1, ""))
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := newFakeMPIJobController()
@@ -819,7 +819,7 @@ func TestLauncherRestarting(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpConfigMap(newConfigMap(mpiJob, 1, ""))
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := newFakeMPIJobController()
@@ -862,7 +862,7 @@ func TestWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(16), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 16))
+	f.setUpConfigMap(newConfigMap(mpiJob, 16, ""))
 	f.setUpRbac(mpiJob, 16)
 
 	worker := newWorker(mpiJob, 16, false)
