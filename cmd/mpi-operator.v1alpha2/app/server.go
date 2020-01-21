@@ -204,9 +204,18 @@ func Run(opt *options.ServerOption) error {
 		RenewDeadline: renewDuration,
 		RetryPeriod:   retryPeriod,
 		Callbacks: election.LeaderCallbacks{
-			OnStartedLeading: run,
+			OnStartedLeading: func(ctx context.Context) {
+				glog.Infof("Leading started")
+				run(ctx)
+			},
 			OnStoppedLeading: func() {
-				glog.Fatalf("leader election lost")
+				glog.Fatalf("Leader election stopped")
+			},
+			OnNewLeader: func(identity string) {
+				if identity == id {
+					return
+				}
+				glog.Infof("New leader has been elected: %s", identity)
 			},
 		},
 		Name: "mpi-operator",
