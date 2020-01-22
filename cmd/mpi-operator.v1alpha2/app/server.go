@@ -182,10 +182,8 @@ func Run(opt *options.ServerOption) error {
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: "mpi-operator"})
 
-	var checks []healthz.HealthChecker
-	var electionChecker *election.HealthzAdaptor
-	electionChecker = election.NewLeaderHealthzAdaptor(leaderHealthzAdaptorTimeout)
-
+	var electionChecker *election.HealthzAdaptor = election.NewLeaderHealthzAdaptor(leaderHealthzAdaptorTimeout)
+	var checks []healthz.HealthzChecker = nil
 	checks = append(checks, electionChecker)
 
 	mux := http.NewServeMux()
