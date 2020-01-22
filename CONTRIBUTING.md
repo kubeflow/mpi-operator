@@ -14,7 +14,7 @@ git clone https://github.com/${GITHUB_USER}/mpi-operator.git
 
 ## Install Dependencies
 
-We are currently using [dep](https://github.com/golang/dep) to download and install the dependencies. Please install `dep` and then run `dep ensure`. Any changes in dependencies should be modified in [Gopkg.toml](https://github.com/kubeflow/mpi-operator/blob/master/Gopkg.toml) and then [Gopkg.lock](https://github.com/kubeflow/mpi-operator/blob/master/Gopkg.lock) will be automatically generated via `dep ensure`.
+We use Go v1.12+ for development and use [Go Modules](https://blog.golang.org/using-go-modules) to download and install the dependencies. Note that we also generated the vendor directories so that older versions of Go can also consume the dependencies. If there are any changes in dependencies, please run `go mod vendor` to re-generate the vendor directories.
 
 ## Run Unit Test
 
@@ -22,4 +22,4 @@ You can execute all the unit tests via `go test ./...`.
 
 ## Check Code Style
 
-We use [gofmt](https://golang.org/cmd/gofmt/) to check and fix issues on code style. Please also check out [this wiki](https://github.com/golang/go/wiki/CodeReviewComments) for some additional instructions on code review.
+We use [golangci-lint](https://github.com/golangci/golangci-lint) to check issues on code style. Please also check out [this wiki](https://github.com/golang/go/wiki/CodeReviewComments) for some additional instructions on code review.
