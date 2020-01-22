@@ -17,6 +17,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apiserver/pkg/server/healthz"
 	kubeinformers "k8s.io/client-go/informers"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
@@ -174,6 +176,28 @@ func Run(opt *options.ServerOption) error {
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: "mpi-operator"})
 
+	var checks []healthz.HealthChecker
+	var electionChecker *election.HealthzAdaptor
+	electionChecker = election.NewLeaderHealthzAdaptor(time.Second * 20)
+
+	checks = append(checks, electionChecker)
+
+	mux := http.NewServeMux()
+	healthz.InstallPathHandler(mux, "/healthz", checks...)
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	go func() {
+		glog.Infof("Start listening to %d for health check", port)
+
+		if err := server.ListenAndServe(); err != nil {
+			glog.Fatalf("Error starting server for health check: %v", err)
+		}
+	}()
+
 	rl := &resourcelock.EndpointsLock{
 		EndpointsMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -218,7 +242,8 @@ func Run(opt *options.ServerOption) error {
 				glog.Infof("New leader has been elected: %s", identity)
 			},
 		},
-		Name: "mpi-operator",
+		Name:     "mpi-operator",
+		WatchDog: electionChecker,
 	})
 
 	return fmt.Errorf("finished without leader elect")
