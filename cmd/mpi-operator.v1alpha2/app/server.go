@@ -60,6 +60,12 @@ var (
 	leaseDuration = 15 * time.Second
 	renewDuration = 5 * time.Second
 	retryPeriod   = 3 * time.Second
+	// leader election health check
+	healthCheckPort = 8080
+	// This is the timeout that determines the time beyond the lease expiry to be
+	// allowed for timeout. Checks within the timeout period after the lease
+	// expires will still return healthy.
+	leaderHealthzAdaptorTimeout = time.Second * 20
 )
 
 func Run(opt *options.ServerOption) error {
@@ -178,7 +184,7 @@ func Run(opt *options.ServerOption) error {
 
 	var checks []healthz.HealthChecker
 	var electionChecker *election.HealthzAdaptor
-	electionChecker = election.NewLeaderHealthzAdaptor(time.Second * 20)
+	electionChecker = election.NewLeaderHealthzAdaptor(leaderHealthzAdaptorTimeout)
 
 	checks = append(checks, electionChecker)
 
@@ -186,12 +192,12 @@ func Run(opt *options.ServerOption) error {
 	healthz.InstallPathHandler(mux, "/healthz", checks...)
 
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf(":%d", healthCheckPort),
 		Handler: mux,
 	}
 
 	go func() {
-		glog.Infof("Start listening to %d for health check", port)
+		glog.Infof("Start listening to %d for health check", healthCheckPort)
 
 		if err := server.ListenAndServe(); err != nil {
 			glog.Fatalf("Error starting server for health check: %v", err)
