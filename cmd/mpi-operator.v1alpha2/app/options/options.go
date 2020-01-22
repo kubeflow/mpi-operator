@@ -29,7 +29,6 @@ type ServerOption struct {
 	PrintVersion         bool
 	EnableGangScheduling bool
 	Namespace            string
-	MainContainer        string
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -60,7 +59,4 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&s.PrintVersion, "version", false, "Show version and quit")
 
 	fs.BoolVar(&s.EnableGangScheduling, "enable-gang-scheduling", false, "Set true to enable gang scheduling by kube-batch.")
-
-	fs.StringVar(&s.MainContainer, "mainContainer", "",
-		"Name of the main container which runs the MPI code")
 }
