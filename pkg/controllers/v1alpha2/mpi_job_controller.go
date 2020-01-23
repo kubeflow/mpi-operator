@@ -1081,8 +1081,10 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, enableGangSchedul
 	podSpec.Spec.RestartPolicy = corev1.RestartPolicyAlways
 
 	container := podSpec.Spec.Containers[0]
-	container.Command = []string{"sleep"}
-	container.Args = []string{"365d"}
+	if len(container.Command) == 0 {
+		container.Command = []string{"sleep"}
+		container.Args = []string{"365d"}
+	}
 
 	// We need the kubexec.sh script here because Open MPI checks for the path
 	// in every rank.
