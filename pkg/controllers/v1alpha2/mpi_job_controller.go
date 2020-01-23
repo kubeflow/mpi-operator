@@ -138,8 +138,6 @@ type MPIJobController struct {
 	kubectlDeliveryImage string
 	// Whether to enable gang scheduling by kube-batch
 	enableGangScheduling bool
-	// Name of the main container which runs the MPI code.
-	mainContainer string
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -159,8 +157,7 @@ func NewMPIJobController(
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
-	enableGangScheduling bool,
-	mainContainer string) *MPIJobController {
+	enableGangScheduling bool) *MPIJobController {
 
 	// Create event broadcaster.
 	glog.V(4).Info("Creating event broadcaster")
@@ -200,7 +197,6 @@ func NewMPIJobController(
 		recorder:             recorder,
 		kubectlDeliveryImage: kubectlDeliveryImage,
 		enableGangScheduling: enableGangScheduling,
-		mainContainer:        mainContainer,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -927,8 +923,8 @@ set -x
 POD_NAME=$1
 shift
 %s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	if len(mpiJob.MainContainer) > 0 {
-		kubexec = fmt.Sprintf("%s --container %s", kubexec, mainContainer)
+	if len(mpiJob.Spec.MainContainer) > 0 {
+		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
 	}
 	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"$*\"", kubexec)
 
