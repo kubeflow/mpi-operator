@@ -923,8 +923,11 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 set -x
 POD_NAME=$1
 shift
-%s/kubectl exec ${POD_NAME} -- /bin/sh -c "$*"
-`, kubectlMountPath)
+%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+	if len(mpiJob.Spec.MainContainer) > 0 {
+		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
+	}
+	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"$*\"", kubexec)
 
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1
