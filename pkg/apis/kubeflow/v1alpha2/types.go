@@ -44,13 +44,11 @@ type MPIJobSpec struct {
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
-	// TODO: Move this to `RunPolicy` in common operator, see discussion in https://github.com/kubeflow/tf-operator/issues/960
 	// Specifies the number of retries before marking this job failed.
 	// Defaults to 6.
 	// +optional
 	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
 
-	// TODO: Move this to `RunPolicy` in common operator, see discussion in https://github.com/kubeflow/tf-operator/issues/960
 	// Specifies the duration in seconds relative to the start time that
 	// the job may be active before the system tries to terminate it.
 	// Note that this takes precedence over `BackoffLimit` field.
@@ -68,6 +66,12 @@ type MPIJobSpec struct {
 	// MainContainer specifies name of the main container which
 	// executes the MPI code.
 	MainContainer string `json:"mainContainer,omitempty"`
+
+	// `RunPolicy` encapsulates various runtime policies of the distributed training
+	// job, for example how to clean up resources and how long the job can stay
+	// active. The policies specified in `RunPolicy` take precedence over
+	// the following fields: `BackoffLimit` and `ActiveDeadlineSeconds`.
+	RunPolicy *common.RunPolicy `json:"runPolicy,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
