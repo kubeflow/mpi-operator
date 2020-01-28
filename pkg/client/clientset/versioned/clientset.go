@@ -17,6 +17,8 @@
 package versioned
 
 import (
+	"fmt"
+
 	kubeflowv1alpha1 "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha1"
 	kubeflowv1alpha2 "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
@@ -27,8 +29,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	KubeflowV1alpha1() kubeflowv1alpha1.KubeflowV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Kubeflow() kubeflowv1alpha1.KubeflowV1alpha1Interface
 	KubeflowV1alpha2() kubeflowv1alpha2.KubeflowV1alpha2Interface
 }
 
@@ -42,12 +42,6 @@ type Clientset struct {
 
 // KubeflowV1alpha1 retrieves the KubeflowV1alpha1Client
 func (c *Clientset) KubeflowV1alpha1() kubeflowv1alpha1.KubeflowV1alpha1Interface {
-	return c.kubeflowV1alpha1
-}
-
-// Deprecated: Kubeflow retrieves the default version of KubeflowClient.
-// Please explicitly pick a version.
-func (c *Clientset) Kubeflow() kubeflowv1alpha1.KubeflowV1alpha1Interface {
 	return c.kubeflowV1alpha1
 }
 
@@ -65,9 +59,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 // NewForConfig creates a new Clientset for the given config.
+// If config's RateLimiter is not set and QPS and Burst are acceptable,
+// NewForConfig will generate a rate-limiter in configShallowCopy.
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
+		if configShallowCopy.Burst <= 0 {
+			return nil, fmt.Errorf("Burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset
