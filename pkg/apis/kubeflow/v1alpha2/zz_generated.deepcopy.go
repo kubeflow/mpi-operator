@@ -122,6 +122,11 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 			(*out)[key] = outVal
 		}
 	}
+	if in.RunPolicy != nil {
+		in, out := &in.RunPolicy, &out.RunPolicy
+		*out = new(v1.RunPolicy)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

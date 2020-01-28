@@ -20,7 +20,10 @@ set -o pipefail
 
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
 
-vendor/k8s.io/code-generator/generate-groups.sh "deepcopy,client,informer,lister" \
+# Note that we use code-generator from `${GOPATH}/pkg/mod/` because we cannot vendor it
+# via `go mod vendor` to the project's /vendor directory.
+# Reference: https://github.com/kubernetes/code-generator/issues/57
+${GOPATH}/pkg/mod/k8s.io/code-generator@v0.17.1/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \
   kubeflow:v1alpha1,v1alpha2 \
   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
