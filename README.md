@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/mpi-operator)](https://goreportcard.com/report/github.com/kubeflow/mpi-operator)
 
 
-The MPI Operator makes it easy to run allreduce-style distributed training.
+The MPI Operator makes it easy to run allreduce-style distributed training on Kubernetes. Please check out the list of adopters [here](./ADOPTERS.md).
 
 ## Installation
 
