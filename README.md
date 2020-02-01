@@ -16,7 +16,7 @@ cd mpi-operator
 kubectl create -f deploy/mpi-operator.yaml
 ```
 
-Alternatively, follow the [getting started guide](docs/started/getting-started/) to deploy Kubeflow.
+Alternatively, follow the [getting started guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
 
 An alpha version of MPI support was introduced with Kubeflow 0.2.0. You must be using a version of Kubeflow newer than 0.2.0.
 
