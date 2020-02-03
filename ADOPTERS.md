@@ -12,5 +12,6 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [CaiCloud](https://caicloud.io/) | [Ce Gao](https://github.com/gaocegege) |
 | [Huawei](https://www.huawei.com/) | [Fei Xu](https://github.com/fisherxu) |
 | [Iguazio](https://www.iguazio.com/) | [Yaron Haviv](https://github.com/yaronha) |
+| [NVIDIA](https://www.nvidia.com/) | [Rong Ou](https://github.com/rongou) |
 | [Pingduoduo](https://en.pinduoduo.com/) | [Shuwen Wang](https://github.com/antshuwen) |
 | [Polyaxon](https://polyaxon.com/) | [Mourad Mourafiq](https://github.com/mouradmourafiq) |
