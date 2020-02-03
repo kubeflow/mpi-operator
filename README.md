@@ -4,17 +4,19 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/mpi-operator)](https://goreportcard.com/report/github.com/kubeflow/mpi-operator)
 
 
-The MPI Operator makes it easy to run allreduce-style distributed training on Kubernetes. Please check out the list of adopters [here](./ADOPTERS.md).
+The MPI Operator makes it easy to run allreduce-style distributed training on Kubernetes. You can check out the [list of adopters of MPI Operator](./ADOPTERS.md).
 
 ## Installation
 
-You can deploy the operator with default settings without using kustomize by running the following from the repo:
+You can deploy the operator with default settings without using `kustomize` by running the following commands:
 
 ```shell
+git clone https://github.com/kubeflow/mpi-operator
+cd mpi-operator
 kubectl create -f deploy/mpi-operator.yaml
 ```
 
-Alternatively, if you haven’t already done so please follow the [Getting Started Guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
+Alternatively, follow the [getting started guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
 
 An alpha version of MPI support was introduced with Kubeflow 0.2.0. You must be using a version of Kubeflow newer than 0.2.0.
 
@@ -43,7 +45,7 @@ kustomize build base | kubectl apply -f -
 
 ## Creating an MPI Job
 
-You can create an MPI job by defining an `MPIJob` config file. See [Tensorflow benchmark example](https://github.com/kubeflow/mpi-operator/blob/master/examples/v1alpha2/tensorflow-benchmarks.yaml) config file for launching a multi-node TensorFlow benchmark training job. You may change the config file based on your requirements.
+You can create an MPI job by defining an `MPIJob` config file. See [TensorFlow benchmark example](https://github.com/kubeflow/mpi-operator/blob/master/examples/v1alpha2/tensorflow-benchmarks.yaml) config file for launching a multi-node TensorFlow benchmark training job. You may change the config file based on your requirements.
 
 ```
 cat examples/v1alpha2/tensorflow-benchmarks.yaml
