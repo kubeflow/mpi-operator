@@ -8,7 +8,7 @@ The MPI Operator makes it easy to run allreduce-style distributed training on Ku
 
 ## Installation
 
-You can deploy the operator with default settings without using `kustomize` by running the following commands:
+You can deploy the operator with default settings by running the following commands:
 
 ```shell
 git clone https://github.com/kubeflow/mpi-operator
@@ -35,11 +35,17 @@ mpijobs.kubeflow.org                       4d
 ...
 ```
 
-If it is not included you can add it as follows:
+If it is not included you can add it as follows using [kustomize](https://github.com/kubernetes-sigs/kustomize):
 
 ```bash
 git clone https://github.com/kubeflow/manifests
 cd manifests/mpi-job/mpi-operator
+kustomize build base | kubectl apply -f -
+```
+
+Note that since Kubernetes v1.14, `kustomize` became a subcommand in `kubectl` so you can also run the following command instead:
+
+```bash
 kubectl kustomize base | kubectl apply -f -
 ```
 
