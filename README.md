@@ -40,7 +40,7 @@ If it is not included you can add it as follows:
 ```bash
 git clone https://github.com/kubeflow/manifests
 cd manifests/mpi-job/mpi-operator
-kustomize build base | kubectl apply -f -
+kubectl kustomize base | kubectl apply -f -
 ```
 
 ## Creating an MPI Job
