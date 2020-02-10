@@ -204,7 +204,7 @@ func Run(opt *options.ServerOption) error {
 
 	rl := &resourcelock.EndpointsLock{
 		EndpointsMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: opt.Namespace,
 			Name:      "mpi-operator",
 		},
 		Client: leaderElectionClientSet.CoreV1(),
