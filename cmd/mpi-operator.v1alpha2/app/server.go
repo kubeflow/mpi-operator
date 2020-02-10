@@ -79,11 +79,14 @@ func Run(opt *options.ServerOption) error {
 		glog.Infof("%s not set, use default namespace", v1alpha2.EnvKubeflowNamespace)
 		namespace = metav1.NamespaceDefault
 	}
+	if opt.Namespace != "" {
+		namespace = opt.Namespace
+	}
 
-	if opt.Namespace == corev1.NamespaceAll {
+	if namespace == corev1.NamespaceAll {
 		glog.Info("Using cluster scoped operator")
 	} else {
-		glog.Infof("Scoping operator to namespace %s", opt.Namespace)
+		glog.Infof("Scoping operator to namespace %s", namespace)
 	}
 
 	// To help debugging, immediately log version.
@@ -112,7 +115,7 @@ func Run(opt *options.ServerOption) error {
 	if err != nil {
 		return err
 	}
-	if !checkCRDExists(mpiJobClientSet, opt.Namespace) {
+	if !checkCRDExists(mpiJobClientSet, namespace) {
 		glog.Info("CRD doesn't exist. Exiting")
 		os.Exit(1)
 	}
@@ -129,14 +132,14 @@ func Run(opt *options.ServerOption) error {
 		var kubeInformerFactory kubeinformers.SharedInformerFactory
 		var kubeflowInformerFactory informers.SharedInformerFactory
 		var kubebatchInformerFactory kubebatchinformers.SharedInformerFactory
-		if opt.Namespace == "" {
+		if namespace == "" {
 			kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 			kubeflowInformerFactory = informers.NewSharedInformerFactory(mpiJobClientSet, 0)
 			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactory(kubeBatchClientSet, 0)
 		} else {
-			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(opt.Namespace))
-			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(opt.Namespace))
-			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactoryWithOptions(kubeBatchClientSet, 0, kubebatchinformers.WithNamespace(opt.Namespace))
+			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
+			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(namespace))
+			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactoryWithOptions(kubeBatchClientSet, 0, kubebatchinformers.WithNamespace(namespace))
 		}
 
 		var podgroupsInformer podgroupsinformer.PodGroupInformer
