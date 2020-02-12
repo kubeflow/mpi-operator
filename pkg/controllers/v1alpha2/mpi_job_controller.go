@@ -1080,6 +1080,9 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gangSchedulerName
 	// always set restartPolicy to restartAlways for statefulset
 	podSpec.Spec.RestartPolicy = corev1.RestartPolicyAlways
 
+	if len(podSpec.Spec.Containers) == 0 {
+		glog.Errorln("Worker pod does not have any containers in its spec")
+	}
 	container := podSpec.Spec.Containers[0]
 	if len(container.Command) == 0 {
 		container.Command = []string{"sleep"}
@@ -1214,6 +1217,9 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			},
 		},
 	})
+	if len(podSpec.Spec.Containers) == 0 {
+		glog.Errorln("Launcher pod does not have any containers in its spec")
+	}
 	container := podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
 		corev1.EnvVar{
