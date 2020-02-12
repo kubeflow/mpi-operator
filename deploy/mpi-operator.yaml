@@ -145,6 +145,14 @@ rules:
   - mpijobs/status
   verbs:
   - "*"
+- apiGroups:
+  - scheduling.incubator.k8s.io
+  - scheduling.sigs.dev
+  resources:
+  - queues
+  - podgroups
+  verbs:
+  - "*"
 ---
 apiVersion: v1
 kind: ServiceAccount
