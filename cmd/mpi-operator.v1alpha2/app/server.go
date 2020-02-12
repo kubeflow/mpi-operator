@@ -143,7 +143,7 @@ func Run(opt *options.ServerOption) error {
 		}
 
 		var podgroupsInformer podgroupsinformer.PodGroupInformer
-		if opt.EnableGangScheduling {
+		if opt.GangSchedulingName != "" {
 			podgroupsInformer = kubebatchInformerFactory.Scheduling().V1alpha1().PodGroups()
 		}
 		controller := controllersv1alpha2.NewMPIJobController(
@@ -159,11 +159,11 @@ func Run(opt *options.ServerOption) error {
 			podgroupsInformer,
 			kubeflowInformerFactory.Kubeflow().V1alpha2().MPIJobs(),
 			opt.KubectlDeliveryImage,
-			opt.EnableGangScheduling)
+			opt.GangSchedulingName)
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
-		if opt.EnableGangScheduling {
+		if opt.GangSchedulingName != "" {
 			go kubebatchInformerFactory.Start(ctx.Done())
 		}
 

@@ -95,9 +95,6 @@ const (
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
-
-	// gang scheduler name.
-	gangSchedulerName = "kube-batch"
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -137,8 +134,8 @@ type MPIJobController struct {
 	recorder record.EventRecorder
 	// The container image used to deliver the kubectl binary.
 	kubectlDeliveryImage string
-	// Whether to enable gang scheduling by kube-batch
-	enableGangScheduling bool
+	// Gang scheduler name to use
+	gangSchedulerName string
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -158,7 +155,7 @@ func NewMPIJobController(
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
-	enableGangScheduling bool) *MPIJobController {
+	gangSchedulerName string) *MPIJobController {
 
 	// Create event broadcaster.
 	glog.V(4).Info("Creating event broadcaster")
@@ -169,7 +166,7 @@ func NewMPIJobController(
 
 	var podgroupsLister podgroupslists.PodGroupLister
 	var podgroupsSynced cache.InformerSynced
-	if enableGangScheduling {
+	if gangSchedulerName != "" {
 		podgroupsLister = podgroupsInformer.Lister()
 		podgroupsSynced = podgroupsInformer.Informer().HasSynced
 	}
@@ -197,7 +194,7 @@ func NewMPIJobController(
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
 		recorder:             recorder,
 		kubectlDeliveryImage: kubectlDeliveryImage,
-		enableGangScheduling: enableGangScheduling,
+		gangSchedulerName:    gangSchedulerName,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -343,7 +340,7 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.serviceAccountSynced, c.roleSynced, c.roleBindingSynced, c.statefulSetSynced, c.jobSynced, c.mpiJobSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
-	if c.enableGangScheduling {
+	if c.gangSchedulerName != "" {
 		if ok := cache.WaitForCacheSync(stopCh, c.podgroupsSynced); !ok {
 			return fmt.Errorf("failed to wait for podgroup caches to sync")
 		}
@@ -477,7 +474,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
 		}
 
-		if c.enableGangScheduling {
+		if c.gangSchedulerName != "" {
 			if err := c.deletePodGroups(mpiJob); err != nil {
 				return err
 			}
@@ -526,7 +523,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 
 		// Get the PodGroup for this MPIJob
-		if c.enableGangScheduling {
+		if c.gangSchedulerName != "" {
 			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas+1); podgroup == nil || err != nil {
 				return err
 			}
@@ -737,7 +734,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, workerReplicas, c.enableGangScheduling))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, workerReplicas, c.gangSchedulerName))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -756,7 +753,7 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 	// If the worker is out of date, update the worker.
 	if worker != nil && *worker.Spec.Replicas != workerReplicas {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, workerReplicas, c.enableGangScheduling))
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, workerReplicas, c.gangSchedulerName))
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
@@ -1063,7 +1060,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 // newWorker creates a new worker StatefulSet for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
-func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, enableGangScheduling bool) *appsv1.StatefulSet {
+func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gangSchedulerName string) *appsv1.StatefulSet {
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  mpiJob.Name,
@@ -1117,14 +1114,11 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, enableGangSchedul
 	})
 
 	// add SchedulerName to podSpec
-	if enableGangScheduling {
+	if gangSchedulerName != "" {
 		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
-			errMsg := fmt.Sprintf(
-				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
-			glog.Warning(errMsg)
-		} else {
-			podSpec.Spec.SchedulerName = gangSchedulerName
+			glog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
 		}
+		podSpec.Spec.SchedulerName = gangSchedulerName
 
 		if podSpec.Annotations == nil {
 			podSpec.Annotations = map[string]string{}
@@ -1174,14 +1168,11 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		podSpec.Labels[key] = value
 	}
 	// add SchedulerName to podSpec
-	if c.enableGangScheduling {
-		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
-			errMsg := fmt.Sprintf(
-				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
-			glog.Warning(errMsg)
-		} else {
-			podSpec.Spec.SchedulerName = gangSchedulerName
+	if c.gangSchedulerName != "" {
+		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != c.gangSchedulerName {
+			glog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
 		}
+		podSpec.Spec.SchedulerName = c.gangSchedulerName
 
 		if podSpec.Annotations == nil {
 			podSpec.Annotations = map[string]string{}
