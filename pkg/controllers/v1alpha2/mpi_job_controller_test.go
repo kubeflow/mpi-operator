@@ -153,7 +153,7 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 	return mpiJob
 }
 
-func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
@@ -176,7 +176,7 @@ func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, i
 		podgroupsInformer,
 		i.Kubeflow().V1alpha2().MPIJobs(),
 		"kubectl-delivery",
-		enableGangScheduling,
+		gangSchedulerName,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -249,15 +249,15 @@ func (f *fixture) newController(enableGangScheduling bool) (*MPIJobController, i
 }
 
 func (f *fixture) run(mpiJobName string) {
-	f.runController(mpiJobName, true, false, false)
+	f.runController(mpiJobName, true, false, "")
 }
 
 func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true, false)
+	f.runController(mpiJobName, true, true, "")
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers bool, expectError, enableGangScheduling bool) {
-	c, i, k8sI := f.newController(enableGangScheduling)
+func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, gangSchedulerName string) {
+	c, i, k8sI := f.newController(gangSchedulerName)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -692,10 +692,10 @@ func TestShutdownWorker(t *testing.T) {
 	)
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, false)
+	worker := newWorker(mpiJob, 8, "")
 	f.setUpWorker(worker)
 
-	expWorker := newWorker(mpiJob, 0, false)
+	expWorker := newWorker(mpiJob, 0, "")
 	f.expectUpdateStatefulSetAction(expWorker)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -723,7 +723,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 8))
 	f.setUpRbac(mpiJob, 8)
 
-	worker := newWorker(mpiJob, 8, false)
+	worker := newWorker(mpiJob, 8, "")
 	worker.OwnerReferences = nil
 	f.setUpWorker(worker)
 
@@ -746,7 +746,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, false)
+	worker := newWorker(mpiJob, 8, "")
 	worker.Status.ReadyReplicas = 0
 	f.setUpWorker(worker)
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -784,7 +784,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, false)
+	worker := newWorker(mpiJob, 8, "")
 	f.setUpWorker(worker)
 	worker.Status.ReadyReplicas = 8
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -828,7 +828,7 @@ func TestLauncherRestarting(t *testing.T) {
 	launcher.Status.Active = 1
 	f.setUpLauncher(launcher)
 
-	worker := newWorker(mpiJob, 8, false)
+	worker := newWorker(mpiJob, 8, "")
 	f.setUpWorker(worker)
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
@@ -865,7 +865,7 @@ func TestWorkerReady(t *testing.T) {
 	f.setUpConfigMap(newConfigMap(mpiJob, 16))
 	f.setUpRbac(mpiJob, 16)
 
-	worker := newWorker(mpiJob, 16, false)
+	worker := newWorker(mpiJob, 16, "")
 	worker.Status.ReadyReplicas = 16
 	f.setUpWorker(worker)
 
