@@ -1193,6 +1193,10 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 				Name:  kubectlTargetDirEnv,
 				Value: kubectlMountPath,
 			},
+			{
+				Name:  "NVIDIA_VISIBLE_DEVICES",
+				Value: "none",
+			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
