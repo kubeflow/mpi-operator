@@ -17,7 +17,7 @@ package options
 import (
 	"flag"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // ServerOption is the main context object for the controller manager.
@@ -27,7 +27,7 @@ type ServerOption struct {
 	KubectlDeliveryImage string
 	Threadiness          int
 	PrintVersion         bool
-	EnableGangScheduling bool
+	GangSchedulingName   string
 	Namespace            string
 }
 
@@ -58,5 +58,5 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&s.PrintVersion, "version", false, "Show version and quit")
 
-	fs.BoolVar(&s.EnableGangScheduling, "enable-gang-scheduling", false, "Set true to enable gang scheduling by kube-batch.")
+	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")
 }
