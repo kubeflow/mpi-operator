@@ -1235,7 +1235,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		// issues with scheduler/container technologies.
 		corev1.EnvVar{
 			Name:  "NVIDIA_VISIBLE_DEVICES",
-			Value: "",
+			Value: "none",
 		},
 		corev1.EnvVar{
 			Name:  "NVIDIA_DRIVER_CAPABILITIES",
