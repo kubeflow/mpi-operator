@@ -4,7 +4,7 @@ WORKDIR /go/src/github.com/kubeflow/mpi-operator/
 COPY . /go/src/github.com/kubeflow/mpi-operator/
 RUN go build -o /bin/mpi-operator github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
 
-FROM alpine:3.10
+FROM gcr.io/distroless/base:latest
 COPY --from=build /bin/mpi-operator /bin/mpi-operator
 ENTRYPOINT ["/bin/mpi-operator"]
 CMD ["--help"]
