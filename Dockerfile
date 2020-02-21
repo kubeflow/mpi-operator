@@ -1,10 +1,10 @@
-FROM golang:1.13.6-alpine3.11 AS build
+FROM golang:1.13.6 AS build
+  
+ADD . /go/src/github.com/kubeflow/mpi-operator
+WORKDIR /go/src/github.com/kubeflow/mpi-operator
+RUN go build -o mpi-operator github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
 
-WORKDIR /go/src/github.com/kubeflow/mpi-operator/
-COPY . /go/src/github.com/kubeflow/mpi-operator/
-RUN go build -o /bin/mpi-operator github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
-
-FROM alpine:3.10
-COPY --from=build /bin/mpi-operator /bin/mpi-operator
-ENTRYPOINT ["/bin/mpi-operator"]
+FROM gcr.io/distroless/base-debian10:latest
+COPY --from=build /go/src/github.com/kubeflow/mpi-operator/mpi-operator /opt/
+ENTRYPOINT ["/opt/mpi-operator"]
 CMD ["--help"]
