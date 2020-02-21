@@ -1187,7 +1187,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
 		Name:            kubectlDeliveryName,
 		Image:           kubectlDeliveryImage,
-		ImagePullPolicy: "Always",
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Env: []corev1.EnvVar{
 			{
 				Name:  kubectlTargetDirEnv,
