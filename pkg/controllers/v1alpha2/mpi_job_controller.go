@@ -993,10 +993,10 @@ func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) *rbacv1.Role
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				Verbs:         []string{"get"},
-				APIGroups:     []string{""},
-				Resources:     []string{"pods"},
-				ResourceNames: podNames,
+				Verbs:     []string{"get", "list", "watch"},
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				//ResourceNames: podNames,
 			},
 			{
 				Verbs:         []string{"create"},
@@ -1192,6 +1192,10 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			{
 				Name:  kubectlTargetDirEnv,
 				Value: kubectlMountPath,
+			},
+			{
+				Name:  "NAMESPACE",
+				Value: mpiJob.Namespace,
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{

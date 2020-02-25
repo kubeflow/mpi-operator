@@ -1,14 +1,10 @@
-FROM alpine:3.10 AS build
+FROM golang:1.13.6-alpine3.11 AS build
 
-# Install kubectl.
-ENV K8S_VERSION v1.15.0
-RUN apk add --no-cache wget
-RUN wget -q https://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/linux/amd64/kubectl
-RUN chmod +x ./kubectl
-RUN mv ./kubectl /bin/kubectl
+WORKDIR /go/src/github.com/kubeflow/mpi-operator/
+COPY . /go/src/github.com/kubeflow/mpi-operator/
+RUN GO111MODULE=off go build -o /bin/kubectl-delivery github.com/kubeflow/mpi-operator/cmd/kubectl-delivery
 
-FROM alpine:3.10
-COPY --from=build /bin/kubectl /bin/kubectl
-RUN apk add --no-cache bash
-COPY deliver_kubectl.sh .
-ENTRYPOINT ["./deliver_kubectl.sh"]
+FROM kubeflow/kubectl:v1.14.10
+COPY --from=build /bin/kubectl-delivery /bin/kubectl-delivery
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["cp /bin/kubectl /opt/kube/kubectl; /bin/kubectl-delivery -alsologtostderr"]
