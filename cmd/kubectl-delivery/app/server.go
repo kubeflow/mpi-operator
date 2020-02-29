@@ -102,7 +102,6 @@ func Run(opt *options.ServerOption) error {
 		line, _, err := bufReader.ReadLine()
 		if err != nil {
 			if err == io.EOF {
-				err = nil
 				break
 			}
 			continue

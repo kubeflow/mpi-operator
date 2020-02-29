@@ -114,7 +114,7 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 	if ok := cache.WaitForCacheSync(stopCh, c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
-	for name, _ := range c.watchedPods {
+	for name := range c.watchedPods {
 		pod, err := c.podLister.Pods(c.namespace).Get(name)
 		if err != nil {
 			continue
@@ -139,14 +139,12 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			return nil
 		case <-ticker.C:
 			if len(c.watchedPods) == 0 {
+				glog.Info("Shutting down workers")
 				return nil
 			}
 			break
 		}
 	}
-	glog.Info("Shutting down workers")
-
-	return nil
 }
 
 // runWorker is a long-running function that will continually call the

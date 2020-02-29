@@ -55,5 +55,5 @@ require (
 	k8s.io/kube-openapi v0.0.0-20190115222348-ced9eb3070a5 // indirect
 	k8s.io/kubernetes v1.13.2 // indirect
 	k8s.io/sample-controller v0.0.0-20181221200518-c3a5aa93b2bf
-	k8s.io/utils v0.0.0-20190809000727-6c36bc71fc4a // indirect
+	k8s.io/utils v0.0.0-20190809000727-6c36bc71fc4a
 )
