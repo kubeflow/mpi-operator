@@ -13,6 +13,6 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [Huawei](https://www.huawei.com/) | [Fei Xu](https://github.com/fisherxu) |
 | [Iguazio](https://www.iguazio.com/) | [Yaron Haviv](https://github.com/yaronha) |
 | [NVIDIA](https://www.nvidia.com/) | [Rong Ou](https://github.com/rongou) |
-| [Pingduoduo](https://en.pinduoduo.com/) | [Shuwen Wang](https://github.com/antshuwen) |
+| [Pinduoduo](https://en.pinduoduo.com/) | [Shuwen Wang](https://github.com/antshuwen) |
 | [Polyaxon](https://polyaxon.com/) | [Mourad Mourafiq](https://github.com/mouradmourafiq) |
 | [Tencent](http://tencent.com/en-us/) | [Lei Xue](https://github.com/carmark) |
