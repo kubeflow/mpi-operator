@@ -71,7 +71,9 @@ rules:
   resources:
   - pods
   verbs:
-  - get,list,watch
+  - get
+  - list
+  - watch
 # This is needed for the launcher Role.
 - apiGroups:
   - ""
