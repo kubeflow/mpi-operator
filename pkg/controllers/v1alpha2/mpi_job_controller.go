@@ -1043,6 +1043,13 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1alpha1.PodGroup {
+	var pName string
+	if l := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher]; l != nil {
+		pName = l.Template.Spec.PriorityClassName
+		if w := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; pName == "" && w != nil {
+			pName = w.Template.Spec.PriorityClassName
+		}
+	}
 	return &podgroupv1alpha1.PodGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name,
@@ -1052,7 +1059,8 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 			},
 		},
 		Spec: podgroupv1alpha1.PodGroupSpec{
-			MinMember: minAvailableReplicas,
+			MinMember:         minAvailableReplicas,
+			PriorityClassName: pName,
 		},
 	}
 }
