@@ -996,7 +996,6 @@ func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) *rbacv1.Role
 				Verbs:     []string{"get", "list", "watch"},
 				APIGroups: []string{""},
 				Resources: []string{"pods"},
-				//ResourceNames: podNames,
 			},
 			{
 				Verbs:         []string{"create"},
