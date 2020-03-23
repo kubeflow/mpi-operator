@@ -16,8 +16,9 @@ package options
 
 import (
 	"flag"
+	"os"
 
-	v1 "k8s.io/api/core/v1"
+	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 )
 
 // ServerOption is the main context object for the controller manager.
@@ -29,6 +30,7 @@ type ServerOption struct {
 	PrintVersion         bool
 	GangSchedulingName   string
 	Namespace            string
+	LockNamespace        string
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -49,7 +51,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&s.KubectlDeliveryImage, "kubectl-delivery-image", "",
 		"The container image used to deliver the kubectl binary.")
 
-	fs.StringVar(&s.Namespace, "namespace", v1.NamespaceAll,
+	fs.StringVar(&s.Namespace, "namespace", os.Getenv(v1alpha2.EnvKubeflowNamespace),
 		`The namespace to monitor mpijobs. If unset, it monitors all namespaces cluster-wide. 
                 If set, it only monitors mpijobs in the given namespace.`)
 
@@ -59,4 +61,6 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&s.PrintVersion, "version", false, "Show version and quit")
 
 	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")
+
+	fs.StringVar(&s.LockNamespace, "lock-namespace", "mpi-operator", "Set locked namespace name while enabling leader election.")
 }

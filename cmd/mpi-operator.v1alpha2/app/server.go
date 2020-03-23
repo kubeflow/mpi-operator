@@ -43,7 +43,6 @@ import (
 	"k8s.io/sample-controller/pkg/signals"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options"
-	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	controllersv1alpha2 "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha2"
@@ -53,6 +52,7 @@ import (
 const (
 	apiVersion                   = "v1alpha2"
 	RecommendedKubeConfigPathEnv = "KUBECONFIG"
+	controllerName               = "mpi-operator"
 )
 
 var (
@@ -74,15 +74,7 @@ func Run(opt *options.ServerOption) error {
 		version.PrintVersionAndExit(apiVersion)
 	}
 
-	namespace := os.Getenv(v1alpha2.EnvKubeflowNamespace)
-	if len(namespace) == 0 {
-		glog.Infof("%s not set, use default namespace", v1alpha2.EnvKubeflowNamespace)
-		namespace = metav1.NamespaceDefault
-	}
-	if opt.Namespace != "" {
-		namespace = opt.Namespace
-	}
-
+	namespace := opt.Namespace
 	if namespace == corev1.NamespaceAll {
 		glog.Info("Using cluster scoped operator")
 	} else {
@@ -132,7 +124,7 @@ func Run(opt *options.ServerOption) error {
 		var kubeInformerFactory kubeinformers.SharedInformerFactory
 		var kubeflowInformerFactory informers.SharedInformerFactory
 		var kubebatchInformerFactory kubebatchinformers.SharedInformerFactory
-		if namespace == "" {
+		if namespace == metav1.NamespaceAll {
 			kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 			kubeflowInformerFactory = informers.NewSharedInformerFactory(mpiJobClientSet, 0)
 			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactory(kubeBatchClientSet, 0)
@@ -183,7 +175,7 @@ func Run(opt *options.ServerOption) error {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: "mpi-operator"})
+	recorder := eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: controllerName})
 
 	var electionChecker *election.HealthzAdaptor = election.NewLeaderHealthzAdaptor(leaderHealthzAdaptorTimeout)
 	var checks []healthz.HealthzChecker = nil
@@ -207,8 +199,8 @@ func Run(opt *options.ServerOption) error {
 
 	rl := &resourcelock.EndpointsLock{
 		EndpointsMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "mpi-operator",
+			Namespace: opt.LockNamespace,
+			Name:      controllerName,
 		},
 		Client: leaderElectionClientSet.CoreV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
