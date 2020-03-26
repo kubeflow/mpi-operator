@@ -15,7 +15,7 @@
 package v1alpha2
 
 import (
-	common "github.com/kubeflow/common/job_controller/api/v1"
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 

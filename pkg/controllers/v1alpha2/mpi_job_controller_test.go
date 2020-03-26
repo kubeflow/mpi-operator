@@ -39,7 +39,7 @@ import (
 	kubebatchfake "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/fake"
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
 
-	common "github.com/kubeflow/common/job_controller/api/v1"
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
