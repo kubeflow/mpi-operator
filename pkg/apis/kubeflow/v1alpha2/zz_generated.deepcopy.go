@@ -19,7 +19,7 @@
 package v1alpha2
 
 import (
-	v1 "github.com/kubeflow/common/job_controller/api/v1"
+	v1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -55,7 +55,7 @@ func (in *MPIJob) DeepCopyObject() runtime.Object {
 func (in *MPIJobList) DeepCopyInto(out *MPIJobList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]MPIJob, len(*in))
