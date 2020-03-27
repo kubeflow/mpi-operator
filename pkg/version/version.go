@@ -21,6 +21,7 @@ import (
 var (
 	Version = "v0.1.0-alpha"
 	GitSHA  = "Not provided."
+	Built   = "Not provided."
 )
 
 // PrintVersionAndExit prints versions from the array returned by Info() and exit
@@ -37,6 +38,7 @@ func Info(apiVersion string) []string {
 		fmt.Sprintf("API Version: %s", apiVersion),
 		fmt.Sprintf("Version: %s", Version),
 		fmt.Sprintf("Git SHA: %s", GitSHA),
+		fmt.Sprintf("Built: %s", Built),
 		fmt.Sprintf("Go Version: %s", runtime.Version()),
 		fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH),
 	}
