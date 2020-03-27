@@ -12,9 +12,7 @@ install:
 script:
 - export GO111MODULE=on
 - export GOFLAGS=-mod=vendor
-- go build -o mpi-operator.v1alpha1 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha1
-- go build -o mpi-operator.v1alpha2 github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
-- go build -o kubectl-delivery github.com/kubeflow/mpi-operator/cmd/kubectl-delivery
+- make
 - ./bin/golangci-lint run
 - goveralls -service=travis-ci -v -package ./pkg/... -ignore "pkg/client/*/*.go,pkg/client/*/*/*.go,pkg/client/*/*/*/*.go,pkg/client/*/*/*/*/*.go,pkg/client/*/*/*/*/*/*.go,pkg/client/*/*/*/*/*/*/*.go,pkg/apis/tensorflow/*/zz_generated.*.go,pkg/apis/kubeflow/*/*_generated.go"
 
