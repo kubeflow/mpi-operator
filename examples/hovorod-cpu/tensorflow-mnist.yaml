@@ -37,7 +37,7 @@ spec:
             - /examples/tensorflow_mnist.py
             resources:
               limits:
-                cpu: "1"
+                cpu: 1
                 memory: 2Gi
     Worker:
       replicas: 2
@@ -50,5 +50,5 @@ spec:
             name: mpi-worker
             resources:
               limits:
-                cpu: "2"
+                cpu: 2
                 memory: 4Gi
