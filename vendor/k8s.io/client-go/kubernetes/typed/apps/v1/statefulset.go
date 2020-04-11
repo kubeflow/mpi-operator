@@ -22,6 +22,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/apps/v1"
+	v1beta2 "k8s.io/api/apps/v1beta2"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -38,13 +39,13 @@ type StatefulSetsGetter interface {
 
 // StatefulSetInterface has methods to work with StatefulSet resources.
 type StatefulSetInterface interface {
-	Create(*v1.StatefulSet) (*v1.StatefulSet, error)
-	Update(*v1.StatefulSet) (*v1.StatefulSet, error)
-	UpdateStatus(*v1.StatefulSet) (*v1.StatefulSet, error)
+	Create(*v1.StatefulSet) (*v1beta2.StatefulSet, error)
+	Update(*v1.StatefulSet) (*v1beta2.StatefulSet, error)
+	UpdateStatus(*v1.StatefulSet) (*v1beta2.StatefulSet, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
 	Get(name string, options metav1.GetOptions) (*v1.StatefulSet, error)
-	List(opts metav1.ListOptions) (*v1.StatefulSetList, error)
+	List(opts metav1.ListOptions) (*v1beta2.StatefulSetList, error)
 	Watch(opts metav1.ListOptions) (watch.Interface, error)
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.StatefulSet, err error)
 	GetScale(statefulSetName string, options metav1.GetOptions) (*autoscalingv1.Scale, error)

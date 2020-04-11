@@ -16,6 +16,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
+	"strconv"
 
 	"github.com/golang/glog"
 
@@ -23,11 +27,26 @@ import (
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options"
 )
 
+func startMonitoring(monitoringPort int) {
+	if monitoringPort != 0 {
+		go func() {
+			glog.Infof("Setting up client for monitoring on port: %s", strconv.Itoa(monitoringPort))
+			http.Handle("/metrics", promhttp.Handler())
+			err := http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(monitoringPort)), nil)
+			if err != nil {
+				glog.Error("Monitoring endpoint setup failure.", err)
+			}
+		}()
+	}
+}
+
 func main() {
 	s := options.NewServerOption()
 	s.AddFlags(flag.CommandLine)
 
 	flag.Parse()
+
+	startMonitoring(s.MonitoringPort)
 
 	if err := app.Run(s); err != nil {
 		glog.Fatalf("%v\n", err)
