@@ -17,6 +17,8 @@ package v1alpha2
 import (
 	"bytes"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"reflect"
 	"time"
 
@@ -95,6 +97,21 @@ const (
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
+)
+
+var (
+	mpiJobsSuccessCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "mpi_operator_jobs_successful_total",
+		Help: "Counts number of MPI jobs successful",
+	})
+	mpiJobsFailureCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "mpi_operator_jobs_failed_total",
+		Help: "Counts number of MPI jobs failed",
+	})
+	mpiJobsRestartCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "mpi_operator_jobs_restarted_total",
+		Help: "Counts number of MPI jobs restarted",
+	})
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -784,6 +801,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
+			mpiJobsSuccessCount.Inc()
 		} else if isJobFailed(launcher) {
 			msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
 			c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, msg)
@@ -796,6 +814,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
+			mpiJobsFailureCount.Inc()
 		} else if launcher.Status.Failed > 0 {
 			msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
 			err := updateMPIJobConditions(mpiJob, common.JobRestarting, mpiJobRestartingReason, msg)
@@ -803,6 +822,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
+			mpiJobsRestartCount.Inc()
 		}
 	}
 
