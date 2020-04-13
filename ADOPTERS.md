@@ -16,4 +16,5 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [NVIDIA](https://www.nvidia.com/) | [Rong Ou](https://github.com/rongou) |
 | [Pinduoduo](https://en.pinduoduo.com/) | [Shuwen Wang](https://github.com/antshuwen) |
 | [Polyaxon](https://polyaxon.com/) | [Mourad Mourafiq](https://github.com/mouradmourafiq) |
+| [Qutoutiao](http://www.qutoutiao.net/) | [Zhaojing Yu](https://github.com/yuzhaojing) |
 | [Tencent](http://tencent.com/en-us/) | [Lei Xue](https://github.com/carmark) |
