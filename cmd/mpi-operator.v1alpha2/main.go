@@ -17,7 +17,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"strconv"
 
@@ -25,6 +24,7 @@ import (
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app"
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func startMonitoring(monitoringPort int) {
