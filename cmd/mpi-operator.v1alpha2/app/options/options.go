@@ -61,7 +61,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&s.PrintVersion, "version", false, "Show version and quit")
 
-	fs.IntVar(&s.MonitoringPort, "monitoring-port", 8443,
+	fs.IntVar(&s.MonitoringPort, "monitoring-port", 0,
 		`Endpoint port for displaying monitoring metrics. It can be set to "0" to disable the metrics serving.`)
 
 	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")

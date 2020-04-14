@@ -18,7 +18,6 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/golang/glog"
 
@@ -30,9 +29,9 @@ import (
 func startMonitoring(monitoringPort int) {
 	if monitoringPort != 0 {
 		go func() {
-			glog.Infof("Setting up client for monitoring on port: %s", strconv.Itoa(monitoringPort))
+			glog.Infof("Setting up client for monitoring on port: %d", monitoringPort)
 			http.Handle("/metrics", promhttp.Handler())
-			err := http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(monitoringPort)), nil)
+			err := http.ListenAndServe(fmt.Sprintf(":%d", monitoringPort), nil)
 			if err != nil {
 				glog.Error("Monitoring endpoint setup failure.", err)
 			}
