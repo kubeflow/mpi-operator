@@ -26,6 +26,8 @@ import (
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
 	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,6 +68,13 @@ var (
 	// allowed for timeout. Checks within the timeout period after the lease
 	// expires will still return healthy.
 	leaderHealthzAdaptorTimeout = time.Second * 20
+)
+
+var (
+	isLeader = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "mpi_operator_is_leader",
+		Help: "Is this client the leader of this mpi-operator client set?",
+	})
 )
 
 func Run(opt *options.ServerOption) error {
@@ -159,6 +168,8 @@ func Run(opt *options.ServerOption) error {
 			go kubebatchInformerFactory.Start(ctx.Done())
 		}
 
+		// Set leader election start function.
+		isLeader.Set(1)
 		if err = controller.Run(opt.Threadiness, stopCh); err != nil {
 			glog.Fatalf("Error running controller: %s", err.Error())
 		}
@@ -232,6 +243,7 @@ func Run(opt *options.ServerOption) error {
 				run(ctx)
 			},
 			OnStoppedLeading: func() {
+				isLeader.Set(0)
 				glog.Fatalf("Leader election stopped")
 			},
 			OnNewLeader: func(identity string) {

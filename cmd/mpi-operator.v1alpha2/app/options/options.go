@@ -27,6 +27,7 @@ type ServerOption struct {
 	MasterURL            string
 	KubectlDeliveryImage string
 	Threadiness          int
+	MonitoringPort       int
 	PrintVersion         bool
 	GangSchedulingName   string
 	Namespace            string
@@ -59,6 +60,9 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 		`How many threads to process the main logic`)
 
 	fs.BoolVar(&s.PrintVersion, "version", false, "Show version and quit")
+
+	fs.IntVar(&s.MonitoringPort, "monitoring-port", 0,
+		`Endpoint port for displaying monitoring metrics. It can be set to "0" to disable the metrics serving.`)
 
 	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")
 
