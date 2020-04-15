@@ -14,7 +14,7 @@ git clone https://github.com/${GITHUB_USER}/mpi-operator.git
 
 ## Install Dependencies
 
-We use Go v1.12+ for development and use [Go Modules](https://blog.golang.org/using-go-modules) to download and install the dependencies. Note that we also generated the vendor directories so that older versions of Go can also consume the dependencies. If there are any changes in dependencies, please run `go mod vendor` to re-generate the vendor directories.
+We use Go v1.13+ for development and use [Go Modules](https://blog.golang.org/using-go-modules) to download and install the dependencies.
 
 ## Run Unit Test
 
