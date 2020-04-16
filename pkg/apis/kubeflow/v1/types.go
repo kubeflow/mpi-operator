@@ -44,17 +44,6 @@ type MPIJobSpec struct {
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
-	// Specifies the number of retries before marking this job failed.
-	// Defaults to 6.
-	// +optional
-	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
-
-	// Specifies the duration in seconds relative to the start time that
-	// the job may be active before the system tries to terminate it.
-	// Note that this takes precedence over `BackoffLimit` field.
-	// +optional
-	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
-
 	// CleanPodPolicy defines the policy that whether to kill pods after the job completes.
 	// Defaults to None.
 	CleanPodPolicy *common.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
@@ -69,8 +58,7 @@ type MPIJobSpec struct {
 
 	// `RunPolicy` encapsulates various runtime policies of the distributed training
 	// job, for example how to clean up resources and how long the job can stay
-	// active. The policies specified in `RunPolicy` take precedence over
-	// the following fields: `BackoffLimit` and `ActiveDeadlineSeconds`.
+	// active.
 	RunPolicy *common.RunPolicy `json:"runPolicy,omitempty"`
 }
 

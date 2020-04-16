@@ -348,20 +348,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "int32",
 							},
 						},
-						"backoffLimit": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Specifies the number of retries before marking this job failed. Defaults to 6.",
-								Type:        []string{"integer"},
-								Format:      "int32",
-							},
-						},
-						"activeDeadlineSeconds": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Specifies the duration in seconds relative to the start time that the job may be active before the system tries to terminate it. Note that this takes precedence over `BackoffLimit` field.",
-								Type:        []string{"integer"},
-								Format:      "int64",
-							},
-						},
 						"cleanPodPolicy": {
 							SchemaProps: spec.SchemaProps{
 								Description: "CleanPodPolicy defines the policy that whether to kill pods after the job completes. Defaults to None.",
@@ -391,7 +377,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"runPolicy": {
 							SchemaProps: spec.SchemaProps{
-								Description: "`RunPolicy` encapsulates various runtime policies of the distributed training job, for example how to clean up resources and how long the job can stay active. The policies specified in `RunPolicy` take precedence over the following fields: `BackoffLimit` and `ActiveDeadlineSeconds`.",
+								Description: "`RunPolicy` encapsulates various runtime policies of the distributed training job, for example how to clean up resources and how long the job can stay active.",
 								Ref:         ref("github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy"),
 							},
 						},

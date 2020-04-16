@@ -44,12 +44,6 @@ func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
 }
 
 func SetDefaults_MPIJob(mpiJob *MPIJob) {
-	// set default BackoffLimit
-	if mpiJob.Spec.BackoffLimit == nil {
-		mpiJob.Spec.BackoffLimit = new(int32)
-		*mpiJob.Spec.BackoffLimit = 6
-	}
-
 	// Set default cleanpod policy to None.
 	if mpiJob.Spec.CleanPodPolicy == nil {
 		none := common.CleanPodPolicyNone
