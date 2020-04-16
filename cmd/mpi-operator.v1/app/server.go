@@ -48,7 +48,7 @@ import (
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	controllersv1 "github.com/kubeflow/mpi-operator/pkg/controllers/v1"
-	version "github.com/kubeflow/mpi-operator/pkg/version/v1"
+	version "github.com/kubeflow/mpi-operator/pkg/version"
 )
 
 const (

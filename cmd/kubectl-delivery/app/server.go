@@ -32,7 +32,7 @@ import (
 
 	"github.com/kubeflow/mpi-operator/cmd/kubectl-delivery/app/options"
 	"github.com/kubeflow/mpi-operator/pkg/controllers/kubectl_delivery"
-	"github.com/kubeflow/mpi-operator/pkg/version/v1"
+	"github.com/kubeflow/mpi-operator/pkg/version"
 )
 
 const (
