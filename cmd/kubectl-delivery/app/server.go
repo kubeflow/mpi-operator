@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	cmdVersion                   = "v1alpha2"
+	cmdVersion                   = "v1"
 	RecommendedKubeConfigPathEnv = "KUBECONFIG"
 	nsEnvironmentName            = "NAMESPACE"
 	filename                     = "/etc/mpi/hostfile"
