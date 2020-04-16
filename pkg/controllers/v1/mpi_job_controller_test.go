@@ -174,7 +174,7 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		k8sI.Apps().V1().StatefulSets(),
 		k8sI.Batch().V1().Jobs(),
 		podgroupsInformer,
-		i.Kubeflow().V1alpha2().MPIJobs(),
+		i.Kubeflow().V1().MPIJobs(),
 		"kubectl-delivery",
 		gangSchedulerName,
 	)
@@ -239,7 +239,7 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
-		err := i.Kubeflow().V1alpha2().MPIJobs().Informer().GetIndexer().Add(mpiJob)
+		err := i.Kubeflow().V1().MPIJobs().Informer().GetIndexer().Add(mpiJob)
 		if err != nil {
 			fmt.Println("Failed to create mpijob")
 		}
