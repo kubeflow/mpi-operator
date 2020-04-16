@@ -13,13 +13,16 @@ IMAGE_NAME?=kubeflow/mpi-operator
 
 build: all
 
-all: init mpi-operator.v1alpha1 mpi-operator.v1alpha2 kubectl-delivery
+all: init mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 kubectl-delivery
 
 mpi-operator.v1alpha1:
 	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/mpi-operator.v1alpha1 ./cmd/mpi-operator.v1alpha1/
 
 mpi-operator.v1alpha2:
 	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/mpi-operator.v1alpha2 ./cmd/mpi-operator.v1alpha2/
+
+mpi-operator.v1:
+	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/mpi-operator.v1 ./cmd/mpi-operator.v1/
 
 kubectl-delivery:
 	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/kubectl-delivery ./cmd/kubectl-delivery/

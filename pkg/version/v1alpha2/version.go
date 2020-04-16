@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	Version = "v0.1.0-alpha"
+	Version = "v0.1.0-alpha2"
 	GitSHA  = "Not provided."
 	Built   = "Not provided."
 )
