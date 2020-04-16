@@ -293,9 +293,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2.MPIJobSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+				"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1.MPIJobSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 		},
-		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2.MPIJobList": {
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1.MPIJobList": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
@@ -324,7 +324,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{
 										SchemaProps: spec.SchemaProps{
-											Ref: ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2.MPIJob"),
+											Ref: ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1.MPIJob"),
 										},
 									},
 								},
@@ -335,9 +335,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2.MPIJob", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+				"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1.MPIJob", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 		},
-		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2.MPIJobSpec": {
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1.MPIJobSpec": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{

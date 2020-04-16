@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha2
+package v1
 
 import (
 	"fmt"
@@ -40,7 +40,7 @@ import (
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
+	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/resource"

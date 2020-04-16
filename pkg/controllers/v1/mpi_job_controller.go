@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha2
+package v1
 
 import (
 	"bytes"
@@ -54,10 +54,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
+	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
-	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1alpha2"
-	listers "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1alpha2"
+	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v1"
+	listers "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v1"
 )
 
 const (

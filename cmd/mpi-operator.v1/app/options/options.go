@@ -18,7 +18,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
+	v1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 )
 
 // ServerOption is the main context object for the controller manager.
@@ -52,7 +52,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&s.KubectlDeliveryImage, "kubectl-delivery-image", "",
 		"The container image used to deliver the kubectl binary.")
 
-	fs.StringVar(&s.Namespace, "namespace", os.Getenv(v1alpha2.EnvKubeflowNamespace),
+	fs.StringVar(&s.Namespace, "namespace", os.Getenv(v1.EnvKubeflowNamespace),
 		`The namespace to monitor mpijobs. If unset, it monitors all namespaces cluster-wide. 
                 If set, it only monitors mpijobs in the given namespace.`)
 
