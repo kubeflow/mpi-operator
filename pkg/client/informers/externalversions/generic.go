@@ -19,6 +19,7 @@ package externalversions
 import (
 	"fmt"
 
+	v1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 	v1alpha1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1"
 	v1alpha2 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,7 +52,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=kubeflow.org, Version=v1alpha1
+	// Group=kubeflow.org, Version=v1
+	case v1.SchemeGroupVersion.WithResource("mpijobs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeflow().V1().MPIJobs().Informer()}, nil
+
+		// Group=kubeflow.org, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("mpijobs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeflow().V1alpha1().MPIJobs().Informer()}, nil
 

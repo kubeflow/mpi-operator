@@ -19,7 +19,7 @@
 package v1
 
 import (
-	v1 "github.com/kubeflow/common/pkg/apis/common/v1"
+	commonv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -104,19 +104,19 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 	}
 	if in.CleanPodPolicy != nil {
 		in, out := &in.CleanPodPolicy, &out.CleanPodPolicy
-		*out = new(v1.CleanPodPolicy)
+		*out = new(commonv1.CleanPodPolicy)
 		**out = **in
 	}
 	if in.MPIReplicaSpecs != nil {
 		in, out := &in.MPIReplicaSpecs, &out.MPIReplicaSpecs
-		*out = make(map[MPIReplicaType]*v1.ReplicaSpec, len(*in))
+		*out = make(map[MPIReplicaType]*commonv1.ReplicaSpec, len(*in))
 		for key, val := range *in {
-			var outVal *v1.ReplicaSpec
+			var outVal *commonv1.ReplicaSpec
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = new(v1.ReplicaSpec)
+				*out = new(commonv1.ReplicaSpec)
 				(*in).DeepCopyInto(*out)
 			}
 			(*out)[key] = outVal
@@ -124,7 +124,7 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 	}
 	if in.RunPolicy != nil {
 		in, out := &in.RunPolicy, &out.RunPolicy
-		*out = new(v1.RunPolicy)
+		*out = new(commonv1.RunPolicy)
 		(*in).DeepCopyInto(*out)
 	}
 	return
