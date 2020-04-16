@@ -158,7 +158,7 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Apps().V1().StatefulSets(),
 			kubeInformerFactory.Batch().V1().Jobs(),
 			podgroupsInformer,
-			kubeflowInformerFactory.Kubeflow().V1alpha2().MPIJobs(),
+			kubeflowInformerFactory.Kubeflow().V1().MPIJobs(),
 			opt.KubectlDeliveryImage,
 			opt.GangSchedulingName)
 
