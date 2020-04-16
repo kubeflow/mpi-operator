@@ -32,11 +32,11 @@ import (
 
 	"github.com/kubeflow/mpi-operator/cmd/kubectl-delivery/app/options"
 	"github.com/kubeflow/mpi-operator/pkg/controllers/kubectl_delivery"
-	"github.com/kubeflow/mpi-operator/pkg/version"
+	"github.com/kubeflow/mpi-operator/pkg/version/v1"
 )
 
 const (
-	cmdVersion                   = "v1alpha2"
+	cmdVersion                   = "v1"
 	RecommendedKubeConfigPathEnv = "KUBECONFIG"
 	nsEnvironmentName            = "NAMESPACE"
 	filename                     = "/etc/mpi/hostfile"
