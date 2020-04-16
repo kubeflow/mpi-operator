@@ -23,12 +23,16 @@ SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
 # Note that we use code-generator from `${GOPATH}/pkg/mod/` because we cannot vendor it
 # via `go mod vendor` to the project's /vendor directory.
 # Reference: https://github.com/kubernetes/code-generator/issues/57
-${GOPATH}/pkg/mod/k8s.io/code-generator@v0.17.2/generate-groups.sh "deepcopy,client,informer,lister" \
+${GOPATH}/pkg/mod/k8s.io/code-generator@v0.17.1/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \
-  kubeflow:v1alpha1,v1alpha2 \
+  kubeflow:v1alpha1,v1alpha2,v1 \
   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
 
 # Notice: The code in code-generator does not generate defaulter by default.
 echo "Generating defaulters for mpi-operator/v1alpha2"
 ${GOPATH}/bin/defaulter-gen  --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2 \
+  -O zz_generated.defaults --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt "$@"
+
+echo "Generating defaulters for mpi-operator/v1"
+${GOPATH}/bin/defaulter-gen  --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1 \
   -O zz_generated.defaults --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt "$@"

@@ -44,15 +44,15 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/sample-controller/pkg/signals"
 
-	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options"
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1/app/options"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
-	controllersv1alpha2 "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha2"
+	controllersv1 "github.com/kubeflow/mpi-operator/pkg/controllers/v1"
 	version "github.com/kubeflow/mpi-operator/pkg/version"
 )
 
 const (
-	apiVersion                   = "v1alpha2"
+	apiVersion                   = "v1"
 	RecommendedKubeConfigPathEnv = "KUBECONFIG"
 	controllerName               = "mpi-operator"
 )
@@ -147,7 +147,7 @@ func Run(opt *options.ServerOption) error {
 		if opt.GangSchedulingName != "" {
 			podgroupsInformer = kubebatchInformerFactory.Scheduling().V1alpha1().PodGroups()
 		}
-		controller := controllersv1alpha2.NewMPIJobController(
+		controller := controllersv1.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
 			kubeBatchClientSet,
@@ -158,7 +158,7 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Apps().V1().StatefulSets(),
 			kubeInformerFactory.Batch().V1().Jobs(),
 			podgroupsInformer,
-			kubeflowInformerFactory.Kubeflow().V1alpha2().MPIJobs(),
+			kubeflowInformerFactory.Kubeflow().V1().MPIJobs(),
 			opt.KubectlDeliveryImage,
 			opt.GangSchedulingName)
 
