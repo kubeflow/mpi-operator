@@ -92,16 +92,6 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.BackoffLimit != nil {
-		in, out := &in.BackoffLimit, &out.BackoffLimit
-		*out = new(int32)
-		**out = **in
-	}
-	if in.ActiveDeadlineSeconds != nil {
-		in, out := &in.ActiveDeadlineSeconds, &out.ActiveDeadlineSeconds
-		*out = new(int64)
-		**out = **in
-	}
 	if in.CleanPodPolicy != nil {
 		in, out := &in.CleanPodPolicy, &out.CleanPodPolicy
 		*out = new(commonv1.CleanPodPolicy)
