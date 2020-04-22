@@ -113,10 +113,6 @@ func isEvicted(status common.JobStatus) bool {
 // If the condition that we are about to add already exists
 // and has the same status and reason then we are not going to update.
 func setCondition(status *common.JobStatus, condition common.JobCondition) {
-	// Do nothing if MPIJobStatus have failed condition
-	//if isFailed(*status) {
-	//	return
-	//}
 
 	currentCond := getCondition(*status, condition.Type)
 
