@@ -2,9 +2,9 @@ FROM golang:1.13.6 AS build
   
 ADD . /go/src/github.com/kubeflow/mpi-operator
 WORKDIR /go/src/github.com/kubeflow/mpi-operator
-RUN go build -o mpi-operator github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2
+RUN make
 
 FROM gcr.io/distroless/base-debian10:latest
-COPY --from=build /go/src/github.com/kubeflow/mpi-operator/mpi-operator /opt/
-ENTRYPOINT ["/opt/mpi-operator"]
+COPY --from=build /go/src/github.com/kubeflow/mpi-operator/_output/cmd/bin/mpi-operator* /opt/
+ENTRYPOINT ["/opt/mpi-operator.v1alpha2"]
 CMD ["--help"]

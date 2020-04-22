@@ -33,6 +33,9 @@ const (
 	mpiJobFailedReason = "MPIJobFailed"
 	// mpiJobRestartingReason is added in a mpijob when it is restarting.
 	mpiJobRestartingReason = "MPIJobRestarting"
+
+	// mpiJobEvict
+	mpiJobEvict = "MPIJobEvicted"
 )
 
 // initializeMPIJobStatuses initializes the ReplicaStatuses for MPIJob.
@@ -83,6 +86,10 @@ func hasCondition(status common.JobStatus, condType common.JobConditionType) boo
 	return false
 }
 
+func isFinished(status common.JobStatus) bool {
+	return isSucceeded(status) || isFailed(status)
+}
+
 func isSucceeded(status common.JobStatus) bool {
 	return hasCondition(status, common.JobSucceeded)
 }
@@ -91,14 +98,25 @@ func isFailed(status common.JobStatus) bool {
 	return hasCondition(status, common.JobFailed)
 }
 
+func isEvicted(status common.JobStatus) bool {
+	for _, condition := range status.Conditions {
+		if condition.Type == common.JobFailed &&
+			condition.Status == v1.ConditionTrue &&
+			condition.Reason == mpiJobEvict {
+			return true
+		}
+	}
+	return false
+}
+
 // setCondition updates the mpiJob to include the provided condition.
 // If the condition that we are about to add already exists
 // and has the same status and reason then we are not going to update.
 func setCondition(status *common.JobStatus, condition common.JobCondition) {
 	// Do nothing if MPIJobStatus have failed condition
-	if isFailed(*status) {
-		return
-	}
+	//if isFailed(*status) {
+	//	return
+	//}
 
 	currentCond := getCondition(*status, condition.Type)
 
@@ -133,7 +151,7 @@ func filterOutCondition(conditions []common.JobCondition, condType common.JobCon
 		}
 
 		// Set the running condition status to be false when current condition failed or succeeded
-		if (condType == common.JobFailed || condType == common.JobSucceeded) && c.Type == common.JobRunning {
+		if (condType == common.JobFailed || condType == common.JobSucceeded) && (c.Type == common.JobRunning || c.Type == common.JobFailed) {
 			c.Status = v1.ConditionFalse
 		}
 

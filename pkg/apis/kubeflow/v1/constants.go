@@ -14,7 +14,11 @@
 
 package v1
 
+import common "github.com/kubeflow/common/pkg/apis/common/v1"
+
 const (
 	// EnvKubeflowNamespace is ENV for kubeflow namespace specified by user.
 	EnvKubeflowNamespace = "KUBEFLOW_NAMESPACE"
+	// DefaultRestartPolicy is default RestartPolicy for TFReplicaSpec.
+	DefaultRestartPolicy = common.RestartPolicyNever
 )
