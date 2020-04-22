@@ -1327,7 +1327,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	
 	backOffLimit := new(int32)
 	*backOffLimit = 6
-	activeDeadlineSeconds := new(int64)
+	var activeDeadlineSeconds *int64
 	activeDeadlineSeconds = nil
 	if mpiJob.Spec.RunPolicy != nil {
 		if mpiJob.Spec.RunPolicy.BackoffLimit != nil {
