@@ -1324,6 +1324,18 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 				},
 			},
 		})
+	
+	backOffLimit := new(int32)
+	*backOffLimit = 6
+	var activeDeadlineSeconds *int64
+	if mpiJob.Spec.RunPolicy != nil {
+		if mpiJob.Spec.RunPolicy.BackoffLimit != nil {
+			backOffLimit = mpiJob.Spec.RunPolicy.BackoffLimit
+		}
+		if mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds != nil {
+			activeDeadlineSeconds = mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds
+		}
+	}
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      launcherName,
@@ -1334,8 +1346,8 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			},
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit:          mpiJob.Spec.RunPolicy.BackoffLimit,
-			ActiveDeadlineSeconds: mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
+			BackoffLimit:          backOffLimit,
+			ActiveDeadlineSeconds: activeDeadlineSeconds,
 			Template:              *podSpec,
 		},
 	}
