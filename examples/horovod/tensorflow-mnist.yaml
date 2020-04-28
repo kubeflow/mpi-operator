@@ -44,9 +44,7 @@ spec:
       template:
         spec:
           containers:
-          - command:
-            - ""
-            image: horovod-cpu:latest
+          - image: horovod-cpu:latest
             name: mpi-worker
             resources:
               limits:
