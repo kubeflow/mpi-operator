@@ -23,9 +23,6 @@ import (
 
 	"github.com/golang/glog"
 	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
-	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
-	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
-	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +40,9 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/sample-controller/pkg/signals"
+	volcanoclient "volcano.sh/volcano/pkg/client/clientset/versioned"
+	volcanoinformers "volcano.sh/volcano/pkg/client/informers/externalversions"
+	podgroupsinformer "volcano.sh/volcano/pkg/client/informers/externalversions/scheduling/v1beta1"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1/app/options"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
@@ -112,7 +112,7 @@ func Run(opt *options.ServerOption) error {
 	}
 
 	// Create clients.
-	kubeClient, leaderElectionClientSet, mpiJobClientSet, kubeBatchClientSet, err := createClientSets(cfg)
+	kubeClient, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, err := createClientSets(cfg)
 	if err != nil {
 		return err
 	}
@@ -132,25 +132,25 @@ func Run(opt *options.ServerOption) error {
 	run := func(ctx context.Context) {
 		var kubeInformerFactory kubeinformers.SharedInformerFactory
 		var kubeflowInformerFactory informers.SharedInformerFactory
-		var kubebatchInformerFactory kubebatchinformers.SharedInformerFactory
+		var volcanoInformerFactory volcanoinformers.SharedInformerFactory
 		if namespace == metav1.NamespaceAll {
 			kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 			kubeflowInformerFactory = informers.NewSharedInformerFactory(mpiJobClientSet, 0)
-			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactory(kubeBatchClientSet, 0)
+			volcanoInformerFactory = volcanoinformers.NewSharedInformerFactory(volcanoClientSet, 0)
 		} else {
 			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
 			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(namespace))
-			kubebatchInformerFactory = kubebatchinformers.NewSharedInformerFactoryWithOptions(kubeBatchClientSet, 0, kubebatchinformers.WithNamespace(namespace))
+			volcanoInformerFactory = volcanoinformers.NewSharedInformerFactoryWithOptions(volcanoClientSet, 0, volcanoinformers.WithNamespace(namespace))
 		}
 
 		var podgroupsInformer podgroupsinformer.PodGroupInformer
 		if opt.GangSchedulingName != "" {
-			podgroupsInformer = kubebatchInformerFactory.Scheduling().V1alpha1().PodGroups()
+			podgroupsInformer = volcanoInformerFactory.Scheduling().V1beta1().PodGroups()
 		}
 		controller := controllersv1.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
-			kubeBatchClientSet,
+			volcanoClientSet,
 			kubeInformerFactory.Core().V1().ConfigMaps(),
 			kubeInformerFactory.Core().V1().ServiceAccounts(),
 			kubeInformerFactory.Rbac().V1().Roles(),
@@ -165,7 +165,7 @@ func Run(opt *options.ServerOption) error {
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
 		if opt.GangSchedulingName != "" {
-			go kubebatchInformerFactory.Start(ctx.Done())
+			go volcanoInformerFactory.Start(ctx.Done())
 		}
 
 		// Set leader election start function.
@@ -260,7 +260,7 @@ func Run(opt *options.ServerOption) error {
 	return fmt.Errorf("finished without leader elect")
 }
 
-func createClientSets(config *restclientset.Config) (kubeclientset.Interface, kubeclientset.Interface, mpijobclientset.Interface, kubebatchclient.Interface, error) {
+func createClientSets(config *restclientset.Config) (kubeclientset.Interface, kubeclientset.Interface, mpijobclientset.Interface, volcanoclient.Interface, error) {
 
 	kubeClientSet, err := kubeclientset.NewForConfig(restclientset.AddUserAgent(config, "mpi-operator"))
 	if err != nil {
@@ -277,12 +277,12 @@ func createClientSets(config *restclientset.Config) (kubeclientset.Interface, ku
 		return nil, nil, nil, nil, err
 	}
 
-	kubeBatchClientSet, err := kubebatchclient.NewForConfig(restclientset.AddUserAgent(config, "kube-batch"))
+	volcanoClientSet, err := volcanoclient.NewForConfig(restclientset.AddUserAgent(config, "volcano"))
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	return kubeClientSet, leaderElectionClientSet, mpiJobClientSet, kubeBatchClientSet, nil
+	return kubeClientSet, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, nil
 }
 
 func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool {

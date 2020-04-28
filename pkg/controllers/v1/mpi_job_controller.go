@@ -20,13 +20,7 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/golang/glog"
-	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
-	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
-	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
-	podgroupslists "github.com/kubernetes-sigs/kube-batch/pkg/client/listers/scheduling/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -52,6 +47,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	podgroupv1beta1 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
+	volcanoclient "volcano.sh/volcano/pkg/client/clientset/versioned"
+	podgroupsinformer "volcano.sh/volcano/pkg/client/informers/externalversions/scheduling/v1beta1"
+	podgroupslists "volcano.sh/volcano/pkg/client/listers/scheduling/v1beta1"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
@@ -120,8 +119,8 @@ type MPIJobController struct {
 	kubeClient kubernetes.Interface
 	// kubeflowClient is a clientset for our own API group.
 	kubeflowClient clientset.Interface
-	// kubebatchClient is a clientset for kube-batch API.
-	kubebatchClient kubebatchclient.Interface
+	// volcanoClient is a clientset for volcano.sh API.
+	volcanoClient volcanoclient.Interface
 
 	configMapLister      corelisters.ConfigMapLister
 	configMapSynced      cache.InformerSynced
@@ -162,7 +161,7 @@ type MPIJobController struct {
 func NewMPIJobController(
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
-	kubeBatchClientSet kubebatchclient.Interface,
+	volcanoClientSet volcanoclient.Interface,
 	configMapInformer coreinformers.ConfigMapInformer,
 	serviceAccountInformer coreinformers.ServiceAccountInformer,
 	roleInformer rbacinformers.RoleInformer,
@@ -191,7 +190,7 @@ func NewMPIJobController(
 	controller := &MPIJobController{
 		kubeClient:           kubeClient,
 		kubeflowClient:       kubeflowClient,
-		kubebatchClient:      kubeBatchClientSet,
+		volcanoClient:        volcanoClientSet,
 		configMapLister:      configMapInformer.Lister(),
 		configMapSynced:      configMapInformer.Informer().HasSynced,
 		serviceAccountLister: serviceAccountInformer.Lister(),
@@ -325,8 +324,8 @@ func NewMPIJobController(
 		podgroupsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: controller.handleObject,
 			UpdateFunc: func(old, new interface{}) {
-				newPolicy := new.(*podgroupv1alpha1.PodGroup)
-				oldPolicy := old.(*podgroupv1alpha1.PodGroup)
+				newPolicy := new.(*podgroupv1beta1.PodGroup)
+				oldPolicy := old.(*podgroupv1beta1.PodGroup)
 				if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
 					// Periodic re-sync will send update events for all known PodDisruptionBudgets.
 					// Two different versions of the same Job will always have
@@ -592,12 +591,12 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 	return launcher, nil
 }
 
-// getOrCreatePodGroups will create a PodGroup for gang scheduling by kube-batch.
-func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1alpha1.PodGroup, error) {
+// getOrCreatePodGroups will create a PodGroup for gang scheduling by volcano.
+func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1beta1.PodGroup, error) {
 	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
 	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		podgroup, err = c.kubebatchClient.SchedulingV1alpha1().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
+		podgroup, err = c.volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Create(newPodGroup(mpiJob, minAvailableWorkerReplicas))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -635,7 +634,7 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 	}
 
 	// If the PodGroup exist, we'll delete it.
-	err = c.kubebatchClient.SchedulingV1alpha1().PodGroups(mpiJob.Namespace).Delete(mpiJob.Name, &metav1.DeleteOptions{})
+	err = c.volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Delete(mpiJob.Name, &metav1.DeleteOptions{})
 	// If an error occurs during Delete, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
 	// temporary network failure, or any other transient reason.
@@ -1061,7 +1060,7 @@ func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
 // newPodGroup creates a new PodGroup for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1alpha1.PodGroup {
+func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1beta1.PodGroup {
 	var pName string
 	if l := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher]; l != nil {
 		pName = l.Template.Spec.PriorityClassName
@@ -1069,7 +1068,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 			pName = w.Template.Spec.PriorityClassName
 		}
 	}
-	return &podgroupv1alpha1.PodGroup{
+	return &podgroupv1beta1.PodGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name,
 			Namespace: mpiJob.Namespace,
@@ -1077,7 +1076,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-		Spec: podgroupv1alpha1.PodGroupSpec{
+		Spec: podgroupv1beta1.PodGroupSpec{
 			MinMember:         minAvailableReplicas,
 			PriorityClassName: pName,
 		},
@@ -1154,7 +1153,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gangSchedulerName
 			podSpec.Annotations = map[string]string{}
 		}
 		// we create the podGroup with the same name as the mpijob
-		podSpec.Annotations[podgroupv1alpha1.GroupNameAnnotationKey] = mpiJob.Name
+		podSpec.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
 	}
 
 	return &appsv1.StatefulSet{
@@ -1208,7 +1207,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			podSpec.Annotations = map[string]string{}
 		}
 		// we create the podGroup with the same name as the mpijob
-		podSpec.Annotations[podgroupv1alpha1.GroupNameAnnotationKey] = mpiJob.Name
+		podSpec.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
 	}
 	podSpec.Spec.ServiceAccountName = launcherName
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
@@ -1324,7 +1323,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 				},
 			},
 		})
-	
+
 	backOffLimit := new(int32)
 	*backOffLimit = 6
 	var activeDeadlineSeconds *int64

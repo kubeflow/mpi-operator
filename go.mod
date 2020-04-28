@@ -4,22 +4,21 @@ go 1.13
 
 require (
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/evanphx/json-patch v4.1.0+incompatible // indirect
 	github.com/go-openapi/spec v0.19.2
 	github.com/go-openapi/swag v0.19.4 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/google/uuid v1.1.1 // indirect
 	github.com/kubeflow/common v0.0.0-20200313171840-64f943084a05
 	github.com/kubernetes-sigs/kube-batch v0.5.0
 	github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e // indirect
 	github.com/prometheus/client_golang v0.9.2
 	github.com/stretchr/testify v1.3.0
 	k8s.io/api v0.15.10
-	k8s.io/apimachinery v0.15.10
+	k8s.io/apimachinery v0.16.9-beta.0
 	k8s.io/apiserver v0.15.10
 	k8s.io/client-go v10.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30
+	k8s.io/kube-openapi v0.0.0-20190816220812-743ec37842bf
 	k8s.io/sample-controller v0.0.0-00010101000000-000000000000
+	volcano.sh/volcano v0.4.0
 )
 
 replace (
