@@ -35,9 +35,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
-	kubebatchfake "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/fake"
-	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
+	podgroupv1beta1 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
+	volcanofake "volcano.sh/volcano/pkg/client/clientset/versioned/fake"
+	volcanoinformers "volcano.sh/volcano/pkg/client/informers/externalversions"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
@@ -54,9 +54,9 @@ var (
 type fixture struct {
 	t *testing.T
 
-	client          *fake.Clientset
-	kubeClient      *k8sfake.Clientset
-	kubebatchClient *kubebatchfake.Clientset
+	client        *fake.Clientset
+	kubeClient    *k8sfake.Clientset
+	volcanoClient *volcanofake.Clientset
 
 	// Objects to put in the store.
 	configMapLister      []*corev1.ConfigMap
@@ -65,7 +65,7 @@ type fixture struct {
 	roleBindingLister    []*rbacv1.RoleBinding
 	statefulSetLister    []*appsv1.StatefulSet
 	jobLister            []*batchv1.Job
-	podGroupLister       []*podgroupv1alpha1.PodGroup
+	podGroupLister       []*podgroupv1beta1.PodGroup
 	mpiJobLister         []*kubeflow.MPIJob
 
 	// Actions expected to happen on the client.
@@ -160,13 +160,13 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
-	kubebatchInformerFactory := kubebatchinformers.NewSharedInformerFactory(f.kubebatchClient, 0)
-	podgroupsInformer := kubebatchInformerFactory.Scheduling().V1alpha1().PodGroups()
+	volcanoInformerFactory := volcanoinformers.NewSharedInformerFactory(f.volcanoClient, 0)
+	podgroupsInformer := volcanoInformerFactory.Scheduling().V1beta1().PodGroups()
 
 	c := NewMPIJobController(
 		f.kubeClient,
 		f.client,
-		f.kubebatchClient,
+		f.volcanoClient,
 		k8sI.Core().V1().ConfigMaps(),
 		k8sI.Core().V1().ServiceAccounts(),
 		k8sI.Rbac().V1().Roles(),
