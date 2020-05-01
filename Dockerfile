@@ -6,5 +6,7 @@ RUN go build -o mpi-operator github.com/kubeflow/mpi-operator/cmd/mpi-operator.v
 
 FROM gcr.io/distroless/base-debian10:latest
 COPY --from=build /go/src/github.com/kubeflow/mpi-operator/mpi-operator /opt/
+COPY third_party/library/license.txt /opt/license.txt
+
 ENTRYPOINT ["/opt/mpi-operator"]
 CMD ["--help"]
