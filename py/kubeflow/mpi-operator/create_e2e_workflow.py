@@ -39,6 +39,7 @@ DATA_VOLUME = "kubeflow-test-volume"
 E2E_DAG_NAME = "e2e"
 EXIT_DAG_NAME = "exit-handler"
 
+
 # This is a sub dag containing the suite of tests to run against
 # Kubeflow deployment
 TESTS_DAG_NAME = "gke-tests"
@@ -243,18 +244,7 @@ class Builder:
         # Test linting
         
         step_name = "py-lint"
-        command = ["pytest", "py_lint_test.py",
-                    # I think -s mean stdout/stderr will
-                    # print out to aid in debugging.
-                    # Failures still appear to be captured
-                    # and stored in the junit file.
-                    "-s",
-                    "--src_dir=" + os.path.join(self.src_dir,  "py/kubeflow/mpi-operator"),
-                    "--rcfile=" + os.path.join(
-                        self.src_root_dir, "kubeflow/testing",".pylintrc"),
-                    "--timeout=500",
-                    "--junitxml=" + self.artifacts_dir +
-                    "/junit_py-lint.xml"]
+        command = ["python", "--version"]
         dependencies = []
         pylint_step = self._build_step(step_name, self.workflow, TESTS_DAG_NAME, task_template,
                                     command, dependencies)
