@@ -1,1 +1,13 @@
-workflows: []
+
+# This file configures the workflows to trigger in our Prow jobs.
+# see https://github.com/kubeflow/testing/blob/master/py/kubeflow/testing/run_e2e_workflow.py
+#
+# The testWorkerImage should be the same for all workflows.
+python_paths:
+  - kubeflow/mpi-operator/py
+workflows:
+  - name: e2e
+    py_func: kubeflow.mpi-operator.tests.e2e
+    job_type:
+      - presubmit
+    
