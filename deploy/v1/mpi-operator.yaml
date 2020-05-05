@@ -45,6 +45,10 @@ spec:
                     replicas:
                       type: integer
                       minimum: 1
+    additionalPrinterColumns:
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
 ---
 apiVersion: v1
 kind: Namespace
@@ -71,9 +75,13 @@ rules:
   resources:
   - pods
   verbs:
+  - create
   - get
   - list
   - watch
+  - delete
+  - update
+  - patch
 # This is needed for the launcher Role.
 - apiGroups:
   - ""
@@ -109,24 +117,6 @@ rules:
   - policy
   resources:
   - poddisruptionbudgets
-  verbs:
-  - create
-  - list
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - statefulsets
-  verbs:
-  - create
-  - list
-  - update
-  - watch
-- apiGroups:
-  - batch
-  resources:
-  - jobs
   verbs:
   - create
   - list
@@ -197,6 +187,7 @@ spec:
       containers:
       - name: mpi-operator
         image: mpioperator/mpi-operator:latest
+        command: ["/opt/mpi-operator.v1"]
         args: [
           "-alsologtostderr",
           "--kubectl-delivery-image",

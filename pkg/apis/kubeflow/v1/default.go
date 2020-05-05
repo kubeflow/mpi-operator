@@ -31,16 +31,16 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 
 // setDefaultsTypeLauncher sets the default value to launcher.
 func setDefaultsTypeLauncher(spec *common.ReplicaSpec) {
-	if spec != nil {
-		// Only a `RestartPolicy` equal to `Never` or `OnFailure` is allowed for `Job`.
-		if spec.RestartPolicy != common.RestartPolicyNever {
-			spec.RestartPolicy = common.RestartPolicyOnFailure
-		}
+	if spec != nil && spec.RestartPolicy == "" {
+		spec.RestartPolicy = DefaultRestartPolicy
 	}
 }
 
 // setDefaultsTypeWorker sets the default value to worker.
 func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
+	if spec != nil && spec.RestartPolicy == "" {
+		spec.RestartPolicy = DefaultRestartPolicy
+	}
 }
 
 func SetDefaults_MPIJob(mpiJob *MPIJob) {
