@@ -102,10 +102,6 @@ var (
 		Name: "mpi_operator_jobs_failed_total",
 		Help: "Counts number of MPI jobs failed",
 	})
-	mpiJobsRestartCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "mpi_operator_jobs_restarted_total",
-		Help: "Counts number of MPI jobs restarted",
-	})
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -477,7 +473,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if !requeue {
-			if isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
+			if isFailed(mpiJob.Status) && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
 				// set worker StatefulSet Replicas to 0.
 				if err := c.deleteWorkerPods(mpiJob); err != nil {
 					return err
@@ -514,7 +510,10 @@ func (c *MPIJobController) syncHandler(key string) error {
 	done := launcher != nil && isPodFinished(launcher)
 	if !done {
 		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
-		workerReplicas := *workerSpec.Replicas
+		workerReplicas := int32(0)
+		if workerSpec != nil {
+			workerReplicas = *workerSpec.Replicas
+		}
 
 		// Get the ConfigMap for this MPIJob.
 		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas); config == nil || err != nil {
@@ -754,6 +753,8 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 	)
 	if worker, ok := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; ok && worker != nil {
 		workerReplicas = worker.Replicas
+	} else {
+		return workerPods, nil
 	}
 
 	for ; i < *workerReplicas; i++ {
@@ -792,6 +793,8 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 	)
 	if worker, ok := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; ok && worker != nil {
 		workerReplicas = worker.Replicas
+	} else {
+		return nil
 	}
 
 	for ; i < *workerReplicas; i++ {
@@ -846,7 +849,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			c.recorder.Event(mpiJob, corev1.EventTypeWarning, reason, msg)
 			if reason == "Evicted" {
 				reason = mpiJobEvict
-			} else if !isEvicted(mpiJob.Status) {
+			} else if !isEvicted(mpiJob.Status) && mpiJob.Status.CompletionTime == nil {
 				now := metav1.Now()
 				mpiJob.Status.CompletionTime = &now
 			}
@@ -856,7 +859,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				return err
 			}
 			mpiJobsFailureCount.Inc()
-		} else {
+		} else if isPodRunning(launcher) {
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = 1
 		}
 	}
@@ -875,17 +878,11 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			if worker[i].Status.Reason == "Evicted" {
 				evict += 1
 			}
-			break
 		case corev1.PodSucceeded:
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Succeeded += 1
-			break
 		case corev1.PodRunning:
 			running += 1
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active += 1
-			break
-		default:
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active += 1
-			break
 		}
 	}
 	if evict > 0 {
@@ -898,7 +895,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobEvict, msg)
 	}
 
-	if launcher != nil && launcher.Status.Phase == corev1.PodRunning && running > 0 && running == len(worker) {
+	if launcher != nil && launcher.Status.Phase == corev1.PodRunning && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 		err := updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
 		if err != nil {
@@ -1416,6 +1413,10 @@ func isPodFailed(p *corev1.Pod) bool {
 
 func isPodSucceeded(p *corev1.Pod) bool {
 	return p.Status.Phase == corev1.PodSucceeded
+}
+
+func isPodRunning(p *corev1.Pod) bool {
+	return p.Status.Phase == corev1.PodRunning
 }
 
 func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {

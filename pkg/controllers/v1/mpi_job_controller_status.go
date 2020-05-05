@@ -31,9 +31,6 @@ const (
 	mpiJobRunningReason = "MPIJobRunning"
 	// mpiJobFailedReason is added in a mpijob when it is failed.
 	mpiJobFailedReason = "MPIJobFailed"
-	// mpiJobRestartingReason is added in a mpijob when it is restarting.
-	mpiJobRestartingReason = "MPIJobRestarting"
-
 	// mpiJobEvict
 	mpiJobEvict = "MPIJobEvicted"
 )
