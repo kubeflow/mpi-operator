@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -50,7 +50,7 @@ func Run(opt *options.ServerOption) error {
 
 	namespace := os.Getenv(nsEnvironmentName)
 	if len(namespace) == 0 {
-		glog.Infof("%s not set, use default namespace", nsEnvironmentName)
+		klog.Infof("%s not set, use default namespace", nsEnvironmentName)
 		namespace = metav1.NamespaceDefault
 	}
 	if opt.Namespace != "" {
@@ -58,16 +58,16 @@ func Run(opt *options.ServerOption) error {
 	}
 
 	if namespace == corev1.NamespaceAll {
-		glog.Info("Using cluster scoped operator")
+		klog.Info("Using cluster scoped operator")
 	} else {
-		glog.Infof("Scoping operator to namespace %s", namespace)
+		klog.Infof("Scoping operator to namespace %s", namespace)
 	}
 
 	// To help debugging, immediately log version.
-	glog.Infof("%+v", version.Info(cmdVersion))
+	klog.Infof("%+v", version.Info(cmdVersion))
 
 	// To help debugging, immediately log opts.
-	glog.Infof("Server options: %+v", opt)
+	klog.Infof("Server options: %+v", opt)
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -81,18 +81,18 @@ func Run(opt *options.ServerOption) error {
 
 	cfg, err := clientcmd.BuildConfigFromFlags(opt.MasterURL, opt.Kubeconfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeConfig: %v", err)
+		klog.Fatalf("Error building kubeConfig: %v", err)
 	}
 	kubeClient, err := kubeclientset.NewForConfig(restclientset.AddUserAgent(cfg, "mpi-operator-kubectl-delivery"))
 	if err != nil {
-		glog.Fatalf("Error building kubeClient: %v", err)
+		klog.Fatalf("Error building kubeClient: %v", err)
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
 
 	fp, err := os.Open(filename)
 	if err != nil {
-		glog.Fatalf("Error open file[%s]: %v", filename, err)
+		klog.Fatalf("Error open file[%s]: %v", filename, err)
 	}
 	defer fp.Close()
 	bufReader := bufio.NewReader(fp)
@@ -121,7 +121,7 @@ func Run(opt *options.ServerOption) error {
 	go kubeInformerFactory.Start(ctx.Done())
 
 	if err = controller.Run(opt.Threadiness, stopCh); err != nil {
-		glog.Fatalf("Error running controller: %s", err.Error())
+		klog.Fatalf("Error running controller: %s", err.Error())
 	}
 
 	return nil

@@ -17,12 +17,12 @@ package main
 import (
 	"flag"
 
-	"github.com/golang/glog"
 	controllersv1alpha1 "github.com/kubeflow/mpi-operator/pkg/controllers/v1alpha1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 	"k8s.io/sample-controller/pkg/signals"
 
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
@@ -43,6 +43,7 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	// set up signals so we handle the first shutdown signal gracefully
@@ -50,24 +51,24 @@ func main() {
 
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeConfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeConfig: %s", err.Error())
+		klog.Fatalf("Error building kubeConfig: %s", err.Error())
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
+		klog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
 	kubeflowClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Error building kubeflow clientset: %s", err.Error())
+		klog.Fatalf("Error building kubeflow clientset: %s", err.Error())
 	}
 
 	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
 	// can be logged for mpi-job-controller types.
 	err = kubeflowScheme.AddToScheme(clientgokubescheme.Scheme)
 	if err != nil {
-		glog.Fatalf("CoreV1 Add Scheme failed: %v", err)
+		klog.Fatalf("CoreV1 Add Scheme failed: %v", err)
 	}
 
 	var kubeInformerFactory kubeinformers.SharedInformerFactory
@@ -105,7 +106,7 @@ func main() {
 	go kubeflowInformerFactory.Start(stopCh)
 
 	if err = controller.Run(2, stopCh); err != nil {
-		glog.Fatalf("Error running controller: %s", err.Error())
+		klog.Fatalf("Error running controller: %s", err.Error())
 	}
 }
 

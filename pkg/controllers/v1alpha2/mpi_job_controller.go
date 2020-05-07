@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/golang/glog"
 	podgroupv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	podgroupsinformer "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
@@ -52,6 +51,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
@@ -175,9 +175,9 @@ func NewMPIJobController(
 	gangSchedulerName string) *MPIJobController {
 
 	// Create event broadcaster.
-	glog.V(4).Info("Creating event broadcaster")
+	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -216,7 +216,7 @@ func NewMPIJobController(
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
 
-	glog.Info("Setting up event handlers")
+	klog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
 	mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.addMPIJob,
@@ -350,10 +350,10 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches.
-	glog.Info("Starting MPIJob controller")
+	klog.Info("Starting MPIJob controller")
 
 	// Wait for the caches to be synced before starting workers.
-	glog.Info("Waiting for informer caches to sync")
+	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.serviceAccountSynced, c.roleSynced, c.roleBindingSynced, c.statefulSetSynced, c.jobSynced, c.mpiJobSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -363,15 +363,15 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 		}
 	}
 
-	glog.Info("Starting workers")
+	klog.Info("Starting workers")
 	// Launch workers to process MPIJob resources.
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	klog.Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	klog.Info("Shutting down workers")
 
 	return nil
 }
@@ -426,7 +426,7 @@ func (c *MPIJobController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.queue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -444,7 +444,7 @@ func (c *MPIJobController) processNextWorkItem() bool {
 func (c *MPIJobController) syncHandler(key string) error {
 	startTime := time.Now()
 	defer func() {
-		glog.Infof("Finished syncing job %q (%v)", key, time.Since(startTime))
+		klog.Infof("Finished syncing job %q (%v)", key, time.Since(startTime))
 	}()
 
 	// Convert the namespace/name string into a distinct namespace and name.
@@ -462,7 +462,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	if err != nil {
 		// The MPIJob may no longer exist, in which case we stop processing.
 		if errors.IsNotFound(err) {
-			glog.V(4).Infof("MPIJob has been deleted: %v", key)
+			klog.V(4).Infof("MPIJob has been deleted: %v", key)
 			return nil
 		}
 		return err
@@ -798,7 +798,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			}
 			err := updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 			if err != nil {
-				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				klog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
 			mpiJobsSuccessCount.Inc()
@@ -811,7 +811,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			}
 			err := updateMPIJobConditions(mpiJob, common.JobFailed, mpiJobFailedReason, msg)
 			if err != nil {
-				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				klog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
 			mpiJobsFailureCount.Inc()
@@ -819,7 +819,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			msg := fmt.Sprintf("MPIJob %s/%s is restarting.", mpiJob.Namespace, mpiJob.Name)
 			err := updateMPIJobConditions(mpiJob, common.JobRestarting, mpiJobRestartingReason, msg)
 			if err != nil {
-				glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+				klog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 				return err
 			}
 			mpiJobsRestartCount.Inc()
@@ -837,7 +837,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 		err := updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
 		if err != nil {
-			glog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
+			klog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
 			return err
 		}
 	}
@@ -859,7 +859,7 @@ func (c *MPIJobController) addMPIJob(obj interface{}) {
 	// Add a created condition.
 	err := updateMPIJobConditions(mpiJob, common.JobCreated, mpiJobCreatedReason, msg)
 	if err != nil {
-		glog.Errorf("Append mpiJob condition error: %v", err)
+		klog.Errorf("Append mpiJob condition error: %v", err)
 		return
 	}
 
@@ -898,9 +898,9 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 			runtime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(4).Infof("Processing object: %s", object.GetName())
+	klog.V(4).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		// Parse the Group out of the OwnerReference to compare it to what was parsed out of the requested OwnerType
 		refGV, err := schema.ParseGroupVersion(ownerRef.APIVersion)
@@ -917,7 +917,7 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 
 		mpiJob, err := c.mpiJobLister.MPIJobs(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			glog.V(4).Infof("ignoring orphaned object '%s' of mpi job '%s'", object.GetSelfLink(), ownerRef.Name)
+			klog.V(4).Infof("ignoring orphaned object '%s' of mpi job '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
@@ -1108,7 +1108,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gangSchedulerName
 	podSpec.Spec.RestartPolicy = corev1.RestartPolicyAlways
 
 	if len(podSpec.Spec.Containers) == 0 {
-		glog.Errorln("Worker pod does not have any containers in its spec")
+		klog.Errorln("Worker pod does not have any containers in its spec")
 	}
 	container := podSpec.Spec.Containers[0]
 	if len(container.Command) == 0 {
@@ -1146,7 +1146,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gangSchedulerName
 	// add SchedulerName to podSpec
 	if gangSchedulerName != "" {
 		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
-			glog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
+			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
 		}
 		podSpec.Spec.SchedulerName = gangSchedulerName
 
@@ -1200,7 +1200,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	// add SchedulerName to podSpec
 	if c.gangSchedulerName != "" {
 		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != c.gangSchedulerName {
-			glog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
+			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
 		}
 		podSpec.Spec.SchedulerName = c.gangSchedulerName
 
@@ -1249,7 +1249,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		},
 	})
 	if len(podSpec.Spec.Containers) == 0 {
-		glog.Errorln("Launcher pod does not have any containers in its spec")
+		klog.Errorln("Launcher pod does not have any containers in its spec")
 	}
 	container := podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
@@ -1288,7 +1288,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	// the pod template. We recommend to set it from the replica level.
 	if podSpec.Spec.RestartPolicy != corev1.RestartPolicy("") {
 		errMsg := "Restart policy in pod template will be overwritten by restart policy in replica spec"
-		glog.Warning(errMsg)
+		klog.Warning(errMsg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, podTemplateRestartPolicyReason, errMsg)
 	}
 	setRestartPolicy(podSpec, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher])
@@ -1329,7 +1329,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	if mpiJob.Spec.RunPolicy != nil {
 		warnMsg := fmt.Sprintf(
 			"runPolicy is specified in MPIJobSpec so backOffLimit/activeDeadlineSeconds in MPIJobSpec will be overwritten")
-		glog.Warning(warnMsg)
+		klog.Warning(warnMsg)
 		if mpiJob.Spec.RunPolicy.BackoffLimit != nil {
 			backOffLimit = mpiJob.Spec.RunPolicy.BackoffLimit
 		}

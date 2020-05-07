@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -164,9 +164,9 @@ func NewMPIJobController(
 	enableGangScheduling bool) *MPIJobController {
 
 	// Create event broadcaster.
-	glog.V(4).Info("Creating event broadcaster")
+	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 	var pdbLister policylisters.PodDisruptionBudgetLister
@@ -205,7 +205,7 @@ func NewMPIJobController(
 		enableGangScheduling:   enableGangScheduling,
 	}
 
-	glog.Info("Setting up event handlers")
+	klog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
 	mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueMPIJob,
@@ -343,23 +343,23 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches.
-	glog.Info("Starting MPIJob controller")
+	klog.Info("Starting MPIJob controller")
 
 	// Wait for the caches to be synced before starting workers.
-	glog.Info("Waiting for informer caches to sync")
+	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.serviceAccountSynced, c.roleSynced, c.roleBindingSynced, c.statefulSetSynced, c.jobSynced, c.mpiJobSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	glog.Info("Starting workers")
+	klog.Info("Starting workers")
 	// Launch workers to process MPIJob resources.
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	klog.Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	klog.Info("Shutting down workers")
 
 	return nil
 }
@@ -414,7 +414,7 @@ func (c *MPIJobController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.queue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -834,9 +834,9 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 			runtime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(4).Infof("Processing object: %s", object.GetName())
+	klog.V(4).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		// If this object is not owned by a MPIJob, we should not do anything
 		// more with it.
@@ -846,7 +846,7 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 
 		mpiJob, err := c.mpiJobLister.MPIJobs(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			glog.V(4).Infof("ignoring orphaned object '%s' of mpi job '%s'", object.GetSelfLink(), ownerRef.Name)
+			klog.V(4).Infof("ignoring orphaned object '%s' of mpi job '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
@@ -1072,7 +1072,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, processingUnits i
 		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
 			errMsg := fmt.Sprintf(
 				"%s scheduler is specified when gang-scheduling is enabled and it will not be overwritten", podSpec.Spec.SchedulerName)
-			glog.Warning(errMsg)
+			klog.Warning(errMsg)
 		} else {
 			podSpec.Spec.SchedulerName = gangSchedulerName
 		}

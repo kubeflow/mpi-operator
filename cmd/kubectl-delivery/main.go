@@ -17,19 +17,20 @@ package main
 import (
 	"flag"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"github.com/kubeflow/mpi-operator/cmd/kubectl-delivery/app"
 	"github.com/kubeflow/mpi-operator/cmd/kubectl-delivery/app/options"
 )
 
 func main() {
+	klog.InitFlags(nil)
 	s := options.NewServerOption()
 	s.AddFlags(flag.CommandLine)
 
 	flag.Parse()
 
 	if err := app.Run(s); err != nil {
-		glog.Fatalf("%v\n", err)
+		klog.Fatalf("%v\n", err)
 	}
 }
