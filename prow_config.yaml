@@ -11,6 +11,5 @@ workflows:
       - periodic
       - presubmit
       - postsubmit
-    kwargs:
-      cluster_pattern: kf-v1-(?!n\d\d)
+
     
