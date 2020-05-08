@@ -323,7 +323,6 @@ class Builder:
         credentials = argo_build_util.deep_copy(task_template)
 
         credentials["name"] = "get-credentials"
-        logging.info(f"The cluster pattern is: {self.cluster_pattern}")
         if self.cluster_pattern:
             credentials["container"]["command"] = ["python3",
                                                     "-m",
