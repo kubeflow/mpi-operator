@@ -13,7 +13,7 @@ You can deploy the operator with default settings by running the following comma
 ```shell
 git clone https://github.com/kubeflow/mpi-operator
 cd mpi-operator
-kubectl create -f deploy/mpi-operator.yaml
+kubectl create -f deploy/v1alpha2/mpi-operator.yaml
 ```
 
 Alternatively, follow the [getting started guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
