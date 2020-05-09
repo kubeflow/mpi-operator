@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
@@ -85,16 +85,16 @@ func Run(opt *options.ServerOption) error {
 
 	namespace := opt.Namespace
 	if namespace == corev1.NamespaceAll {
-		glog.Info("Using cluster scoped operator")
+		klog.Info("Using cluster scoped operator")
 	} else {
-		glog.Infof("Scoping operator to namespace %s", namespace)
+		klog.Infof("Scoping operator to namespace %s", namespace)
 	}
 
 	// To help debugging, immediately log version.
-	glog.Infof("%+v", version.Info(apiVersion))
+	klog.Infof("%+v", version.Info(apiVersion))
 
 	// To help debugging, immediately log opts.
-	glog.Infof("Server options: %+v", opt)
+	klog.Infof("Server options: %+v", opt)
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -108,7 +108,7 @@ func Run(opt *options.ServerOption) error {
 
 	cfg, err := clientcmd.BuildConfigFromFlags(opt.MasterURL, opt.Kubeconfig)
 	if err != nil {
-		glog.Fatalf("Error building kubeConfig: %s", err.Error())
+		klog.Fatalf("Error building kubeConfig: %s", err.Error())
 	}
 
 	// Create clients.
@@ -117,7 +117,7 @@ func Run(opt *options.ServerOption) error {
 		return err
 	}
 	if !checkCRDExists(mpiJobClientSet, namespace) {
-		glog.Info("CRD doesn't exist. Exiting")
+		klog.Info("CRD doesn't exist. Exiting")
 		os.Exit(1)
 	}
 
@@ -171,7 +171,7 @@ func Run(opt *options.ServerOption) error {
 		// Set leader election start function.
 		isLeader.Set(1)
 		if err = controller.Run(opt.Threadiness, stopCh); err != nil {
-			glog.Fatalf("Error running controller: %s", err.Error())
+			klog.Fatalf("Error running controller: %s", err.Error())
 		}
 	}
 
@@ -184,7 +184,7 @@ func Run(opt *options.ServerOption) error {
 
 	// Prepare event clients.
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: controllerName})
 
@@ -201,10 +201,10 @@ func Run(opt *options.ServerOption) error {
 	}
 
 	go func() {
-		glog.Infof("Start listening to %d for health check", healthCheckPort)
+		klog.Infof("Start listening to %d for health check", healthCheckPort)
 
 		if err := server.ListenAndServe(); err != nil {
-			glog.Fatalf("Error starting server for health check: %v", err)
+			klog.Fatalf("Error starting server for health check: %v", err)
 		}
 	}()
 
@@ -239,18 +239,18 @@ func Run(opt *options.ServerOption) error {
 		RetryPeriod:   retryPeriod,
 		Callbacks: election.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				glog.Infof("Leading started")
+				klog.Infof("Leading started")
 				run(ctx)
 			},
 			OnStoppedLeading: func() {
 				isLeader.Set(0)
-				glog.Fatalf("Leader election stopped")
+				klog.Fatalf("Leader election stopped")
 			},
 			OnNewLeader: func(identity string) {
 				if identity == id {
 					return
 				}
-				glog.Infof("New leader has been elected: %s", identity)
+				klog.Infof("New leader has been elected: %s", identity)
 			},
 		},
 		Name:     "mpi-operator",
@@ -289,7 +289,7 @@ func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool 
 	_, err := clientset.KubeflowV1alpha2().MPIJobs(namespace).List(metav1.ListOptions{})
 
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		if _, ok := err.(*errors.StatusError); ok {
 			if errors.IsNotFound(err) {
 				return false

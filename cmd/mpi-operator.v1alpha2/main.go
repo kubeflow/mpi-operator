@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app"
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options"
@@ -29,17 +29,18 @@ import (
 func startMonitoring(monitoringPort int) {
 	if monitoringPort != 0 {
 		go func() {
-			glog.Infof("Setting up client for monitoring on port: %d", monitoringPort)
+			klog.Infof("Setting up client for monitoring on port: %d", monitoringPort)
 			http.Handle("/metrics", promhttp.Handler())
 			err := http.ListenAndServe(fmt.Sprintf(":%d", monitoringPort), nil)
 			if err != nil {
-				glog.Error("Monitoring endpoint setup failure.", err)
+				klog.Error("Monitoring endpoint setup failure.", err)
 			}
 		}()
 	}
 }
 
 func main() {
+	klog.InitFlags(nil)
 	s := options.NewServerOption()
 	s.AddFlags(flag.CommandLine)
 
@@ -48,6 +49,6 @@ func main() {
 	startMonitoring(s.MonitoringPort)
 
 	if err := app.Run(s); err != nil {
-		glog.Fatalf("%v\n", err)
+		klog.Fatalf("%v\n", err)
 	}
 }

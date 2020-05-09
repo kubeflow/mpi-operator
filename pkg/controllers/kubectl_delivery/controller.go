@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -74,8 +74,8 @@ func NewKubectlDeliveryController(
 	}
 	controller.lock.Unlock()
 
-	glog.Infof("watched pods: %v", pods)
-	glog.Info("Setting up event handlers")
+	klog.Infof("watched pods: %v", pods)
+	klog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
 	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
@@ -107,10 +107,10 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches.
-	glog.Info("Starting kubectl-delivery controller")
+	klog.Info("Starting kubectl-delivery controller")
 
 	// Wait for the caches to be synced before starting workers.
-	glog.Info("Waiting for informer caches to sync")
+	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -125,13 +125,13 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			c.lock.Unlock()
 		}
 	}
-	glog.Info("Starting workers")
+	klog.Info("Starting workers")
 	// Launch workers to process MPIJob resources.
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, 100*time.Millisecond, stopCh)
 	}
 
-	glog.Info("Started workers")
+	klog.Info("Started workers")
 	ticker := time.NewTicker(500 * time.Millisecond)
 	for {
 		select {
@@ -139,7 +139,7 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			return nil
 		case <-ticker.C:
 			if len(c.watchedPods) == 0 {
-				glog.Info("Shutting down workers")
+				klog.Info("Shutting down workers")
 				return nil
 			}
 			break
@@ -197,7 +197,7 @@ func (c *KubectlDeliveryController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.queue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -214,7 +214,7 @@ func (c *KubectlDeliveryController) processNextWorkItem() bool {
 func (c *KubectlDeliveryController) syncHandler(key string) error {
 	startTime := time.Now()
 	defer func() {
-		glog.Infof("Finished syncing job %q (%v)", key, time.Since(startTime))
+		klog.Infof("Finished syncing job %q (%v)", key, time.Since(startTime))
 	}()
 
 	// Convert the namespace/name string into a distinct namespace and name.
@@ -232,7 +232,7 @@ func (c *KubectlDeliveryController) syncHandler(key string) error {
 	if err != nil {
 		// The MPIJob may no longer exist, in which case we stop processing.
 		if errors.IsNotFound(err) {
-			glog.V(4).Infof("Pod has been deleted: %v", key)
+			klog.V(4).Infof("Pod has been deleted: %v", key)
 			return nil
 		}
 		return err
