@@ -206,3 +206,7 @@ Docker images are built and pushed automatically to [mpioperator on Dockerhub](h
 
 * [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
 * [kubectl-delivery](https://github.com/kubeflow/mpi-operator/blob/master/cmd/kubectl-delivery/Dockerfile)
+Currently, you can download the mpi-operator image by:
+```shell
+docker pull stevendoit/mpi-operator:1.0
+``` 
