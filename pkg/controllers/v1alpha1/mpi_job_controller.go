@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/klog"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +46,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"

@@ -21,13 +21,13 @@ import (
 	"os"
 	"strings"
 
-	"k8s.io/klog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	restclientset "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 	"k8s.io/sample-controller/pkg/signals"
 
 	"github.com/kubeflow/mpi-operator/cmd/kubectl-delivery/app/options"
