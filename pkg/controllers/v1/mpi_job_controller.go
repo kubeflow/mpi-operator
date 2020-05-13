@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/klog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	podgroupv1beta1 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
 	volcanoclient "volcano.sh/volcano/pkg/client/clientset/versioned"
 	podgroupsinformer "volcano.sh/volcano/pkg/client/informers/externalversions/scheduling/v1beta1"

@@ -13,7 +13,7 @@ IMAGE_NAME?=kubeflow/mpi-operator
 
 build: all
 
-all: init mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 kubectl-delivery
+all: init fmt mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 kubectl-delivery
 
 mpi-operator.v1alpha1:
 	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/mpi-operator.v1alpha1 ./cmd/mpi-operator.v1alpha1/
@@ -29,6 +29,9 @@ kubectl-delivery:
 
 init:
 	mkdir -p ${BIN_DIR}
+
+fmt:
+	go fmt ./...
 
 # Generate code
 generate:

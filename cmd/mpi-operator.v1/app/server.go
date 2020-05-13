@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/klog"
 	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -39,6 +38,7 @@ import (
 	election "k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog"
 	"k8s.io/sample-controller/pkg/signals"
 	volcanoclient "volcano.sh/volcano/pkg/client/clientset/versioned"
 	volcanoinformers "volcano.sh/volcano/pkg/client/informers/externalversions"

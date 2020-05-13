@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/klog"
 	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	kubebatchclient "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	kubebatchinformers "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
@@ -42,6 +41,7 @@ import (
 	election "k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog"
 	"k8s.io/sample-controller/pkg/signals"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1alpha2/app/options"
