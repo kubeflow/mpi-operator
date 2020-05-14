@@ -8,6 +8,7 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [Alibaba DAMO Academy](https://damo.alibaba.com/) | [Yanjun Huang](https://damo.alibaba.com/about/) |
 | [Amazon Web Services](https://aws.amazon.com/) | [Jiaxin Shan](https://github.com/Jeffwan) |
 | [Ant Financial](https://www.antfin.com/) | [Yuan Tang](https://github.com/terrytangyuan) and [Wei Yan](https://github.com/ywskycn/) |
+| [Atrio](https://www.atrio.io/) | [César Gómez](https://github.com/cesargomez) |
 | [Bloomberg](https://www.bloomberg.com/) | [Chengjian Zheng](https://github.com/czheng94) and [Dan Sun](https://github.com/yuzisun) |
 | [Caicloud](https://caicloud.io/) | [Ce Gao](https://github.com/gaocegege) |
 | [Huawei](https://www.huawei.com/) | [Fei Xu](https://github.com/fisherxu) |
