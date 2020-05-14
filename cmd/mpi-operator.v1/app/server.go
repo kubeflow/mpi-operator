@@ -285,7 +285,7 @@ func createClientSets(config *restclientset.Config) (kubeclientset.Interface, ku
 }
 
 func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool {
-	_, err := clientset.KubeflowV1alpha2().MPIJobs(namespace).List(metav1.ListOptions{})
+	_, err := clientset.KubeflowV1().MPIJobs(namespace).List(metav1.ListOptions{})
 
 	if err != nil {
 		klog.Error(err)
