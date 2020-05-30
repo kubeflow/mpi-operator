@@ -241,16 +241,22 @@ class Builder:
         task_template = self._build_task_template()
 
         # ***************************************************************************
-        # Test linting
-        
-        step_name = "py-lint"
-        command = ["python", "--version"]
-        dependencies = []
-        pylint_step = self._build_step(step_name, self.workflow, TESTS_DAG_NAME, task_template,
-                                    command, dependencies)
+        # Test mpiopertor e2e
+        step_name = "mpioperator"
+        command = ["pytest", "mpioperator_notebook_test.py",
+                # Increase the log level so that info level log statements show up.
+                "--log-cli-level=info",
+                "--log-cli-format='%(levelname)s|%(asctime)s|%(pathname)s|%(lineno)d| %(message)s'",
+                # Test timeout in seconds.
+                "--timeout=1800",
+                "--junitxml=" + self.artifacts_dir + "/junit_mpioperator_notebook_test.xml",
+                ]
 
-        pylint_step["container"]["workingDir"] = os.path.join(
-        self.src_dir)
+        dependencies = []
+        mpioperator_step = self._build_step(step_name, self.workflow, TESTS_DAG_NAME, task_template,
+                                    command, dependencies)
+        mpioperator_step["container"]["workingDir"] = os.path.join(
+        self.src_dir, "py/kubeflow/mpi-operator/notebook_tests")
 
 
     def _build_exit_dag(self):
