@@ -34,3 +34,20 @@ resources: {}
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+
+## Node labels for pod assignment
+## Ref: https://kubernetes.io/docs/user-guide/node-selection/
+##
+nodeSelector: {}
+
+## Tolerations for the sparkoperator deployment
+##
+## Example:
+##   - key: "toleration=key"
+##     operator: "Equal"
+##     value: "value"
+##     effect: "NoSchedule"
+##
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
