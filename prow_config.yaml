@@ -14,7 +14,7 @@ workflows:
     kwargs:
       cluster_pattern: kf-v1-(?!n\d\d)
   - name: e2e-mpi-tekton
-    tekton_run: kubeflow/mpi-operator/py/kubeflow/tektonnb-test-run.yaml
+    tekton_run: kubeflow/mpi-operator/py/kubeflow/tekton/nb-test-run.yaml
     tekton_params:
       - name: testing-cluster-pattern
         value: kf-v1-(?!n\d\d)   
