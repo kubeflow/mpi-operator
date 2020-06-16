@@ -13,3 +13,8 @@ workflows:
       - postsubmit
     kwargs:
       cluster_pattern: kf-v1-(?!n\d\d)
+  - tekton_run: kubeflow/testing/tekton/testing/nb-test-run.yaml
+      tekton_params:
+        name: testing-cluster-pattern
+        value: 'kf-v1-(?!n\d\d)'   
+      name: tekton-v1
