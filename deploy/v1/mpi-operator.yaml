@@ -140,6 +140,7 @@ rules:
 - apiGroups:
   - scheduling.incubator.k8s.io
   - scheduling.sigs.dev
+  - scheduling.volcano.sh
   resources:
   - queues
   - podgroups
