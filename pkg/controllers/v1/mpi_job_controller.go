@@ -1225,7 +1225,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   mpiJob.Namespace,
-			Labels:      labels,
+			Labels:      podSpec.Labels,
 			Annotations: podSpec.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
@@ -1385,7 +1385,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        launcherName,
 			Namespace:   mpiJob.Namespace,
-			Labels:      labels,
+			Labels:      podSpec.Labels,
 			Annotations: podSpec.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
