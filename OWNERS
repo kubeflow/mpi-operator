@@ -1,14 +1,7 @@
 approvers:
-  - anfeng
-    # jlewi@ is just a backup in case other approvers aren't available.  
-  - jlewi
-  - madhukarkm
   - rongou
   - terrytangyuan
 reviewers:
-  - cheyang
   - everpeace
   - gaocegege
-  - nivedita-v
-  - fisherxu
   - carmark
