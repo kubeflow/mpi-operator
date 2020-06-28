@@ -94,6 +94,14 @@ const (
 	// fails to sync due to dependent resources already existing.
 	MessageResourceExists = "Resource %q of Kind %q already exists and is not managed by MPIJob"
 
+	// ErrResourceDoesNotExist is used as part of the Event 'reason' when some
+	// resource is missing in yaml
+	ErrResourceDoesNotExist = "ErrResourceDoesNotExist"
+
+	// MessageResourceDoesNotExist is used for Events when some
+	// resource is missing in yaml
+	MessageResourceDoesNotExist = "Resource %q is missing in yaml"
+
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
@@ -751,7 +759,14 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 	worker, err := c.statefulSetLister.StatefulSets(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	// If the StatefulSet doesn't exist, we'll create it.
 	if errors.IsNotFound(err) && workerReplicas > 0 {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorker(mpiJob, workerReplicas, c.gangSchedulerName))
+		newWorkerObj := newWorker(mpiJob, workerReplicas, c.gangSchedulerName)
+		if newWorkerObj == nil {
+			msg := fmt.Sprintf(MessageResourceDoesNotExist, "Worker")
+			c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
+			err = fmt.Errorf(msg)
+			return nil, err
+		}
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Create(newWorkerObj)
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -770,7 +785,14 @@ func (c *MPIJobController) getOrCreateWorkerStatefulSet(mpiJob *kubeflow.MPIJob,
 
 	// If the worker is out of date, update the worker.
 	if worker != nil && *worker.Spec.Replicas != workerReplicas {
-		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorker(mpiJob, workerReplicas, c.gangSchedulerName))
+		newWorkerObj := newWorker(mpiJob, workerReplicas, c.gangSchedulerName)
+		if newWorkerObj == nil {
+			msg := fmt.Sprintf(MessageResourceDoesNotExist, "Worker")
+			c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
+			err = fmt.Errorf(msg)
+			return nil, err
+		}
+		worker, err = c.kubeClient.AppsV1().StatefulSets(mpiJob.Namespace).Update(newWorkerObj)
 		// If an error occurs during Update, we'll requeue the item so we can
 		// attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
@@ -1109,6 +1131,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, desiredReplicas int32, gangSchedulerName
 
 	if len(podSpec.Spec.Containers) == 0 {
 		klog.Errorln("Worker pod does not have any containers in its spec")
+		return nil
 	}
 	container := podSpec.Spec.Containers[0]
 	if len(container.Command) == 0 {
@@ -1250,6 +1273,9 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	})
 	if len(podSpec.Spec.Containers) == 0 {
 		klog.Errorln("Launcher pod does not have any containers in its spec")
+		msg := fmt.Sprintf(MessageResourceDoesNotExist, "Launcher")
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
+		return nil
 	}
 	container := podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
