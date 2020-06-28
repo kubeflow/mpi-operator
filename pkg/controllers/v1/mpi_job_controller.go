@@ -88,6 +88,14 @@ const (
 	// fails to sync due to dependent resources already existing.
 	MessageResourceExists = "Resource %q of Kind %q already exists and is not managed by MPIJob"
 
+	// ErrResourceNotExists is used as part of the Event 'reason' when some
+	// resource missed defined in yaml
+	ErrResourceNotExists = "ErrResourceNotExists"
+
+	// ErrResourceNotExists is used for Events when some
+	// resource missed defined in yaml
+	MessageResourceNotExists = "Resource %q is missing in yaml"
+
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
 	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
@@ -763,7 +771,14 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 
 		// If the worker Pod doesn't exist, we'll create it.
 		if errors.IsNotFound(err) {
-			pod, err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Create(newWorker(mpiJob, name, c.gangSchedulerName))
+			newWorkerObj := newWorker(mpiJob, name, c.gangSchedulerName)
+			if newWorkerObj == nil {
+				msg := fmt.Sprintf(MessageResourceNotExists, "Worker")
+				c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceNotExists, msg)
+				err = fmt.Errorf(msg)
+				return nil, err
+			}
+			pod, err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Create(newWorkerObj)
 		}
 		// If an error occurs during Get/Create, we'll requeue the item so we
 		// can attempt processing again later. This could have been caused by a
@@ -1307,6 +1322,9 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	})
 	if len(podSpec.Spec.Containers) == 0 {
 		klog.Errorln("Launcher pod does not have any containers in its spec")
+		msg := fmt.Sprintf(MessageResourceNotExists, "Launcher")
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceNotExists, msg)
+		return nil
 	}
 	container := podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
