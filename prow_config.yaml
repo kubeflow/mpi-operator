@@ -5,16 +5,9 @@
 python_paths:
   - kubeflow/mpi-operator/py
 workflows:
-  - name: e2e-mpi
-    py_func: kubeflow.mpi-operator.create_e2e_workflow.create_workflow
-    job_type:
-      - periodic
-      - presubmit
-      - postsubmit
-    kwargs:
-      cluster_pattern: kf-v1-(?!n\d\d)
-  - name: e2e-mpi-tekton
-    tekton_run: kubeflow/mpi-operator/py/kubeflow/tekton/nb-test-run.yaml
-    tekton_params:
-      - name: testing-cluster-pattern
-        value: kf-v1-(?!n\d\d)   
+  - tekton_run: kubeflow/mpi-operator/py/kubeflow/mpi-operator/notebook_tests/test-nb-pipeline-run.yaml 
+    name: mnist-notebook
+    job_types:
+    - periodic
+    - presubmit
+    - postsubmit 
