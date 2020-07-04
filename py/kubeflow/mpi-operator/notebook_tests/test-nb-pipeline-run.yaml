@@ -32,9 +32,7 @@ spec:
       type: git
       params:
       - name: url
-        value: https://github.com/kubeflow/examples.git
-      - name: revision
-        value: master
+        value: https://github.com/kubeflow/mpi-operator.git
   # The image we want to build
   - name: image
     resourceSpec:
