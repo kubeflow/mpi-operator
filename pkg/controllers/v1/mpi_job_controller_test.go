@@ -48,6 +48,10 @@ var (
 	noResyncPeriodFunc = func() time.Duration { return 0 }
 )
 
+const (
+	gpuResourceName = "nvidia.com/gpu"
+)
+
 type fixture struct {
 	t *testing.T
 

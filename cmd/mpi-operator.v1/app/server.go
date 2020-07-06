@@ -160,7 +160,7 @@ func Run(opt *options.ServerOption) error {
 			kubeflowInformerFactory.Kubeflow().V1().MPIJobs(),
 			opt.KubectlDeliveryImage,
 			opt.GangSchedulingName,
-			opt.LauncherRunWorkload)
+			opt.LauncherRunsWorkloads)
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
