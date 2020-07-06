@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -69,7 +70,7 @@ const (
 	worker                  = "worker"
 	launcherSuffix          = "-launcher"
 	workerSuffix            = "-worker"
-	gpuResourceName         = "nvidia.com/gpu"
+	gpuResourceNameSuffix   = ".com/gpu"
 	labelGroupName          = "group-name"
 	labelMPIJobName         = "mpi-job-name"
 	labelMPIRoleType        = "mpi-job-role"
@@ -154,7 +155,7 @@ type MPIJobController struct {
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
 
 	// To allow launcher run workerload when launcher pod has GPU.
-	launcherRunWorkload bool
+	launcherRunsWorkload bool
 }
 
 // NewMPIJobController returns a new MPIJob controller.
@@ -171,7 +172,7 @@ func NewMPIJobController(
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
 	gangSchedulerName string,
-	launcherRunWorkload bool) *MPIJobController {
+	launcherRunsWorkload bool) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -209,7 +210,7 @@ func NewMPIJobController(
 		recorder:             recorder,
 		kubectlDeliveryImage: kubectlDeliveryImage,
 		gangSchedulerName:    gangSchedulerName,
-		launcherRunWorkload:  launcherRunWorkload,
+		launcherRunsWorkload: launcherRunsWorkload,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -527,7 +528,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if workerSpec != nil {
 			workerReplicas = *workerSpec.Replicas
 		}
-		isGPULauncher := isGPULauncher(mpiJob) && c.launcherRunWorkload
+		isGPULauncher := isGPULauncher(mpiJob) && c.launcherRunsWorkload
 
 		// Get the ConfigMap for this MPIJob.
 		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas, isGPULauncher); config == nil || err != nil {
@@ -1459,14 +1460,11 @@ func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
 }
 
 func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
-	replica, ok := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher]
-	if !ok {
-		klog.Warningf("MPIJob %s: Launcher not found in mpijob spec", mpiJob.Name)
-		return false
-	}
-	for _, container := range replica.Template.Spec.Containers {
-		if _, ok := container.Resources.Requests[gpuResourceName]; ok {
-			return true
+	for _, container := range mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers {
+		for key := range container.Resources.Limits {
+			if strings.HasSuffix(string(key), gpuResourceNameSuffix) {
+				return true
+			}
 		}
 	}
 	return false

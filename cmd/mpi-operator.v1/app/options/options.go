@@ -32,7 +32,7 @@ type ServerOption struct {
 	GangSchedulingName   string
 	Namespace            string
 	LockNamespace        string
-	LauncherRunWorkload  bool
+	LauncherRunsWorkload bool
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -69,5 +69,5 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&s.LockNamespace, "lock-namespace", "mpi-operator", "Set locked namespace name while enabling leader election.")
 
-	fs.BoolVar(&s.LauncherRunWorkload, "launcher-run-workload", false, "Set launcher run the workload when launcher has GPU")
+	fs.BoolVar(&s.LauncherRunsWorkload, "launcher-runs-workloads", false, "Set launcher run the workload when launcher has GPU")
 }

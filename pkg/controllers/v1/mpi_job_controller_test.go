@@ -48,6 +48,10 @@ var (
 	noResyncPeriodFunc = func() time.Duration { return 0 }
 )
 
+const (
+	gpuResourceName = "nvidia.com/gpu"
+)
+
 type fixture struct {
 	t *testing.T
 
@@ -149,7 +153,7 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 	return mpiJob
 }
 
-func (f *fixture) newController(gangSchedulerName string, launcherRunWorkload bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(gangSchedulerName string, launcherRunsWorkload bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
@@ -172,7 +176,7 @@ func (f *fixture) newController(gangSchedulerName string, launcherRunWorkload bo
 		i.Kubeflow().V1().MPIJobs(),
 		"kubectl-delivery",
 		gangSchedulerName,
-		launcherRunWorkload,
+		launcherRunsWorkload,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -244,8 +248,8 @@ func (f *fixture) runExpectError(mpiJobName string) {
 	f.runController(mpiJobName, true, true, "", false)
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, gangSchedulerName string, launcherRunWorkload bool) {
-	c, i, k8sI := f.newController(gangSchedulerName, launcherRunWorkload)
+func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, gangSchedulerName string, launcherRunsWorkload bool) {
+	c, i, k8sI := f.newController(gangSchedulerName, launcherRunsWorkload)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
