@@ -25,7 +25,7 @@ spec:
   - name: notebook-output
     value: gs://kubeflow-ci-deployment_ci-temp/mnist_test
   - name: notebook-path
-    value: tests/mpi_notebook.ipynb #examples/v1alpha2/mpi_notebook.ipynb
+    value: examples/hovorod-cpu/mpi_notebook.ipynb #examples/v1alpha2/mpi_notebook.ipynb
   resources:
   - name: notebook-repo
     resourceSpec:
