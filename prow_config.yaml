@@ -6,7 +6,7 @@ python_paths:
   - kubeflow/mpi-operator/py
 workflows:
   - tekton_run: kubeflow/mpi-operator/tests/test-nb-pipeline-run.yaml 
-    name: mnist-notebook
+    name: mpi-e2e-test
     job_types:
     - periodic
     - presubmit
