@@ -5,7 +5,7 @@
 python_paths:
   - kubeflow/mpi-operator/py
 workflows:
-  - tekton_run: kubeflow/mpi-operator/py/kubeflow/mpi-operator/notebook_tests/test-nb-pipeline-run.yaml 
+  - tekton_run: tests/notebook_tests/test-nb-pipeline-run.yaml 
     name: mnist-notebook
     job_types:
     - periodic
