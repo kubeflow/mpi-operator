@@ -3,10 +3,10 @@
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineRun
 metadata:
-  generateName: mnist-
+  generateName: mpi-
   namespace: kf-ci
   labels:
-    pipeline: mnist-notebook
+    pipeline: mpi-notebook
 spec:
   params:
   # test-target-name, artifacts-gcs, and junit-path are required for
@@ -23,9 +23,9 @@ spec:
   - name: testing-cluster-location
     value: 'us-central1-c'
   - name: notebook-output
-    value: gs://kubeflow-ci-deployment_ci-temp/mnist_test
+    value: gs://kubeflow-ci-deployment_ci-temp/mpi_test
   - name: notebook-path
-    value: examples/hovorod-cpu/mpi_notebook.ipynb #examples/v1alpha2/mpi_notebook.ipynb
+    value: examples/hovorod-cpu/mpi_notebook.ipynb
   resources:
   - name: notebook-repo
     resourceSpec:
@@ -39,7 +39,7 @@ spec:
       type: image
       params:
       - name: url
-        value: gcr.io/kubeflow-ci-deployment/mnist-test
+        value: gcr.io/kubeflow-ci-deployment/mpi-test
   pipelineRef:
     name: notebook-test
   serviceAccountName: kf-ci
