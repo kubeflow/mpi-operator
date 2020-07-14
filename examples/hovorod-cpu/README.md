@@ -17,3 +17,8 @@ The example mpijob is to run the horovod cpu-only example [tensorflow_mnist.py](
 ```bash
 kubectl create -f ./tensorflow-mnist.yaml
 ```
+
+
+## Mpi Notebook
+
+The `mpi_notebook` illustrates how to launch an mpi job from a notebook. This jupyter notebook is also used for e2e testing of  the mpi-operator. For the test the `Dockerfile`is used to create an enviroment in which the notebook is executed. 
