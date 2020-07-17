@@ -48,6 +48,10 @@ var (
 	noResyncPeriodFunc = func() time.Duration { return 0 }
 )
 
+const (
+	gpuResourceName = "nvidia.com/gpu"
+)
+
 type fixture struct {
 	t *testing.T
 
@@ -149,7 +153,7 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 	return mpiJob
 }
 
-func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(gangSchedulerName string, launcherRunsWorkload bool) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 
@@ -172,6 +176,7 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		i.Kubeflow().V1().MPIJobs(),
 		"kubectl-delivery",
 		gangSchedulerName,
+		launcherRunsWorkload,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -236,15 +241,15 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 }
 
 func (f *fixture) run(mpiJobName string) {
-	f.runController(mpiJobName, true, false, "")
+	f.runController(mpiJobName, true, false, "", false)
 }
 
 func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true, "")
+	f.runController(mpiJobName, true, true, "", false)
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, gangSchedulerName string) {
-	c, i, k8sI := f.newController(gangSchedulerName)
+func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, gangSchedulerName string, launcherRunsWorkload bool) {
+	c, i, k8sI := f.newController(gangSchedulerName, launcherRunsWorkload)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -484,7 +489,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
@@ -501,7 +506,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodSucceeded
 	f.setUpLauncher(launcher)
 
@@ -536,7 +541,7 @@ func TestLauncherFailed(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodFailed
 	f.setUpLauncher(launcher)
 
@@ -570,7 +575,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, 8)
+	configMap := newConfigMap(mpiJob, 8, isGPULauncher(mpiJob))
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
@@ -585,7 +590,7 @@ func TestServiceAccountNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
 
 	serviceAccount := newLauncherServiceAccount(mpiJob)
 	serviceAccount.OwnerReferences = nil
@@ -602,7 +607,7 @@ func TestRoleNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 
 	role := newLauncherRole(mpiJob, 8)
@@ -620,7 +625,7 @@ func TestRoleBindingNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 	f.setUpRole(newLauncherRole(mpiJob, 8))
 
@@ -645,7 +650,7 @@ func TestShutdownWorker(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodSucceeded
 	f.setUpLauncher(launcher)
 
@@ -687,7 +692,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8))
+	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
 	f.setUpRbac(mpiJob, 8)
 
 	for i := 0; i < 8; i++ {
@@ -708,11 +713,11 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpConfigMap(newConfigMap(mpiJob, 1, isGPULauncher(mpiJob)))
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
@@ -749,11 +754,11 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1))
+	f.setUpConfigMap(newConfigMap(mpiJob, 1, isGPULauncher(mpiJob)))
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
@@ -795,7 +800,7 @@ func TestWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(16), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 16))
+	f.setUpConfigMap(newConfigMap(mpiJob, 16, isGPULauncher(mpiJob)))
 	f.setUpRbac(mpiJob, 16)
 
 	for i := 0; i < 16; i++ {
@@ -806,7 +811,7 @@ func TestWorkerReady(t *testing.T) {
 	}
 
 	fmjc := f.newFakeMPIJobController()
-	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery")
+	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
 	f.expectCreateJobAction(expLauncher)
 
 	mpiJobCopy := mpiJob.DeepCopy()

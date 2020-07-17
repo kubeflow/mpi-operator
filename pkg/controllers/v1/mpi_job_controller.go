@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -69,7 +70,7 @@ const (
 	worker                  = "worker"
 	launcherSuffix          = "-launcher"
 	workerSuffix            = "-worker"
-	gpuResourceName         = "nvidia.com/gpu"
+	gpuResourceNameSuffix   = ".com/gpu"
 	labelGroupName          = "group-name"
 	labelMPIJobName         = "mpi-job-name"
 	labelMPIRoleType        = "mpi-job-role"
@@ -152,6 +153,9 @@ type MPIJobController struct {
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
+
+	// To allow launcher run workerload when launcher pod has GPU.
+	launcherRunsWorkload bool
 }
 
 // NewMPIJobController returns a new MPIJob controller.
@@ -167,7 +171,8 @@ func NewMPIJobController(
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
-	gangSchedulerName string) *MPIJobController {
+	gangSchedulerName string,
+	launcherRunsWorkload bool) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -205,6 +210,7 @@ func NewMPIJobController(
 		recorder:             recorder,
 		kubectlDeliveryImage: kubectlDeliveryImage,
 		gangSchedulerName:    gangSchedulerName,
+		launcherRunsWorkload: launcherRunsWorkload,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -522,9 +528,10 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if workerSpec != nil {
 			workerReplicas = *workerSpec.Replicas
 		}
+		isGPULauncher := isGPULauncher(mpiJob) && c.launcherRunsWorkload
 
 		// Get the ConfigMap for this MPIJob.
-		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas); config == nil || err != nil {
+		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas, isGPULauncher); config == nil || err != nil {
 			return err
 		}
 
@@ -555,7 +562,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return err
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage))
+			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(c.newLauncher(mpiJob, c.kubectlDeliveryImage, isGPULauncher))
 			if err != nil {
 				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
 				return err
@@ -653,11 +660,11 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
-func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) (*corev1.ConfigMap, error) {
+func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) (*corev1.ConfigMap, error) {
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas))
+		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas, isGPULauncher))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -1014,7 +1021,7 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
+func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) *corev1.ConfigMap {
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
@@ -1031,6 +1038,9 @@ shift
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
+	if isGPULauncher {
+		buffer.WriteString(fmt.Sprintf("%s%s slots=%d\n", mpiJob.Name, launcherSuffix, slots))
+	}
 	for i := 0; i < int(workerReplicas); i++ {
 		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
 	}
@@ -1253,7 +1263,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 // newLauncher creates a new launcher Job for an MPIJob resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
-func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string) *corev1.Pod {
+func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string, isGPULauncher bool) *corev1.Pod {
 	launcherName := mpiJob.Name + launcherSuffix
 	labels := map[string]string{
 		labelGroupName:   "kubeflow.org",
@@ -1336,17 +1346,22 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 			Name:  "OMPI_MCA_orte_default_hostfile",
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		},
-		// We overwrite these environment variables so that users will not
-		// be mistakenly using GPU resources for launcher due to potential
-		// issues with scheduler/container technologies.
-		corev1.EnvVar{
-			Name:  "NVIDIA_VISIBLE_DEVICES",
-			Value: "",
-		},
-		corev1.EnvVar{
-			Name:  "NVIDIA_DRIVER_CAPABILITIES",
-			Value: "",
-		})
+	)
+
+	if !isGPULauncher {
+		container.Env = append(container.Env,
+			// We overwrite these environment variables so that users will not
+			// be mistakenly using GPU resources for launcher due to potential
+			// issues with scheduler/container technologies.
+			corev1.EnvVar{
+				Name:  "NVIDIA_VISIBLE_DEVICES",
+				Value: "",
+			},
+			corev1.EnvVar{
+				Name:  "NVIDIA_DRIVER_CAPABILITIES",
+				Value: "",
+			})
+	}
 
 	container.VolumeMounts = append(container.VolumeMounts,
 		corev1.VolumeMount{
@@ -1440,6 +1455,17 @@ func isPodRunning(p *corev1.Pod) bool {
 func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
 	if *cleanPodPolicy == common.CleanPodPolicyAll || *cleanPodPolicy == common.CleanPodPolicyRunning {
 		return true
+	}
+	return false
+}
+
+func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
+	for _, container := range mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers {
+		for key := range container.Resources.Limits {
+			if strings.HasSuffix(string(key), gpuResourceNameSuffix) {
+				return true
+			}
+		}
 	}
 	return false
 }

@@ -40,6 +40,7 @@ const (
 	RecommendedKubeConfigPathEnv = "KUBECONFIG"
 	nsEnvironmentName            = "NAMESPACE"
 	filename                     = "/etc/mpi/hostfile"
+	launcherPodSuffix            = "launcher"
 )
 
 func Run(opt *options.ServerOption) error {
@@ -107,7 +108,9 @@ func Run(opt *options.ServerOption) error {
 			continue
 		}
 		lines := strings.SplitN(string(line), " ", 2)
-		pods = append(pods, lines[0])
+		if !strings.HasSuffix(lines[0], launcherPodSuffix) {
+			pods = append(pods, lines[0])
+		}
 	}
 	controller := kubectl_delivery.NewKubectlDeliveryController(
 		namespace,
