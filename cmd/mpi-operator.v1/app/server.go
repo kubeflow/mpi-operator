@@ -111,6 +111,9 @@ func Run(opt *options.ServerOption) error {
 		klog.Fatalf("Error building kubeConfig: %s", err.Error())
 	}
 
+	cfg.QPS = float32(opt.QPS)
+	cfg.Burst = opt.Burst
+
 	// Create clients.
 	kubeClient, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, err := createClientSets(cfg)
 	if err != nil {

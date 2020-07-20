@@ -33,6 +33,8 @@ type ServerOption struct {
 	Namespace            string
 	LockNamespace        string
 	LauncherRunsWorkload bool
+	QPS                  int
+	Burst                int
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -70,4 +72,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&s.LockNamespace, "lock-namespace", "mpi-operator", "Set locked namespace name while enabling leader election.")
 
 	fs.BoolVar(&s.LauncherRunsWorkload, "launcher-runs-workloads", false, "Set launcher run the workload when launcher has GPU")
+
+	fs.IntVar(&s.QPS, "qps", 5, "QPS indicates the maximum QPS to the master from this client.")
+	fs.IntVar(&s.Burst, "burst", 10, "Maximum burst for throttle.")
 }
