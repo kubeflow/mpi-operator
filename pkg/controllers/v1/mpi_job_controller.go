@@ -62,6 +62,7 @@ const (
 	configMountPath         = "/etc/mpi"
 	kubexecScriptName       = "kubexec.sh"
 	hostfileName            = "hostfile"
+	discoverHostsScriptName = "discover_hosts.sh"
 	kubectlDeliveryName     = "kubectl-delivery"
 	kubectlTargetDirEnv     = "TARGET_DIR"
 	kubectlVolumeName       = "mpi-job-kubectl"
@@ -661,10 +662,28 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) (*corev1.ConfigMap, error) {
-	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
+	var cm *v1.ConfigMap = nil
+	old, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
+	// If the ConfigMap changes, we'll update it.
 	if errors.IsNotFound(err) {
-		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas, isGPULauncher))
+		new := newConfigMap(mpiJob, workerReplicas, isGPULauncher, nil)
+		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(new)
+	} else {
+		runningPods := make(map[string]interface{})
+		podList, err := c.kubeClient.CoreV1().Pods(mpiJob.Name).List(metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, pod := range podList.Items {
+			if pod.Status.Phase == v1.PodRunning {
+				runningPods[pod.Name] = nil
+			}
+		}
+		new := newConfigMap(mpiJob, workerReplicas, isGPULauncher, runningPods)
+		if old.Data[hostfileName] != new.Data[hostfileName] {
+			cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Update(new)
+		}
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -1021,7 +1040,7 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) *corev1.ConfigMap {
+func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool, runningPods map[string]interface{}) *corev1.ConfigMap {
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
@@ -1039,10 +1058,20 @@ shift
 	}
 	var buffer bytes.Buffer
 	if isGPULauncher {
-		buffer.WriteString(fmt.Sprintf("%s%s slots=%d\n", mpiJob.Name, launcherSuffix, slots))
+		name := fmt.Sprintf("%s%s", mpiJob, launcherSuffix)
+		if runningPods == nil {
+			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", name, slots))
+		} else if _, found := runningPods[name]; found {
+			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", name, slots))
+		}
 	}
 	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
+		name := fmt.Sprintf("%s%s-%d", mpiJob.Name, workerSuffix, i)
+		if runningPods == nil {
+			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", name, slots))
+		} else if _, found := runningPods[name]; found {
+			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", name, slots))
+		}
 	}
 
 	return &corev1.ConfigMap{
@@ -1057,8 +1086,9 @@ shift
 			},
 		},
 		Data: map[string]string{
-			hostfileName:      buffer.String(),
-			kubexecScriptName: kubexec,
+			hostfileName:            buffer.String(),
+			kubexecScriptName:       kubexec,
+			discoverHostsScriptName: fmt.Sprintf("cat %s/%s\n", configMountPath, hostfileName),
 		},
 	}
 }
@@ -1214,6 +1244,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 	podSpec.Spec.Containers[0] = container
 
 	scriptMode := int32(0555)
+	hostfileMode := int32(0444)
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, corev1.Volume{
 		Name: configVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -1226,6 +1257,16 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 						Key:  kubexecScriptName,
 						Path: kubexecScriptName,
 						Mode: &scriptMode,
+					},
+					{
+						Key:  discoverHostsScriptName,
+						Path: discoverHostsScriptName,
+						Mode: &scriptMode,
+					},
+					{
+						Key:  hostfileName,
+						Path: hostfileName,
+						Mode: &hostfileMode,
 					},
 				},
 			},
