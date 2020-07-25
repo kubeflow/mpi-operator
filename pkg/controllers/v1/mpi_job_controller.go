@@ -62,6 +62,7 @@ const (
 	configMountPath         = "/etc/mpi"
 	kubexecScriptName       = "kubexec.sh"
 	hostfileName            = "hostfile"
+	discoverHostsScriptName = "discover_hosts.sh"
 	kubectlDeliveryName     = "kubectl-delivery"
 	kubectlTargetDirEnv     = "TARGET_DIR"
 	kubectlVolumeName       = "mpi-job-kubectl"
@@ -661,12 +662,36 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) (*corev1.ConfigMap, error) {
-	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
+	var cm *v1.ConfigMap = nil
+	old, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
+	// If the ConfigMap changes, we'll update it.
 	if errors.IsNotFound(err) {
 		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas, isGPULauncher))
+	} else {
+		runningPods := make(map[string]int)
+		slots := 1
+		if mpiJob.Spec.SlotsPerWorker != nil {
+			slots = int(*mpiJob.Spec.SlotsPerWorker)
+		}
+		podList, err := c.kubeClient.CoreV1().Pods(mpiJob.Name).List(metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, pod := range podList.Items {
+			if pod.Status.Phase == v1.PodRunning {
+				runningPods[pod.Name] = slots
+			}
+		}
+		new := updateConfigMap(old, runningPods)
+		if old.Data[hostfileName] != new.Data[hostfileName] {
+			cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Update(new)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	// If an error occurs during Get/Create, we'll requeue the item so we
+	// If an error occurs during Get/Create/Update, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
 	// temporary network failure, or any other transient reason.
 	if err != nil {
@@ -1063,6 +1088,18 @@ shift
 	}
 }
 
+// updateConfigMap
+func updateConfigMap(old *corev1.ConfigMap, runningPods map[string]int) *corev1.ConfigMap {
+	new := old.DeepCopy()
+	var buffer bytes.Buffer
+	for podName, slots := range runningPods {
+		buffer.WriteString(fmt.Sprintf("%s slots=%d", podName, slots))
+	}
+	new.Data[hostfileName] = buffer.String()
+
+	return new
+}
+
 // newLauncherServiceAccount creates a new launcher ServiceAccount for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
@@ -1214,6 +1251,7 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 	podSpec.Spec.Containers[0] = container
 
 	scriptMode := int32(0555)
+	hostfileMode := int32(0444)
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, corev1.Volume{
 		Name: configVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -1226,6 +1264,16 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 						Key:  kubexecScriptName,
 						Path: kubexecScriptName,
 						Mode: &scriptMode,
+					},
+					{
+						Key:  discoverHostsScriptName,
+						Path: discoverHostsScriptName,
+						Mode: &scriptMode,
+					},
+					{
+						Key:  hostfileName,
+						Path: hostfileName,
+						Mode: &hostfileMode,
 					},
 				},
 			},
