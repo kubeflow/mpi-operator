@@ -958,7 +958,7 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
-	var kubexec string = ""
+	var kubexec string
 	if mpiJob.Spec.MPIDistribution == "IntelMPI"{
 		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
