@@ -958,11 +958,27 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
-	kubexec := fmt.Sprintf(`#!/bin/sh
+	var kubexec string = ""
+	if mpiJob.Spec.MPIDistribution == "IntelMPI"{
+		kubexec = fmt.Sprintf(`#!/bin/sh
+set -x
+POD_NAME=$3
+shift 3
+%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+	}else if mpiJob.Spec.MPIDistribution == "MPICH" {
+		kubexec = fmt.Sprintf(`#!/bin/sh
+set -x
+POD_NAME=$2
+shift 2
+%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+	}else {
+		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
 shift
 %s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+	}
+
 	if len(mpiJob.Spec.MainContainer) > 0 {
 		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
 	}
@@ -975,7 +991,11 @@ shift
 	}
 	var buffer bytes.Buffer
 	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
+		if mpiJob.Spec.MPIDistribution == "IntelMPI" || mpiJob.Spec.MPIDistribution == "MPICH" {
+			buffer.WriteString(fmt.Sprintf("%s%s-%d:%d\n", mpiJob.Name, workerSuffix, i, slots))
+		}else{
+			buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
+		}
 	}
 
 	return &corev1.ConfigMap{
@@ -1278,13 +1298,25 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		return nil
 	}
 	container := podSpec.Spec.Containers[0]
+	var mpiRshExecPath string
+	var mpiHostfilePath string
+	if mpiJob.Spec.MPIDistribution == "IntelMPI" {
+		mpiRshExecPath = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
+		mpiHostfilePath = "I_MPI_HYDRA_HOST_FILE"
+	}else if mpiJob.Spec.MPIDistribution == "MPICH" {
+		mpiRshExecPath = "HYDRA_LAUNCHER_EXEC"
+		mpiHostfilePath = "HYDRA_HOST_FILE"
+	}else{
+		mpiRshExecPath = "OMPI_MCA_plm_rsh_agent"
+		mpiHostfilePath = "OMPI_MCA_orte_default_hostfile"
+	}
 	container.Env = append(container.Env,
 		corev1.EnvVar{
-			Name:  "OMPI_MCA_plm_rsh_agent",
+			Name:  mpiRshExecPath,
 			Value: fmt.Sprintf("%s/%s", configMountPath, kubexecScriptName),
 		},
 		corev1.EnvVar{
-			Name:  "OMPI_MCA_orte_default_hostfile",
+			Name:  mpiHostfilePath,
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		},
 		// We overwrite these environment variables so that users will not
