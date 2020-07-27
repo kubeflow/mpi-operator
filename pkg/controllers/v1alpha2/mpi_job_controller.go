@@ -1298,25 +1298,25 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		return nil
 	}
 	container := podSpec.Spec.Containers[0]
-	var mpiRshExecPath string
-	var mpiHostfilePath string
+	var mpiRshExecPathEnvName string
+	var mpiHostfilePathEnvName string
 	if mpiJob.Spec.MPIDistribution == "IntelMPI" {
-		mpiRshExecPath = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
-		mpiHostfilePath = "I_MPI_HYDRA_HOST_FILE"
+		mpiRshExecPathEnvName = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
+		mpiHostfilePathEnvName = "I_MPI_HYDRA_HOST_FILE"
 	}else if mpiJob.Spec.MPIDistribution == "MPICH" {
-		mpiRshExecPath = "HYDRA_LAUNCHER_EXEC"
-		mpiHostfilePath = "HYDRA_HOST_FILE"
+		mpiRshExecPathEnvName = "HYDRA_LAUNCHER_EXEC"
+		mpiHostfilePathEnvName = "HYDRA_HOST_FILE"
 	}else{
-		mpiRshExecPath = "OMPI_MCA_plm_rsh_agent"
-		mpiHostfilePath = "OMPI_MCA_orte_default_hostfile"
+		mpiRshExecPathEnvName = "OMPI_MCA_plm_rsh_agent"
+		mpiHostfilePathEnvName = "OMPI_MCA_orte_default_hostfile"
 	}
 	container.Env = append(container.Env,
 		corev1.EnvVar{
-			Name:  mpiRshExecPath,
+			Name:  mpiRshExecPathEnvName,
 			Value: fmt.Sprintf("%s/%s", configMountPath, kubexecScriptName),
 		},
 		corev1.EnvVar{
-			Name:  mpiHostfilePath,
+			Name:  mpiHostfilePathEnvName,
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		},
 		// We overwrite these environment variables so that users will not
