@@ -959,13 +959,13 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	var kubexec string
-	if mpiJob.Spec.MPIDistribution == "IntelMPI"{
+	if mpiJob.Spec.MPIDistribution == "intel_mpi"{
 		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$3
 shift 3
 %s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	}else if mpiJob.Spec.MPIDistribution == "MPICH" {
+	}else if mpiJob.Spec.MPIDistribution == "mpich" {
 		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$2
@@ -991,7 +991,7 @@ shift
 	}
 	var buffer bytes.Buffer
 	for i := 0; i < int(workerReplicas); i++ {
-		if mpiJob.Spec.MPIDistribution == "IntelMPI" || mpiJob.Spec.MPIDistribution == "MPICH" {
+		if mpiJob.Spec.MPIDistribution == "intel_mpi" || mpiJob.Spec.MPIDistribution == "mpich" {
 			buffer.WriteString(fmt.Sprintf("%s%s-%d:%d\n", mpiJob.Name, workerSuffix, i, slots))
 		}else{
 			buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
@@ -1300,10 +1300,10 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	container := podSpec.Spec.Containers[0]
 	var mpiRshExecPathEnvName string
 	var mpiHostfilePathEnvName string
-	if mpiJob.Spec.MPIDistribution == "IntelMPI" {
+	if mpiJob.Spec.MPIDistribution == "intel_mpi" {
 		mpiRshExecPathEnvName = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
 		mpiHostfilePathEnvName = "I_MPI_HYDRA_HOST_FILE"
-	}else if mpiJob.Spec.MPIDistribution == "MPICH" {
+	}else if mpiJob.Spec.MPIDistribution == "mpich" {
 		mpiRshExecPathEnvName = "HYDRA_LAUNCHER_EXEC"
 		mpiHostfilePathEnvName = "HYDRA_HOST_FILE"
 	}else{

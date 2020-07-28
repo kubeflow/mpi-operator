@@ -73,9 +73,9 @@ type MPIJobSpec struct {
 	// the following fields: `BackoffLimit` and `ActiveDeadlineSeconds`.
 	RunPolicy *common.RunPolicy `json:"runPolicy,omitempty"`
 
-	// MPIDistribution specifies name of the mpi framwork which is used
-	// Deafults to "OpenMPI"
-	// Option includes "OpenMPI", "IntelMPI" and "MPICH"
+	// MPIDistribution specifies name of the MPI framwork which is used
+	// Defaults to "open_mpi"
+	// Options includes "open_mpi", "intel_mpi" and "mpich"
 	MPIDistribution string `json:"mpiDistribution,omitempty"`
 }
 
