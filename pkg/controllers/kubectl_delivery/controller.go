@@ -152,7 +152,7 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 					klog.Fatalf("Error read file[%s]: %v", "/etc/hosts", err)
 				}
 				defer fd.Close()
-				// Read the last line of local hosts file
+				// Read the last line of hosts file -- the ip address of localhost
 				scanner := bufio.NewScanner(fd)
 				for scanner.Scan() {
 					hosts = scanner.Text()
@@ -165,7 +165,7 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 					}
 					hosts = fmt.Sprintf("%s\n%s\t%s", hosts, pod.Status.PodIP, pod.Name)
 				}
-				// Write all the hosts-format ip record to volume, and will be sent to worker later.
+				// Write the hosts-format ip record to volume, and will be sent to worker later.
 				fp, err := os.OpenFile("/opt/kube/hosts", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 				if err != nil {
 					klog.Fatalf("Error write file[%s]: %v", "/opt/kube/hosts", err)
