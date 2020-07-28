@@ -15,7 +15,9 @@
 package kubectl_delivery
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -114,7 +116,10 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 	if ok := cache.WaitForCacheSync(stopCh, c.podSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
+	// Copy a list of pods to get their ip address
+	var workerPods []string
 	for name := range c.watchedPods {
+		workerPods = append(workerPods, name)
 		pod, err := c.podLister.Pods(c.namespace).Get(name)
 		if err != nil {
 			continue
@@ -139,6 +144,34 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			return nil
 		case <-ticker.C:
 			if len(c.watchedPods) == 0 {
+				// Get and record all workers' ip address in a hosts file.
+				var hosts string
+				// First, open local hosts file to read launcher pod ip
+				fd, err := os.Open("/etc/hosts")
+				if err != nil {
+					klog.Fatalf("Error read file[%s]: %v", "/etc/hosts", err)
+				}
+				defer fd.Close()
+				// Read the last line of local hosts file
+				scanner := bufio.NewScanner(fd)
+				for scanner.Scan() {
+					hosts = scanner.Text()
+				}
+				// Use client-go to find up ip addresses of each node
+				for index := range workerPods {
+					pod, err := c.podLister.Pods(c.namespace).Get(workerPods[index])
+					if err != nil {
+						continue
+					}
+					hosts = fmt.Sprintf("%s\n%s\t%s", hosts, pod.Status.PodIP, pod.Name)
+				}
+				// Write all the hosts-format ip record to volume, and will be sent to worker later.
+				fp, err := os.OpenFile("/opt/kube/hosts", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+				if err != nil {
+					klog.Fatalf("Error write file[%s]: %v", "/opt/kube/hosts", err)
+				}
+				defer fp.Close()
+				fp.WriteString(hosts)
 				klog.Info("Shutting down workers")
 				return nil
 			}
