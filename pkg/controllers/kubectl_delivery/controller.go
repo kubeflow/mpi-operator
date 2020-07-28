@@ -168,10 +168,13 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 				// Write the hosts-format ip record to volume, and will be sent to worker later.
 				fp, err := os.OpenFile("/opt/kube/hosts", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 				if err != nil {
-					klog.Fatalf("Error write file[%s]: %v", "/opt/kube/hosts", err)
+					klog.Fatalf("Error create file[%s]: %v", "/opt/kube/hosts", err)
 				}
 				defer fp.Close()
-				fp.WriteString(hosts)
+				_, err = fp.WriteString(hosts)
+				if err!= nil{
+					klog.Fatalf("Error write file[%s]: %v", "/opt/kube/hosts", err)
+				}
 				klog.Info("Shutting down workers")
 				return nil
 			}
