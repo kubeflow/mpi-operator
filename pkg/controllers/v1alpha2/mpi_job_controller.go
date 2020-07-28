@@ -1302,8 +1302,8 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	// to specify the path of the remote task launcher and hostfile file.
 	mpiRshExecPathEnvName := "OMPI_MCA_plm_rsh_agent"
 	mpiHostfilePathEnvName := "OMPI_MCA_orte_default_hostfile"
-	// If the MPIDistribution is not specificed as the kubeflow.MPIDistributionTypeIntelMPI or "mpich",
-	// then think that the default "open_mpi" will be used.
+	// If the MPIDistribution is not specificed as the "IntelMPI" or "MPICH",
+	// then think that the default "OpenMPI" will be used.
 	if mpiJob.Spec.MPIDistribution != nil {
 		if *mpiJob.Spec.MPIDistribution == kubeflow.MPIDistributionTypeIntelMPI {
 			mpiRshExecPathEnvName = "I_MPI_HYDRA_BOOTSTRAP_EXEC"

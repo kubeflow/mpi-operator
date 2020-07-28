@@ -74,8 +74,8 @@ type MPIJobSpec struct {
 	RunPolicy *common.RunPolicy `json:"runPolicy,omitempty"`
 
 	// MPIDistribution specifies name of the MPI framwork which is used
-	// Defaults to "open_mpi"
-	// Options includes "open_mpi", "intel_mpi" and "mpich"
+	// Defaults to "OpenMPI"
+	// Options includes "OpenMPI", "IntelMPI" and "MPICH"
 	MPIDistribution *MPIDistributionType `json:"mpiDistribution,omitempty"`
 }
 
@@ -95,9 +95,11 @@ type MPIDistributionType string
 
 const(
 	// MPIDistributionTypeOpenMPI is the type for Open MPI.
-	MPIDistributionTypeOpenMPI MPIDistributionType = "open_mpi"
+	MPIDistributionTypeOpenMPI MPIDistributionType = "OpenMPI"
+
 	// MPIDistributionTypeIntelMPI is the type for Intel MPI.
-	MPIDistributionTypeIntelMPI MPIDistributionType = "intel_mpi"
+	MPIDistributionTypeIntelMPI MPIDistributionType = "IntelMPI"
+
 	// MPIDistributionTypeMPICH is the type for MPICh.
-	MPIDistributionTypeMPICH MPIDistributionType = "mpich"
+	MPIDistributionTypeMPICH MPIDistributionType = "MPICH"
 )
