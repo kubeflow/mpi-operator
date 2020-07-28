@@ -959,19 +959,26 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	var kubexec string
+	// This part closely related to specific ssh commands.
+	// It is very likely to fail due to the version change of the MPI framework.
 	if mpiJob.Spec.MPIDistribution == "intel_mpi"{
+		// For the Intel MPI, the third argument is POD_NAME.
 		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$3
 shift 3
 %s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	}else if mpiJob.Spec.MPIDistribution == "mpich" {
+	}else if mpiJob.Spec.MPIDistribution == "mpich" { 
+		// For the MVAPICH2, the second argument is POD_NAME.
 		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$2
 shift 2
 %s/kubectl exec ${POD_NAME}`, kubectlMountPath)
 	}else {
+		// If the MPIDistribution is not specificed as the "intel_mpi" or "mpich", 
+		// then think that the default "open_mpi" will be used.
+		// For the Open MPI the first argument is POD_NAME.
 		kubexec = fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
@@ -990,6 +997,9 @@ shift
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
+	// For the different MPI frameworks, the format of the hostfile file is inconsistent.
+	// For Intel MPI and MVAPICH2, use ":" syntax to indicate how many operating slots the current node has.
+	// But for Open MPI, use "slots=" syntax to achieve this function.
 	for i := 0; i < int(workerReplicas); i++ {
 		if mpiJob.Spec.MPIDistribution == "intel_mpi" || mpiJob.Spec.MPIDistribution == "mpich" {
 			buffer.WriteString(fmt.Sprintf("%s%s-%d:%d\n", mpiJob.Name, workerSuffix, i, slots))
@@ -1298,6 +1308,8 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		return nil
 	}
 	container := podSpec.Spec.Containers[0]
+	// Different MPI frameworks use different environment variables 
+	// to specify the path of the remote task launcher and hostfile file.
 	var mpiRshExecPathEnvName string
 	var mpiHostfilePathEnvName string
 	if mpiJob.Spec.MPIDistribution == "intel_mpi" {
@@ -1307,6 +1319,8 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		mpiRshExecPathEnvName = "HYDRA_LAUNCHER_EXEC"
 		mpiHostfilePathEnvName = "HYDRA_HOST_FILE"
 	}else{
+		// If the MPIDistribution is not specificed as the "intel_mpi" or "mpich", 
+		// then think that the default "open_mpi" will be used.
 		mpiRshExecPathEnvName = "OMPI_MCA_plm_rsh_agent"
 		mpiHostfilePathEnvName = "OMPI_MCA_orte_default_hostfile"
 	}
