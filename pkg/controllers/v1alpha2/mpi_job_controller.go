@@ -960,7 +960,7 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	// This part closely related to specific ssh commands.
 	// It is very likely to fail due to the version change of the MPI framework.
-	// Attempt to automatically filter prefix parameters by detecting "-" matches
+	// Attempt to automatically filter prefix parameters by detecting "-" matches.
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
@@ -982,8 +982,9 @@ shift
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
-	// For the different MPI frameworks, the format of the hostfile file is inconsistent.
-	// For Intel MPI and MVAPICH2, use ":" syntax to indicate how many operating slots the current node has.
+	// According to the specified MPI framework, construct a host file that meets the format requirements.
+	// For Intel MPI and MVAPICH2 (Basically follow the MPICH standard),
+	// use ":" syntax to indicate how many operating slots the current node has.
 	// But for Open MPI, use "slots=" syntax to achieve this function.
 	for i := 0; i < int(workerReplicas); i++ {
 		if mpiJob.Spec.MPIDistribution == "intel_mpi" || mpiJob.Spec.MPIDistribution == "mpich" {
