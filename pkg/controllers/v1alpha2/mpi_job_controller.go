@@ -958,34 +958,19 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
-	var kubexec string
 	// This part closely related to specific ssh commands.
 	// It is very likely to fail due to the version change of the MPI framework.
-	if mpiJob.Spec.MPIDistribution == "intel_mpi"{
-		// For the Intel MPI, the third argument is POD_NAME.
-		kubexec = fmt.Sprintf(`#!/bin/sh
-set -x
-POD_NAME=$3
-shift 3
-%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	}else if mpiJob.Spec.MPIDistribution == "mpich" { 
-		// For the MVAPICH2, the second argument is POD_NAME.
-		kubexec = fmt.Sprintf(`#!/bin/sh
-set -x
-POD_NAME=$2
-shift 2
-%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	}else {
-		// If the MPIDistribution is not specificed as the "intel_mpi" or "mpich", 
-		// then think that the default "open_mpi" will be used.
-		// For the Open MPI the first argument is POD_NAME.
-		kubexec = fmt.Sprintf(`#!/bin/sh
+	// Attempt to automatically filter prefix parameters by detecting "-" matches
+	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
+while [ ${POD_NAME:0:1} = "-" ]
+do
+shift
+POD_NAME=$1
+done
 shift
 %s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	}
-
 	if len(mpiJob.Spec.MainContainer) > 0 {
 		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
 	}
