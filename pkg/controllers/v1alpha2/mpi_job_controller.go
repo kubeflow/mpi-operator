@@ -961,20 +961,24 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 	// This part closely related to specific ssh commands.
 	// It is very likely to fail due to the version change of the MPI framework.
 	// Attempt to automatically filter prefix parameters by detecting "-" matches.
+	// In order to enable IntelMPI and MVAPICH2 to parse pod names, in the Init container, 
+	// a hosts file containing all workers is generated based on the pods list.
+	// Will use kubectl to send it to the workers and append it to the end of the original hosts file.
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
-while [ ${POD_NAME:0:1} = "-" ]
+while [ ${POD_NAME%%${POD_NAME#?}} = "-" ]
 do
 shift
 POD_NAME=$1
 done
 shift
-%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+%s/kubectl cp %s/hosts ${POD_NAME}:/etc/hosts_of_nodes
+%s/kubectl exec ${POD_NAME}`, kubectlMountPath, kubectlMountPath, kubectlMountPath)
 	if len(mpiJob.Spec.MainContainer) > 0 {
 		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
 	}
-	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"$*\"", kubexec)
+	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"cat /etc/hosts_of_nodes >> /etc/hosts && $*\"", kubexec)
 
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1
@@ -982,14 +986,14 @@ shift
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
-	// According to the specified MPI framework, construct a host file that meets the format requirements.
-	// For Intel MPI and MVAPICH2 (Basically follow the MPICH standard),
-	// use ":" syntax to indicate how many operating slots the current node has.
+	// For the different MPI frameworks, the format of the hostfile file is inconsistent.
+	// For Intel MPI and MVAPICH2, use ":" syntax to indicate how many operating slots the current node has.
 	// But for Open MPI, use "slots=" syntax to achieve this function.
 	for i := 0; i < int(workerReplicas); i++ {
-		if mpiJob.Spec.MPIDistribution == "intel_mpi" || mpiJob.Spec.MPIDistribution == "mpich" {
+		mpiDistribution := mpiJob.Spec.MPIDistribution
+		if mpiDistribution != nil && (*mpiDistribution == kubeflow.MPIDistributionTypeIntelMPI || *mpiDistribution == kubeflow.MPIDistributionTypeMPICH) {
 			buffer.WriteString(fmt.Sprintf("%s%s-%d:%d\n", mpiJob.Name, workerSuffix, i, slots))
-		}else{
+		} else {
 			buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
 		}
 	}
@@ -1294,21 +1298,20 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		return nil
 	}
 	container := podSpec.Spec.Containers[0]
-	// Different MPI frameworks use different environment variables 
+	// Different MPI frameworks use different environment variables
 	// to specify the path of the remote task launcher and hostfile file.
-	var mpiRshExecPathEnvName string
-	var mpiHostfilePathEnvName string
-	if mpiJob.Spec.MPIDistribution == "intel_mpi" {
-		mpiRshExecPathEnvName = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
-		mpiHostfilePathEnvName = "I_MPI_HYDRA_HOST_FILE"
-	}else if mpiJob.Spec.MPIDistribution == "mpich" {
-		mpiRshExecPathEnvName = "HYDRA_LAUNCHER_EXEC"
-		mpiHostfilePathEnvName = "HYDRA_HOST_FILE"
-	}else{
-		// If the MPIDistribution is not specificed as the "intel_mpi" or "mpich", 
-		// then think that the default "open_mpi" will be used.
-		mpiRshExecPathEnvName = "OMPI_MCA_plm_rsh_agent"
-		mpiHostfilePathEnvName = "OMPI_MCA_orte_default_hostfile"
+	mpiRshExecPathEnvName := "OMPI_MCA_plm_rsh_agent"
+	mpiHostfilePathEnvName := "OMPI_MCA_orte_default_hostfile"
+	// If the MPIDistribution is not specificed as the kubeflow.MPIDistributionTypeIntelMPI or "mpich",
+	// then think that the default "open_mpi" will be used.
+	if mpiJob.Spec.MPIDistribution != nil {
+		if *mpiJob.Spec.MPIDistribution == kubeflow.MPIDistributionTypeIntelMPI {
+			mpiRshExecPathEnvName = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
+			mpiHostfilePathEnvName = "I_MPI_HYDRA_HOST_FILE"
+		} else if *mpiJob.Spec.MPIDistribution == kubeflow.MPIDistributionTypeMPICH {
+			mpiRshExecPathEnvName = "HYDRA_LAUNCHER_EXEC"
+			mpiHostfilePathEnvName = "HYDRA_HOST_FILE"
+		}
 	}
 	container.Env = append(container.Env,
 		corev1.EnvVar{

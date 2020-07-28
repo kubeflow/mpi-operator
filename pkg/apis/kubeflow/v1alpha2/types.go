@@ -76,7 +76,7 @@ type MPIJobSpec struct {
 	// MPIDistribution specifies name of the MPI framwork which is used
 	// Defaults to "open_mpi"
 	// Options includes "open_mpi", "intel_mpi" and "mpich"
-	MPIDistribution string `json:"mpiDistribution,omitempty"`
+	MPIDistribution *MPIDistributionType `json:"mpiDistribution,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
@@ -88,4 +88,16 @@ const (
 
 	// MPIReplicaTypeWorker is the type for worker replicas.
 	MPIReplicaTypeWorker MPIReplicaType = "Worker"
+)
+
+// MPIDistributionType is the type for MPIDistribution.
+type MPIDistributionType string
+
+const(
+	// MPIDistributionTypeOpenMPI is the type for Open MPI.
+	MPIDistributionTypeOpenMPI MPIDistributionType = "open_mpi"
+	// MPIDistributionTypeIntelMPI is the type for Intel MPI.
+	MPIDistributionTypeIntelMPI MPIDistributionType = "intel_mpi"
+	// MPIDistributionTypeMPICH is the type for MPICh.
+	MPIDistributionTypeMPICH MPIDistributionType = "mpich"
 )
