@@ -144,43 +144,50 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			return nil
 		case <-ticker.C:
 			if len(c.watchedPods) == 0 {
-				// Get and record all workers' ip address in a hosts file.
-				var hosts string
-				// First, open local hosts file to read launcher pod ip
-				fd, err := os.Open("/etc/hosts")
-				if err != nil {
-					klog.Fatalf("Error read file[%s]: %v", "/etc/hosts", err)
-				}
-				defer fd.Close()
-				// Read the last line of hosts file -- the ip address of localhost
-				scanner := bufio.NewScanner(fd)
-				for scanner.Scan() {
-					hosts = scanner.Text()
-				}
-				// Use client-go to find up ip addresses of each node
-				for index := range workerPods {
-					pod, err := c.podLister.Pods(c.namespace).Get(workerPods[index])
-					if err != nil {
-						continue
-					}
-					hosts = fmt.Sprintf("%s\n%s\t%s", hosts, pod.Status.PodIP, pod.Name)
-				}
-				// Write the hosts-format ip record to volume, and will be sent to worker later.
-				fp, err := os.OpenFile("/opt/kube/hosts", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-				if err != nil {
-					klog.Fatalf("Error create file[%s]: %v", "/opt/kube/hosts", err)
-				}
-				defer fp.Close()
-				_, err = fp.WriteString(hosts)
-				if err!= nil{
-					klog.Fatalf("Error write file[%s]: %v", "/opt/kube/hosts", err)
-				}
+				c.generateHosts("/etc/hosts", "/opt/kube/hosts", workerPods)
 				klog.Info("Shutting down workers")
 				return nil
 			}
 			break
 		}
 	}
+}
+
+// generateHosts will get and record all workers' ip address in a hosts-format
+// file, which would be sent to each worker pod before launching the remote
+// process manager. It will create and write file to filePath, and will use
+// pod lister to get ip address, so syncing is required before this.
+func (c *KubectlDeliveryController) generateHosts(localHostsPath string, filePath string, workerPods []string) error {
+	var hosts string
+	// First, open local hosts file to read launcher pod ip
+	fd, err := os.Open(localHostsPath)
+	if err != nil {
+		klog.Fatalf("Error read file[%s]: %v", localHostsPath, err)
+		return err
+	}
+	defer fd.Close()
+	// Read the last line of hosts file -- the ip address of localhost
+	scanner := bufio.NewScanner(fd)
+	for scanner.Scan() {
+		hosts = scanner.Text()
+	}
+	// Use client-go to find up ip addresses of each node
+	for index := range workerPods {
+		pod, err := c.podLister.Pods(c.namespace).Get(workerPods[index])
+		if err != nil {
+			continue
+		}
+		hosts = fmt.Sprintf("%s\n%s\t%s", hosts, pod.Status.PodIP, pod.Name)
+	}
+	// Write the hosts-format ip record to volume, and will be sent to worker later.
+	fp, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		klog.Fatalf("Error write file[%s]: %v", filePath, err)
+		return err
+	}
+	defer fp.Close()
+	fp.WriteString(hosts)
+	return nil
 }
 
 // runWorker is a long-running function that will continually call the
