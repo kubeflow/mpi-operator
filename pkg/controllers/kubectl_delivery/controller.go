@@ -144,7 +144,9 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			return nil
 		case <-ticker.C:
 			if len(c.watchedPods) == 0 {
-				c.generateHosts("/etc/hosts", "/opt/kube/hosts", workerPods)
+				if err := c.generateHosts("/etc/hosts", "/opt/kube/hosts", workerPods); err != nil {
+					return fmt.Errorf("Error generating hosts file: %v", err)
+				}
 				klog.Info("Shutting down workers")
 				return nil
 			}
@@ -162,8 +164,7 @@ func (c *KubectlDeliveryController) generateHosts(localHostsPath string, filePat
 	// First, open local hosts file to read launcher pod ip
 	fd, err := os.Open(localHostsPath)
 	if err != nil {
-		klog.Fatalf("Error read file[%s]: %v", localHostsPath, err)
-		return err
+		return fmt.Errorf("can't open file[%s]: %v", localHostsPath, err)
 	}
 	defer fd.Close()
 	// Read the last line of hosts file -- the ip address of localhost
@@ -175,18 +176,19 @@ func (c *KubectlDeliveryController) generateHosts(localHostsPath string, filePat
 	for index := range workerPods {
 		pod, err := c.podLister.Pods(c.namespace).Get(workerPods[index])
 		if err != nil {
-			continue
+			return fmt.Errorf("can't get IP address of node[%s]", workerPods[index])
 		}
 		hosts = fmt.Sprintf("%s\n%s\t%s", hosts, pod.Status.PodIP, pod.Name)
 	}
 	// Write the hosts-format ip record to volume, and will be sent to worker later.
 	fp, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		klog.Fatalf("Error write file[%s]: %v", filePath, err)
-		return err
+		return fmt.Errorf("can't create file[%s]: %v", filePath, err)
 	}
 	defer fp.Close()
-	fp.WriteString(hosts)
+	if _, err := fp.WriteString(hosts); err != nil {
+		return fmt.Errorf("can't write file[%s]: %v", filePath, err)
+	}
 	return nil
 }
 
