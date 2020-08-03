@@ -958,15 +958,27 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
+	// This part closely related to specific ssh commands.
+	// It is very likely to fail due to the version change of the MPI framework.
+	// Attempt to automatically filter prefix parameters by detecting "-" matches.
+	// In order to enable IntelMPI and MVAPICH2 to parse pod names, in the Init container, 
+	// a hosts file containing all workers is generated based on the pods list.
+	// Will use kubectl to send it to the workers and append it to the end of the original hosts file.
 	kubexec := fmt.Sprintf(`#!/bin/sh
 set -x
 POD_NAME=$1
+while [ ${POD_NAME%%${POD_NAME#?}} = "-" ]
+do
 shift
-%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
+POD_NAME=$1
+done
+shift
+%s/kubectl cp %s/hosts ${POD_NAME}:/etc/hosts_of_nodes
+%s/kubectl exec ${POD_NAME}`, kubectlMountPath, kubectlMountPath, kubectlMountPath)
 	if len(mpiJob.Spec.MainContainer) > 0 {
 		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
 	}
-	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"$*\"", kubexec)
+	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"cat /etc/hosts_of_nodes >> /etc/hosts && $*\"", kubexec)
 
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1
@@ -974,8 +986,16 @@ shift
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
+	// For the different MPI frameworks, the format of the hostfile file is inconsistent.
+	// For Intel MPI and MVAPICH2, use ":" syntax to indicate how many operating slots the current node has.
+	// But for Open MPI, use "slots=" syntax to achieve this function.
 	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
+		mpiDistribution := mpiJob.Spec.MPIDistribution
+		if mpiDistribution != nil && (*mpiDistribution == kubeflow.MPIDistributionTypeIntelMPI || *mpiDistribution == kubeflow.MPIDistributionTypeMPICH) {
+			buffer.WriteString(fmt.Sprintf("%s%s-%d:%d\n", mpiJob.Name, workerSuffix, i, slots))
+		} else {
+			buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
+		}
 	}
 
 	return &corev1.ConfigMap{
@@ -1278,13 +1298,28 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		return nil
 	}
 	container := podSpec.Spec.Containers[0]
+	// Different MPI frameworks use different environment variables
+	// to specify the path of the remote task launcher and hostfile file.
+	mpiRshExecPathEnvName := "OMPI_MCA_plm_rsh_agent"
+	mpiHostfilePathEnvName := "OMPI_MCA_orte_default_hostfile"
+	// If the MPIDistribution is not specificed as the "IntelMPI" or "MPICH",
+	// then think that the default "OpenMPI" will be used.
+	if mpiJob.Spec.MPIDistribution != nil {
+		if *mpiJob.Spec.MPIDistribution == kubeflow.MPIDistributionTypeIntelMPI {
+			mpiRshExecPathEnvName = "I_MPI_HYDRA_BOOTSTRAP_EXEC"
+			mpiHostfilePathEnvName = "I_MPI_HYDRA_HOST_FILE"
+		} else if *mpiJob.Spec.MPIDistribution == kubeflow.MPIDistributionTypeMPICH {
+			mpiRshExecPathEnvName = "HYDRA_LAUNCHER_EXEC"
+			mpiHostfilePathEnvName = "HYDRA_HOST_FILE"
+		}
+	}
 	container.Env = append(container.Env,
 		corev1.EnvVar{
-			Name:  "OMPI_MCA_plm_rsh_agent",
+			Name:  mpiRshExecPathEnvName,
 			Value: fmt.Sprintf("%s/%s", configMountPath, kubexecScriptName),
 		},
 		corev1.EnvVar{
-			Name:  "OMPI_MCA_orte_default_hostfile",
+			Name:  mpiHostfilePathEnvName,
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		},
 		// We overwrite these environment variables so that users will not

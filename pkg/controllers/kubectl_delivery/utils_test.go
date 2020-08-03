@@ -15,8 +15,13 @@
 package kubectl_delivery
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,4 +111,45 @@ func (f *fixture) runController(namespace, pod string, startInformers bool, expe
 func (f *fixture) setUpPods(p *corev1.Pod) {
 	f.podLister = append(f.podLister, p)
 	f.kubeObjects = append(f.kubeObjects, p)
+}
+
+// getResolvedHosts will resolve the hosts file to a map object,
+// with the hostname as key and IP address as value
+func (f *fixture) getResolvedHosts(contentBytes []byte) map[string]string {
+	// create a scanner to read content line by line
+	hostRecords := make(map[string]string)
+	contentStrReader := strings.NewReader(string(contentBytes))
+	scanner := bufio.NewScanner(contentStrReader)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line[0] == '#' { // skip the comment line
+			continue
+		}
+		lines := strings.Fields(line)
+		if len(lines) == 0 { // skip the space line
+			continue
+		}
+		if len(lines) == 1 { // the format must has some mistakes
+			f.t.Error("Error, generated hosts file has wrong format.")
+			continue
+		}
+		for i := 1; i < len(lines); i++ {
+			hostRecords[lines[i]] = lines[0] // use map to record hosts
+		}
+	}
+	return hostRecords
+}
+
+// setUpTmpDir will create a temp directory and create a temp hosts file
+// with provided file content, and return the path of the directory.
+func (f *fixture) setUpTmpDir(dirName string, content []byte) (string, string) {
+	p, err := ioutil.TempDir(os.TempDir(), "hosts")
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	tmphf := filepath.Join(p, "hosts")
+	if err := ioutil.WriteFile(tmphf, content, 0644); err != nil {
+		f.t.Fatal(err)
+	}
+	return p, tmphf
 }
