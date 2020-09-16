@@ -12,6 +12,10 @@ kind: CustomResourceDefinition
 metadata:
   name: mpijobs.kubeflow.org
 spec:
+  additionalPrinterColumns:
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
   group: kubeflow.org
   version: v1
   scope: Namespaced
@@ -45,10 +49,6 @@ spec:
                     replicas:
                       type: integer
                       minimum: 1
-    additionalPrinterColumns:
-    - name: Age
-      type: date
-      jsonPath: .metadata.creationTimestamp
 ---
 apiVersion: v1
 kind: Namespace
