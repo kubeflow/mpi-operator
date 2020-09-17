@@ -4,6 +4,7 @@ ENV TENSORFLOW_VERSION=1.14.0
 ENV PYTORCH_VERSION=1.4.0
 ENV TORCHVISION_VERSION=0.5.0
 ENV MXNET_VERSION=1.6.0
+ENV HOROVOD_VERSION=0.19.0
 
 # Python 2.7 or 3.6 is supported by Ubuntu Bionic out of the box
 ARG python=3.6
@@ -61,7 +62,7 @@ RUN mkdir /tmp/openmpi && \
 
 # Install Horovod
 RUN HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 \
-    pip install --no-cache-dir horovod
+    pip install --no-cache-dir horovod==${HOROVOD_VERSION}
 
 # Install OpenSSH for MPI to communicate between containers
 RUN apt-get install -y --no-install-recommends openssh-client openssh-server && \
