@@ -30,7 +30,10 @@ tf.logging.set_verbosity(tf.logging.INFO)
 parser = argparse.ArgumentParser(description='Tensorflow MNIST Example')
 parser.add_argument('--use-adasum', action='store_true', default=False,
                     help='use adasum algorithm to do reduction')
+parser.add_argument('--lr', default=0.001, type=float, help='Adam learning rate')
+parser.add_argument('--num-steps',  default=20000, type=int, help='Number of training steps')
 args = parser.parse_args()
+
 
 def conv_model(feature, target, mode):
     """2-layer convolution model."""
@@ -78,7 +81,7 @@ def train_input_generator(x_train, y_train, batch_size=64):
         index = 0
         while index <= len(x_train) - batch_size:
             yield x_train[index:index + batch_size], \
-                  y_train[index:index + batch_size],
+                y_train[index:index + batch_size],
             index += batch_size
 
 
@@ -124,7 +127,7 @@ def main(_):
         lr_scaler = hvd.local_size() if hvd.nccl_built() else 1
 
     # Horovod: adjust learning rate based on lr_scaler.
-    opt = tf.train.AdamOptimizer(0.001 * lr_scaler)
+    opt = tf.train.AdamOptimizer(args.lr * lr_scaler)
 
     # Horovod: add Horovod Distributed Optimizer.
     opt = hvd.DistributedOptimizer(opt, op=hvd.Adasum if args.use_adasum else hvd.Average)
@@ -140,7 +143,7 @@ def main(_):
         hvd.BroadcastGlobalVariablesHook(0),
 
         # Horovod: adjust number of steps based on number of GPUs.
-        tf.train.StopAtStepHook(last_step=20000 // hvd.size()),
+        tf.train.StopAtStepHook(last_step=args.num_steps // hvd.size()),
 
         tf.train.LoggingTensorHook(tensors={'step': global_step, 'loss': loss},
                                    every_n_iter=10),

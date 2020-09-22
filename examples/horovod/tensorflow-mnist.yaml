@@ -1,4 +1,4 @@
-apiVersion: kubeflow.org/v1alpha2
+apiVersion: kubeflow.org/v1
 kind: MPIJob
 metadata:
   name: tensorflow-mnist
@@ -11,7 +11,7 @@ spec:
       template:
         spec:
           containers:
-          - image: horovod-cpu:latest
+          - image: docker.io/kubeflow/mpi-horovod-mnist
             name: mpi-launcher
             command:
             - mpirun
@@ -44,7 +44,7 @@ spec:
       template:
         spec:
           containers:
-          - image: horovod-cpu:latest
+          - image: docker.io/kubeflow/mpi-horovod-mnist
             name: mpi-worker
             resources:
               limits:
