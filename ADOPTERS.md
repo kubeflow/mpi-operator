@@ -10,7 +10,7 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [Ant Group](https://www.antgroup.com/) | [Yuan Tang](https://github.com/terrytangyuan) and [Wei Yan](https://github.com/ywskycn/) |
 | [Atrio](https://www.atrio.io/) | [César Gómez](https://github.com/cesargomez) |
 | [Bloomberg](https://www.bloomberg.com/) | [Chengjian Zheng](https://github.com/czheng94) and [Dan Sun](https://github.com/yuzisun) |
-| [Caicloud](https://caicloud.io/) | [Ce Gao](https://github.com/gaocegege) |
+| [Bytedance](https://www.bytedance.com/) | [Ce Gao](https://github.com/gaocegege) |
 | [Huawei](https://www.huawei.com/) | [Fei Xu](https://github.com/fisherxu) |
 | [Iguazio](https://www.iguazio.com/) | [Yaron Haviv](https://github.com/yaronha) |
 | [Mellanox Technologies](https://www.mellanox.com/) | [Vitaliy Razinkov](https://github.com/vtlrazin) |
