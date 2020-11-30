@@ -525,7 +525,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	if !done {
 		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
 		workerReplicas := int32(0)
-		if workerSpec != nil {
+		if workerSpec != nil && workerSpec.Replicas != nil {
 			workerReplicas = *workerSpec.Replicas
 		}
 		isGPULauncher := isGPULauncher(mpiJob) && c.launcherRunsWorkload
