@@ -961,7 +961,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 	// This part closely related to specific ssh commands.
 	// It is very likely to fail due to the version change of the MPI framework.
 	// Attempt to automatically filter prefix parameters by detecting "-" matches.
-	// In order to enable IntelMPI and MVAPICH2 to parse pod names, in the Init container, 
+	// In order to enable IntelMPI and MVAPICH2 to parse pod names, in the Init container,
 	// a hosts file containing all workers is generated based on the pods list.
 	// Will use kubectl to send it to the workers and append it to the end of the original hosts file.
 	kubexec := fmt.Sprintf(`#!/bin/sh

@@ -93,7 +93,7 @@ const (
 // MPIDistributionType is the type for MPIDistribution.
 type MPIDistributionType string
 
-const(
+const (
 	// MPIDistributionTypeOpenMPI is the type for Open MPI.
 	MPIDistributionTypeOpenMPI MPIDistributionType = "OpenMPI"
 
