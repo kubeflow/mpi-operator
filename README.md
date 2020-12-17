@@ -1,9 +1,8 @@
 # MPI Operator
 
-[![Build Status](https://travis-ci.org/kubeflow/mpi-operator.svg?branch=master)](https://travis-ci.org/kubeflow/mpi-operator)
+![Build Status](https://github.com/kubeflow/mpi-operator/workflows/build/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/mpi-operator)](https://goreportcard.com/report/github.com/kubeflow/mpi-operator)
 [![Docker Pulls](https://img.shields.io/docker/pulls/mpioperator/mpi-operator)](https://hub.docker.com/r/mpioperator/mpi-operator)
-
 
 The MPI Operator makes it easy to run allreduce-style distributed training on Kubernetes. Please check out [this blog post](https://medium.com/kubeflow/introduction-to-kubeflow-mpi-operator-and-industry-adoption-296d5f2e6edc) for an introduction to MPI Operator and its industry adoption.
 
@@ -57,6 +56,7 @@ You can create an MPI job by defining an `MPIJob` config file. See [TensorFlow b
 ```
 cat examples/v1alpha2/tensorflow-benchmarks.yaml
 ```
+
 Deploy the `MPIJob` resource to start training:
 
 ```
@@ -157,7 +157,6 @@ status:
   startTime: "2019-07-09T22:15:51Z"
 ```
 
-
 Training should run for 100 steps and takes a few minutes on a GPU cluster. You can inspect the logs to see the training progress. When the job starts, access the logs from the `launcher` pod:
 
 ```
@@ -205,5 +204,5 @@ total images/sec: 308.27
 
 Docker images are built and pushed automatically to [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator). You can use the following Dockerfiles to build the images yourself:
 
-* [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
-* [kubectl-delivery](https://github.com/kubeflow/mpi-operator/blob/master/cmd/kubectl-delivery/Dockerfile)
+- [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
+- [kubectl-delivery](https://github.com/kubeflow/mpi-operator/blob/master/cmd/kubectl-delivery/Dockerfile)
