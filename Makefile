@@ -13,7 +13,7 @@ IMAGE_NAME?=kubeflow/mpi-operator
 
 build: all
 
-all: init fmt mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 kubectl-delivery
+all: init fmt tidy lint mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 kubectl-delivery
 
 mpi-operator.v1alpha1:
 	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/mpi-operator.v1alpha1 ./cmd/mpi-operator.v1alpha1/
@@ -47,5 +47,18 @@ clean:
 images:
 	@echo "version: ${RELEASE_VERSION}"
 	${IMG_BUILDER} build -t ${IMAGE_NAME}:${RELEASE_VERSION} .
+
+tidy:
+	go mod tidy
+
+GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
+golangci-lint:
+	@[ -f $(GOLANGCI_LINT) ] || { \
+	set -e ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) v1.29.0 ;\
+	}
+
+lint: golangci-lint ## Run golangci-lint linter
+	$(GOLANGCI_LINT) run --new-from-rev=origin/master
 
 .PHONY: clean
