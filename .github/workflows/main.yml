@@ -1,0 +1,27 @@
+name: Quality
+on: [push, pull_request]
+jobs:
+  validate:
+    name: Validate 
+    runs-on: ubuntu-latest
+    # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.13'
+      - name: fmt check
+        run: make fmt
+      - name: go mod tidy
+        run: make tidy
+      - name: Build
+        run: make mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 kubectl-delivery
+      - name: Run tests
+        run: make test
+      - name: Send the coverage output
+        uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: profile.cov

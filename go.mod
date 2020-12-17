@@ -11,6 +11,7 @@ require (
 	github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e // indirect
 	github.com/prometheus/client_golang v0.9.2
 	github.com/stretchr/testify v1.3.0
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
 	k8s.io/api v0.15.10
 	k8s.io/apimachinery v0.16.9-beta.0
 	k8s.io/apiserver v0.15.10
