@@ -2,3 +2,4 @@
 .vscode/
 _output/
 bin/
+profile.cov
