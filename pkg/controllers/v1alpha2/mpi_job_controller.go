@@ -1388,8 +1388,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	backOffLimit := mpiJob.Spec.BackoffLimit
 	activeDeadlineSeconds := mpiJob.Spec.ActiveDeadlineSeconds
 	if mpiJob.Spec.RunPolicy != nil {
-		warnMsg := fmt.Sprintf(
-			"runPolicy is specified in MPIJobSpec so backOffLimit/activeDeadlineSeconds in MPIJobSpec will be overwritten")
+		warnMsg := "runPolicy is specified in MPIJobSpec so backOffLimit/activeDeadlineSeconds in MPIJobSpec will be overwritten"
 		klog.Warning(warnMsg)
 		if mpiJob.Spec.RunPolicy.BackoffLimit != nil {
 			backOffLimit = mpiJob.Spec.RunPolicy.BackoffLimit
