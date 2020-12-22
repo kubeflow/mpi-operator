@@ -834,6 +834,14 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 			c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 			return fmt.Errorf(msg)
 		}
+		// If the worker pod is not running and cleanupPolicy is
+		// set to CleanPodPolicyRunning, keep the pod.
+		// Note that pending pod should still be removed under this
+		// situation, since it may turn to running in the future.
+		if *mpiJob.Spec.CleanPodPolicy == common.CleanPodPolicyRunning && !isPodRunning(pod) && !isPodPending(pod) {
+			// Keep the worker pod
+			continue
+		}
 		err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Delete(name, &metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			klog.Errorf("Failed to delete pod[%s/%s]: %v", mpiJob.Namespace, name, err)
@@ -1451,6 +1459,10 @@ func isPodSucceeded(p *corev1.Pod) bool {
 
 func isPodRunning(p *corev1.Pod) bool {
 	return p.Status.Phase == corev1.PodRunning
+}
+
+func isPodPending(p *corev1.Pod) bool {
+	return p.Status.Phase == corev1.PodPending
 }
 
 func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
