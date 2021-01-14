@@ -1,4 +1,4 @@
-FROM horovod/horovod:0.16.4-tf1.14.0-torch1.1.0-mxnet1.4.1-py3.6
+FROM horovod/horovod:0.20.0-tf2.3.0-torch1.6.0-mxnet1.6.0.post0-py3.7-cuda10.1
 
 RUN mkdir /tensorflow
 WORKDIR "/tensorflow"
