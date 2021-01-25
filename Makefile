@@ -65,3 +65,6 @@ lint: golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run --new-from-rev=origin/master
 
 .PHONY: clean
+
+build-dependabot:
+	python3 hack/create_dependabot.py

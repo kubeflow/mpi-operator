@@ -1,0 +1,74 @@
+updates:
+- assignees:
+  - rongou
+  - terrytangyuan
+  directory: .
+  open-pull-requests-limit: 10
+  package-ecosystem: docker
+  reviewers:
+  - everpeace
+  - gaocegege
+  - carmark
+  schedule:
+    interval: daily
+- assignees:
+  - rongou
+  - terrytangyuan
+  directory: examples/horovod
+  open-pull-requests-limit: 10
+  package-ecosystem: docker
+  reviewers:
+  - everpeace
+  - gaocegege
+  - carmark
+  schedule:
+    interval: daily
+- assignees:
+  - rongou
+  - terrytangyuan
+  directory: examples/tensorflow-benchmarks
+  open-pull-requests-limit: 10
+  package-ecosystem: docker
+  reviewers:
+  - everpeace
+  - gaocegege
+  - carmark
+  schedule:
+    interval: daily
+- assignees:
+  - rongou
+  - terrytangyuan
+  directory: examples/mxnet
+  open-pull-requests-limit: 10
+  package-ecosystem: docker
+  reviewers:
+  - everpeace
+  - gaocegege
+  - carmark
+  schedule:
+    interval: daily
+- assignees:
+  - rongou
+  - terrytangyuan
+  directory: cmd/kubectl-delivery
+  open-pull-requests-limit: 10
+  package-ecosystem: docker
+  reviewers:
+  - everpeace
+  - gaocegege
+  - carmark
+  schedule:
+    interval: daily
+- assignees:
+  - rongou
+  - terrytangyuan
+  directory: .
+  open-pull-requests-limit: 10
+  package-ecosystem: gomod
+  reviewers:
+  - everpeace
+  - gaocegege
+  - carmark
+  schedule:
+    interval: daily
+version: 2
