@@ -103,6 +103,10 @@ const (
 )
 
 var (
+	mpiJobsCreatedCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "mpi_operator_jobs_created_total",
+		Help: "Counts number of MPI jobs created",
+	})
 	mpiJobsSuccessCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "mpi_operator_jobs_successful_total",
 		Help: "Counts number of MPI jobs successful",
@@ -956,7 +960,7 @@ func (c *MPIJobController) addMPIJob(obj interface{}) {
 		return
 	}
 	c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobCreated", msg)
-
+	mpiJobsCreatedCount.Inc()
 	c.enqueueMPIJob(mpiJob)
 }
 
