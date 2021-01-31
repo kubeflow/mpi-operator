@@ -64,6 +64,7 @@ func (f *fixture) newController(namespace string, pods []string) (*KubectlDelive
 		f.kubeClient,
 		k8sI.Core().V1().Pods(),
 		pods,
+		true,
 	)
 
 	c.podSynced = alwaysReady
