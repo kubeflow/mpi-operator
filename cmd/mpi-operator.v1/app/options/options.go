@@ -35,6 +35,7 @@ type ServerOption struct {
 	LauncherRunsWorkload bool
 	QPS                  int
 	Burst                int
+	UseEtcHosts          bool	
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -75,4 +76,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.IntVar(&s.QPS, "kube-api-qps", 5, "QPS indicates the maximum QPS to the master from this client.")
 	fs.IntVar(&s.Burst, "kube-api-burst", 10, "Maximum burst for throttle.")
+	
+	fs.BoolVar(&s.UseEtcHosts, "use-etc-hosts", true, "Change /etc/hosts")
+
 }
