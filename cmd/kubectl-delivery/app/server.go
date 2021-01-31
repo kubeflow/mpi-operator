@@ -120,7 +120,8 @@ func Run(opt *options.ServerOption) error {
 		namespace,
 		kubeClient,
 		kubeInformerFactory.Core().V1().Pods(),
-		pods)
+		pods,
+		opt.UseEtcHosts)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
