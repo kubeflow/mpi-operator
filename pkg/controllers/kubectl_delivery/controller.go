@@ -51,6 +51,8 @@ type KubectlDeliveryController struct {
 
 	lock        sync.Mutex
 	watchedPods map[string]struct{}
+	
+	useEtcHosts          bool
 }
 
 // NewKubectlDeliveryController
@@ -59,6 +61,7 @@ func NewKubectlDeliveryController(
 	kubeClient kubernetes.Interface,
 	podInformer coreinformers.PodInformer,
 	pods []string,
+	useEtcHosts          bool,
 ) *KubectlDeliveryController {
 
 	controller := &KubectlDeliveryController{
@@ -68,6 +71,7 @@ func NewKubectlDeliveryController(
 		podSynced:   podInformer.Informer().HasSynced,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "mpi-operator-kubectl-delivery"),
 		watchedPods: make(map[string]struct{}),
+		useEtcHosts: useEtcHosts	
 	}
 
 	controller.lock.Lock()
