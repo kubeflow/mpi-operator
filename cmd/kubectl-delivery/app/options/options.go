@@ -26,6 +26,7 @@ type ServerOption struct {
 	Threadiness  int
 	PrintVersion bool
 	Namespace    string
+ 	UseEtcHosts  bool	
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -51,4 +52,6 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 		`How many threads to process the main logic`)
 
 	fs.BoolVar(&s.PrintVersion, "version", false, "Show version and quit")
+	
+ 	fs.BoolVar(&s.UseEtcHosts, "use-etc-hosts", true, "Change /etc/hosts")
 }
