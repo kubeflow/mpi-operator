@@ -71,7 +71,7 @@ func NewKubectlDeliveryController(
 		podSynced:   podInformer.Informer().HasSynced,
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "mpi-operator-kubectl-delivery"),
 		watchedPods: make(map[string]struct{}),
-		useEtcHosts: useEtcHosts	
+		useEtcHosts: useEtcHosts,
 	}
 
 	controller.lock.Lock()
