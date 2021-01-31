@@ -148,8 +148,10 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 			return nil
 		case <-ticker.C:
 			if len(c.watchedPods) == 0 {
-				if err := c.generateHosts("/etc/hosts", "/opt/kube/hosts", workerPods); err != nil {
-					return fmt.Errorf("Error generating hosts file: %v", err)
+				if c.useEtcHosts {
+					if err := c.generateHosts("/etc/hosts", "/opt/kube/hosts", workerPods); err != nil {
+						return fmt.Errorf("Error generating hosts file: %v", err)
+					}
 				}
 				klog.Info("Shutting down workers")
 				return nil
