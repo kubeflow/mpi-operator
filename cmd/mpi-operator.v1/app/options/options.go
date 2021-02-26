@@ -32,7 +32,6 @@ type ServerOption struct {
 	GangSchedulingName   string
 	Namespace            string
 	LockNamespace        string
-	LauncherRunsWorkload bool
 	QPS                  int
 	Burst                int
 }
@@ -70,8 +69,6 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")
 
 	fs.StringVar(&s.LockNamespace, "lock-namespace", "mpi-operator", "Set locked namespace name while enabling leader election.")
-
-	fs.BoolVar(&s.LauncherRunsWorkload, "launcher-runs-workloads", false, "Set launcher run the workload when launcher has GPU")
 
 	fs.IntVar(&s.QPS, "kube-api-qps", 5, "QPS indicates the maximum QPS to the master from this client.")
 	fs.IntVar(&s.Burst, "kube-api-burst", 10, "Maximum burst for throttle.")

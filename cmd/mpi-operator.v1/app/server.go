@@ -162,8 +162,7 @@ func Run(opt *options.ServerOption) error {
 			podgroupsInformer,
 			kubeflowInformerFactory.Kubeflow().V1().MPIJobs(),
 			opt.KubectlDeliveryImage,
-			opt.GangSchedulingName,
-			opt.LauncherRunsWorkload)
+			opt.GangSchedulingName)
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
