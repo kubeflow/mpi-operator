@@ -157,9 +157,6 @@ type MPIJobController struct {
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
-
-	// To allow launcher run workerload when launcher pod has GPU.
-	launcherRunsWorkload bool
 }
 
 // NewMPIJobController returns a new MPIJob controller.
@@ -175,8 +172,7 @@ func NewMPIJobController(
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
-	gangSchedulerName string,
-	launcherRunsWorkload bool) *MPIJobController {
+	gangSchedulerName string) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -214,7 +210,6 @@ func NewMPIJobController(
 		recorder:             recorder,
 		kubectlDeliveryImage: kubectlDeliveryImage,
 		gangSchedulerName:    gangSchedulerName,
-		launcherRunsWorkload: launcherRunsWorkload,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -532,7 +527,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if workerSpec != nil && workerSpec.Replicas != nil {
 			workerReplicas = *workerSpec.Replicas
 		}
-		isGPULauncher := isGPULauncher(mpiJob) && c.launcherRunsWorkload
+		isGPULauncher := isGPULauncher(mpiJob)
 
 		// Get the ConfigMap for this MPIJob.
 		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas, isGPULauncher); config == nil || err != nil {
@@ -1476,6 +1471,7 @@ func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
 	return false
 }
 
+// isGPULauncher checks whether the launcher needs GPU.
 func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
 	for _, container := range mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers {
 		for key := range container.Resources.Limits {
