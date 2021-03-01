@@ -38,8 +38,8 @@ mpijobs.kubeflow.org                       4d
 If it is not included you can add it as follows using [kustomize](https://github.com/kubernetes-sigs/kustomize):
 
 ```bash
-git clone https://github.com/kubeflow/manifests
-cd manifests/mpi-job/mpi-operator
+git clone https://github.com/kubeflow/mpi-operator
+cd mpi-operator/manifests/mpi-operator
 kustomize build base | kubectl apply -f -
 ```
 
