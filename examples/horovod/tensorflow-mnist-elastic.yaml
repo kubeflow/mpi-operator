@@ -1,0 +1,39 @@
+apiVersion: kubeflow.org/v1
+kind: MPIJob
+metadata:
+  name: tensorflow-mnist
+spec:
+  slotsPerWorker: 1
+  cleanPodPolicy: Running
+  mpiReplicaSpecs:
+    Launcher:
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - image: docker.io/kubeflow/mpi-horovod-mnist
+            name: mpi-launcher
+            command:
+            - horovodrun
+            args:
+            - -np
+            - "2"
+            - --host-discovery-script
+            - /etc/mpi/discover_hosts.sh
+            - python
+            - /examples/tensorflow_mnist.py
+            resources:
+              limits:
+                cpu: 1
+                memory: 2Gi
+    Worker:
+      replicas: 2
+      template:
+        spec:
+          containers:
+          - image: docker.io/kubeflow/mpi-horovod-mnist
+            name: mpi-worker
+            resources:
+              limits:
+                cpu: 2
+                memory: 4Gi
