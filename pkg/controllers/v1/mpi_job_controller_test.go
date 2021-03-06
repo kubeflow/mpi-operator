@@ -574,7 +574,8 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, 8, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJob, 64, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
@@ -589,7 +590,9 @@ func TestServiceAccountNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
+	configMap := newConfigMap(mpiJob, 64, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
 
 	serviceAccount := newLauncherServiceAccount(mpiJob)
 	serviceAccount.OwnerReferences = nil
@@ -606,7 +609,9 @@ func TestRoleNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
+	configMap := newConfigMap(mpiJob, 64, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 
 	role := newLauncherRole(mpiJob, 8)
@@ -624,7 +629,9 @@ func TestRoleBindingNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
+	configMap := newConfigMap(mpiJob, 64, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
 	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
 	f.setUpRole(newLauncherRole(mpiJob, 8))
 
@@ -691,7 +698,9 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 8, isGPULauncher(mpiJob)))
+	configMap := newConfigMap(mpiJob, 64, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
 	f.setUpRbac(mpiJob, 8)
 
 	for i := 0; i < 8; i++ {
@@ -712,7 +721,9 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1, isGPULauncher(mpiJob)))
+	configMap := newConfigMap(mpiJob, 8, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := f.newFakeMPIJobController()
@@ -753,7 +764,6 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(8), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 1, isGPULauncher(mpiJob)))
 	f.setUpRbac(mpiJob, 1)
 
 	fmjc := f.newFakeMPIJobController()
@@ -761,12 +771,19 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
+	var runningPodList []*corev1.Pod
 	for i := 0; i < 8; i++ {
 		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
 		worker := newWorker(mpiJob, name, "")
 		worker.Status.Phase = corev1.PodRunning
+		runningPodList = append(runningPodList, worker)
 		f.setUpWorker(worker)
 	}
+
+	configMap := newConfigMap(mpiJob, 8, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
+
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
@@ -799,15 +816,20 @@ func TestWorkerReady(t *testing.T) {
 	mpiJob := newMPIJob("test", int32Ptr(16), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	f.setUpConfigMap(newConfigMap(mpiJob, 16, isGPULauncher(mpiJob)))
 	f.setUpRbac(mpiJob, 16)
 
+	var runningPodList []*corev1.Pod
 	for i := 0; i < 16; i++ {
 		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
 		worker := newWorker(mpiJob, name, "")
 		worker.Status.Phase = corev1.PodRunning
+		runningPodList = append(runningPodList, worker)
 		f.setUpWorker(worker)
 	}
+
+	configMap := newConfigMap(mpiJob, 16, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
 
 	fmjc := f.newFakeMPIJobController()
 	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))

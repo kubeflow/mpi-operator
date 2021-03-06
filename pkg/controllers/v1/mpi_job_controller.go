@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -62,6 +65,7 @@ const (
 	configMountPath         = "/etc/mpi"
 	kubexecScriptName       = "kubexec.sh"
 	hostfileName            = "hostfile"
+	discoverHostsScriptName = "discover_hosts.sh"
 	kubectlDeliveryName     = "kubectl-delivery"
 	kubectlTargetDirEnv     = "TARGET_DIR"
 	kubectlVolumeName       = "mpi-job-kubectl"
@@ -657,13 +661,41 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 	return nil
 }
 
+// getRunningWorkerPods get all worker Pods with Running phase controlled by this MPIJob.
+func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*corev1.Pod, error) {
+	selector, err := workerSelector(mpiJob.Name)
+	if err != nil {
+		return nil, err
+	}
+	podFullList, err := c.podLister.List(selector)
+	if err != nil {
+		return nil, err
+	}
+	// Only running Pods should be included within the `discover_hosts.sh` script.
+	var podList []*corev1.Pod
+	for idx, pod := range podFullList {
+		if pod.Status.Phase == corev1.PodRunning {
+			podList = append(podList, podFullList[idx])
+		}
+	}
+
+	return podList, nil
+}
+
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) (*corev1.ConfigMap, error) {
+	newCM := newConfigMap(mpiJob, workerReplicas, isGPULauncher)
+	podList, err := c.getRunningWorkerPods(mpiJob)
+	if err != nil {
+		return nil, err
+	}
+	updateDiscoverHostsInConfigMap(newCM, mpiJob, podList, isGPULauncher)
+
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newConfigMap(mpiJob, workerReplicas, isGPULauncher))
+		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(newCM)
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -671,12 +703,21 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 	if err != nil {
 		return nil, err
 	}
+
 	// If the ConfigMap is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
 	if !metav1.IsControlledBy(cm, mpiJob) {
 		msg := fmt.Sprintf(MessageResourceExists, cm.Name, cm.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
+	}
+
+	// If the ConfigMap is changed, update it
+	if !reflect.DeepEqual(cm.Data, newCM.Data) {
+		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Update(newCM)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return cm, nil
@@ -769,6 +810,30 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		workerReplicas = worker.Replicas
 	} else {
 		return workerPods, nil
+	}
+
+	// Remove Pods when replicas are scaled down
+	selector, err := workerSelector(mpiJob.Name)
+	if err != nil {
+		return nil, err
+	}
+	podFullList, err := c.podLister.List(selector)
+	if err != nil {
+		return nil, err
+	}
+	if len(podFullList) > int(*workerReplicas) {
+		for _, pod := range podFullList {
+			indexStr := strings.TrimLeft(pod.Name, fmt.Sprintf("%s-", workerPrefix))
+			index, err := strconv.Atoi(indexStr)
+			if err == nil {
+				if index >= int(*workerReplicas) {
+					err = c.kubeClient.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 	}
 
 	for ; i < *workerReplicas; i++ {
@@ -1070,6 +1135,35 @@ shift
 	}
 }
 
+// updateDiscoverHostsInConfigMap updates the ConfigMap if the content of `discover_hosts.sh` changes.
+func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod, isGPULauncher bool) {
+	slots := 1
+	if mpiJob.Spec.SlotsPerWorker != nil {
+		slots = int(*mpiJob.Spec.SlotsPerWorker)
+	}
+
+	// Sort the slice of Pods to make sure the order of entries in `discover_hosts.sh` is maintained.
+	sort.Slice(runningPods, func(i, j int) bool {
+		return runningPods[i].Name < runningPods[j].Name
+	})
+
+	discoverHosts := "#!/bin/sh"
+	if isGPULauncher {
+		discoverHosts = fmt.Sprintf("%s\necho %s%s:%d\n", discoverHosts, mpiJob.Name, launcherSuffix, slots)
+	}
+	for _, p := range runningPods {
+		discoverHosts = fmt.Sprintf("%s\necho %s:%d", discoverHosts, p.Name, slots)
+	}
+
+	oldDiscoverHosts, exist := configMap.Data[discoverHostsScriptName]
+	if exist {
+		if oldDiscoverHosts == discoverHosts {
+			return
+		}
+	}
+	configMap.Data[discoverHostsScriptName] = discoverHosts
+}
+
 // newLauncherServiceAccount creates a new launcher ServiceAccount for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
@@ -1185,11 +1279,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
 func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.Pod {
-	labels := map[string]string{
-		labelGroupName:   "kubeflow.org",
-		labelMPIJobName:  mpiJob.Name,
-		labelMPIRoleType: worker,
-	}
+	labels := defaultWorkerLabels(mpiJob.Name)
 
 	podSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.DeepCopy()
 
@@ -1418,6 +1508,11 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 							Path: hostfileName,
 							Mode: &hostfileMode,
 						},
+						{
+							Key:  discoverHostsScriptName,
+							Path: discoverHostsScriptName,
+							Mode: &scriptsMode,
+						},
 					},
 				},
 			},
@@ -1481,4 +1576,27 @@ func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
 		}
 	}
 	return false
+}
+
+func defaultWorkerLabels(mpiJobName string) map[string]string {
+	return map[string]string{
+		labelGroupName:   "kubeflow.org",
+		labelMPIJobName:  mpiJobName,
+		labelMPIRoleType: worker,
+	}
+}
+
+func workerSelector(mpiJobName string) (labels.Selector, error) {
+	labels := defaultWorkerLabels(mpiJobName)
+
+	labelSelector := metav1.LabelSelector{
+		MatchLabels: labels,
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	return selector, nil
 }
