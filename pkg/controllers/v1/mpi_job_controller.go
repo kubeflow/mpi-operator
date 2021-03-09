@@ -756,9 +756,10 @@ func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MP
 // getOrCreateLauncherRole gets the launcher Role controlled by this MPIJob.
 func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) (*rbacv1.Role, error) {
 	role, err := c.roleLister.Roles(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+	launcherRole := newLauncherRole(mpiJob, workerReplicas)
 	// If the Role doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		role, err = c.kubeClient.RbacV1().Roles(mpiJob.Namespace).Create(newLauncherRole(mpiJob, workerReplicas))
+		role, err = c.kubeClient.RbacV1().Roles(mpiJob.Namespace).Create(launcherRole)
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -772,6 +773,13 @@ func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, work
 		msg := fmt.Sprintf(MessageResourceExists, role.Name, role.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
+	}
+
+	if !reflect.DeepEqual(role.Rules, launcherRole.Rules) {
+		role, err = c.kubeClient.RbacV1().Roles(mpiJob.Namespace).Update(launcherRole)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return role, nil
