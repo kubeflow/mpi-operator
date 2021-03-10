@@ -69,6 +69,7 @@ rules:
   - create
   - list
   - watch
+  - update
 # This is needed for the launcher Role.
 - apiGroups:
   - ""
@@ -113,6 +114,7 @@ rules:
   - create
   - list
   - watch
+  - update
 - apiGroups:
   - policy
   resources:
