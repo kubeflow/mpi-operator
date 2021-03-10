@@ -18,9 +18,9 @@ spec:
             args:
             - -np
             - "2"
-            - min-np
+            - --min-np
             - "1"
-            - max-np
+            - --max-np
             - "3"
             - --host-discovery-script
             - /etc/mpi/discover_hosts.sh
