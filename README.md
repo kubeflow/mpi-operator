@@ -39,8 +39,8 @@ If it is not included you can add it as follows using [kustomize](https://github
 
 ```bash
 git clone https://github.com/kubeflow/mpi-operator
-cd mpi-operator/manifests/mpi-operator
-kustomize build base | kubectl apply -f -
+cd mpi-operator/manifests
+kustomize build overlays/kubeflow | kubectl apply -f -
 ```
 
 Note that since Kubernetes v1.14, `kustomize` became a subcommand in `kubectl` so you can also run the following command instead:
