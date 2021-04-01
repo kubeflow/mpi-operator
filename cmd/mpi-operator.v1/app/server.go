@@ -40,9 +40,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"k8s.io/sample-controller/pkg/signals"
-	volcanoclient "volcano.sh/volcano/pkg/client/clientset/versioned"
-	volcanoinformers "volcano.sh/volcano/pkg/client/informers/externalversions"
-	podgroupsinformer "volcano.sh/volcano/pkg/client/informers/externalversions/scheduling/v1beta1"
+	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
+	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
+	podgroupsinformer "volcano.sh/apis/pkg/client/informers/externalversions/scheduling/v1beta1"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator.v1/app/options"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"

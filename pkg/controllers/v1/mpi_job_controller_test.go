@@ -32,9 +32,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	podgroupv1beta1 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
-	volcanofake "volcano.sh/volcano/pkg/client/clientset/versioned/fake"
-	volcanoinformers "volcano.sh/volcano/pkg/client/informers/externalversions"
+	podgroupv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
+	volcanofake "volcano.sh/apis/pkg/client/clientset/versioned/fake"
+	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
