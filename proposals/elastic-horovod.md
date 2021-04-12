@@ -5,7 +5,7 @@
 - [Alternatives Considered](#alternatives-considered)
   
 ## Motivation
-With the introduction of Elastic Horovod, the allreduce-styled framework for distributed-data-parallel training is capable of dynamically modifying the number of worker instances within one trianing task. Such a feature enables an mpi-job to brace failure of worker pods during an experiment without checkpoint, as well as release/absorb resources under various conditions.
+With the introduction of Elastic Horovod, the allreduce-styled framework for distributed-data-parallel training is capable of dynamically modifying the number of worker instances within one training task. Such a feature enables an mpi-job to brace failure of worker pods during an experiment without checkpoint, as well as release/absorb resources under various conditions.
 
 However, the contemporary design of mpi-operator does not provide necessary information update to the launcher for elastic training. With the enhancement of mpi-operator to handle replicas change or pod failure, we are expecting to support Elastic Horovod in mpi-jobs.
 
