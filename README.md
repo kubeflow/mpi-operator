@@ -200,6 +200,20 @@ Variables:   horovod
 total images/sec: 308.27
 ```
 
+## Exposed Metrics
+
+| Metric name | Metric type | Description | Labels |
+| ----------- | ----------- | ----------- | ------ |
+|mpi\_operator\_jobs\_created\_total | Counter  | Counts number of MPI jobs created | |
+|mpi\_operator\_jobs\_successful\_total | Counter  | Counts number of MPI jobs successful | |
+|mpi\_operator\_jobs\_failed\_total | Counter  | Counts number of MPI jobs failed| |
+|mpi\_operator\_job\_info | Gauge | Information about MPIJob | `launcher`=&lt;launcher-pod-name&gt; <br> `namespace`=&lt;job-namespace&gt; |
+
+### Join Metrics
+
+With [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics), one can join metrics by labels.
+For example `kube_pod_info * on(pod,namespace) group_left label_replace(mpi_operator_job_infos, "pod", "$0", "launcher", ".*")`
+
 # Docker Images
 
 Docker images are built and pushed automatically to [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator). You can use the following Dockerfiles to build the images yourself:
