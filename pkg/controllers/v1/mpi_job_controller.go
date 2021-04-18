@@ -835,7 +835,10 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 	}
 	if len(podFullList) > int(*workerReplicas) {
 		for _, pod := range podFullList {
-			indexStr := strings.TrimLeft(pod.Name, fmt.Sprintf("%s-", workerPrefix))
+			indexStr, ok := pod.Labels[common.ReplicaIndexLabel]
+			if !ok {
+				return nil, err
+			}
 			index, err := strconv.Atoi(indexStr)
 			if err == nil {
 				if index >= int(*workerReplicas) {
@@ -861,6 +864,8 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 				err = fmt.Errorf(msg)
 				return nil, err
 			}
+			// Insert ReplicaIndexLabel
+			worker.Labels[common.ReplicaIndexLabel] = strconv.Itoa(int(i))
 			pod, err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Create(worker)
 		}
 		// If an error occurs during Get/Create, we'll requeue the item so we
