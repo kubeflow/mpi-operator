@@ -23,12 +23,13 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	mpijob "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
+
+	mpijob "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 )
 
-// Generate OpenAPI spec definitions for TFJob Resource
+// Generate OpenAPI spec definitions for MPIJob Resource
 func main() {
 	if len(os.Args) <= 1 {
 		klog.Fatal("Supply a version")
