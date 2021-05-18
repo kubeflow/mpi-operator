@@ -89,24 +89,28 @@ the Pod.
 
 ### Analysis
 
-The above architecture for MPI Jobs has the following problems:
+The above architecture for MPI Jobs puts a lot of pressure in the
+`kube-apiserver`. The load increases with the number of workers in a job
+and with the number of jobs in a cluster.
 
-- It doesn’t scale as we increase the number of workers, belonging to the same
-  or different jobs.
-  - Due to the use of `kubectl exec`, every worker spawn goes through
-    kube-apiserver. `mpirun` starts a daemon in each worker
-    (like [`orted`](https://www.open-mpi.org/doc/v3.0/man1/orted.1.php)).
-    This process handles the worker-to-worker communication, which happens
-    without the intervention of kube-apiserver. However, the `exec` connection
-    stays up for control during the entirety of the job.
-  - The `kubectl-delivery` controller does a full cache sync to be able to watch
-    Pods. This startup penalty increases with the number of pods in the cluster
-    and has to be paid for every job. The API calls also causing additional
-    stress on the apiserver as the number of launchers increases.
-  - The launcher pod has execution permissions on any other Pod in the
-    namespace, which can be a security concern.
-  - The v1 controller doesn’t implement launcher pod retries, although there are
-    plans to. So the MPIJob behaves like a plain Pod in this version.
+The reasons for this are:
+- Due to the use of `kubectl exec`, every worker spawn goes through
+  kube-apiserver. `mpirun` starts a daemon in each worker
+  (like [`orted`](https://www.open-mpi.org/doc/v3.0/man1/orted.1.php)).
+  This process handles the worker-to-worker communication, which happens
+  without the intervention of kube-apiserver. However, the `exec` connection
+  stays up for control during the entirety of the job.
+- The `kubectl-delivery` controller does a full cache sync to be able to watch
+  Pods. This startup penalty increases with the number of pods in the cluster
+  and has to be paid for every job. The API calls also cause additional
+  stress on the apiserver.
+- The launcher role has to include a list of all the pods in the job.
+  Potentially, the object might not be able to accommodate jobs with immense
+  number of workers.
+  
+Another problem is that the v1 controller doesn’t implement launcher pod
+retries, although there are plans to. So the MPIJob behaves like a plain Pod in
+this version.
 
 ## Design
 
@@ -118,13 +122,13 @@ following changes:
   This would avoid any pod-to-pod communication happening through apiserver and
   doesn’t require giving execution permissions at the namespace level.
   This can be achieved like this:
-  - The controller can generate a single key and share it with the launcher and
+  - The controller generates a single key and share it with the launcher and
     worker pods through a Secret.
   - The launcher and workers mount the Secret and set appropriate file
     permissions.
   - The workers run an SSH server instead of `sleep`.
-  - When encrypted communication is not a requirement, users could have the
-    choice to use `rsh` for faster communication.
+  - When encrypted communication is not a requirement, users have the choice to
+    use `rsh` for faster communication.
 
 - **The use of stable hostnames and a headless Service for the workers**
   - This removes the need to query Pod IPs, as the Pods can discover each other
@@ -144,7 +148,8 @@ following changes:
       doesn’t support changes to the completions field. This can be supported
       starting from 1.23. In the meantime, we can replicate the behavior by
       creating a new Job and doing Pod adoption.
-  - For Intel MPI, we also need a headless Service to front the launcher.
+  - For Intel MPI, we also need a headless Service to front the launcher,
+    because workers communicate back to the launcher using its hostname.
 - **Revert the use of the Job API for the launcher.**
   - The Job controller handles retries when the launcher or any of the workers fail.
   - Caveat 1 also applies: The Job controller doesn’t report if the Pod is running.
