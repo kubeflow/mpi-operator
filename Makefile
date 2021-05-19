@@ -3,7 +3,8 @@ REPO_PATH="github.com/kubeflow/mpi-operator"
 REL_OSARCH="linux/amd64"
 GitSHA=`git rev-parse HEAD`
 Date=`date "+%Y-%m-%d %H:%M:%S"`
-RELEASE_VERSION=v0.2.2
+RELEASE_VERSION?=v0.2.2
+CONTROLLER_VERSION?=v1alpha2
 IMG_BUILDER=docker
 LD_FLAGS=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
@@ -49,7 +50,7 @@ clean:
 
 images:
 	@echo "version: ${RELEASE_VERSION}"
-	${IMG_BUILDER} build -t ${IMAGE_NAME}:${RELEASE_VERSION} .
+	${IMG_BUILDER} build --build-arg version=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
 
 tidy:
 	go mod tidy
