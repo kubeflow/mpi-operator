@@ -12,6 +12,8 @@ spec:
     shortNames:
     - mj
     - mpij
+  subresources:
+    status: {}
   versions:
   - name: v1alpha1
     served: false

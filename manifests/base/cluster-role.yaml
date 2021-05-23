@@ -14,14 +14,20 @@ rules:
   - create
   - list
   - watch
+  - update
 - apiGroups:
   - ""
   resources:
   - pods
   verbs:
+  - create
   - get
   - list
   - watch
+  - delete
+  - update
+  - patch
+# This is needed for the launcher Role.
 - apiGroups:
   - ""
   resources:
