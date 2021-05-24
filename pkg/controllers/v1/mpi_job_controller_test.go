@@ -49,7 +49,8 @@ var (
 )
 
 const (
-	gpuResourceName = "nvidia.com/gpu"
+	gpuResourceName         = "nvidia.com/gpu"
+	extendedGPUResourceName = "vendor-domain/gpu"
 )
 
 type fixture struct {
@@ -143,6 +144,24 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 	workerContainers := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers
 	for i := range workerContainers {
 		container := &workerContainers[i]
+		container.Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceName(resourceName): *resource.NewQuantity(pusPerReplica, resource.DecimalExponent),
+			},
+		}
+	}
+
+	return mpiJob
+}
+
+func newMPIJobWithLauncher(name string, replicas *int32, pusPerReplica int64, resourceName string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
+	mpiJob := newMPIJob(name, replicas, pusPerReplica, resourceName, startTime, completionTime)
+
+	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Replicas = int32Ptr(1)
+
+	launcherContainers := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers
+	for i := range launcherContainers {
+		container := &launcherContainers[i]
 		container.Resources = corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceName(resourceName): *resource.NewQuantity(pusPerReplica, resource.DecimalExponent),
@@ -493,6 +512,38 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	f.setUpLauncher(launcher)
 
 	f.runExpectError(getKey(mpiJob, t))
+}
+
+func TestIsGPULauncher(t *testing.T) {
+	f := newFixture(t)
+
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	testCases := map[string]struct {
+		gpu      string
+		expected bool
+	}{
+		"isNvidiaGPU": {
+			gpu:      gpuResourceName,
+			expected: true,
+		},
+		"isExtendedGPU": {
+			gpu:      extendedGPUResourceName,
+			expected: true,
+		},
+		"notGPU": {
+			gpu:      "vendor-domain/resourcetype",
+			expected: false,
+		},
+	}
+	for testName, testCase := range testCases {
+		mpiJob := newMPIJobWithLauncher("test", int32Ptr(64), 1, testCase.gpu, &startTime, &completionTime)
+		f.setUpMPIJob(mpiJob)
+		if result := isGPULauncher(mpiJob); result != testCase.expected {
+			t.Errorf("%s expected: %v, actual: %v, gpu=%v", testName, testCase.expected, result, testCase.gpu)
+		}
+	}
 }
 
 func TestLauncherSucceeded(t *testing.T) {

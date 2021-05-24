@@ -75,6 +75,7 @@ const (
 	launcherSuffix          = "-launcher"
 	workerSuffix            = "-worker"
 	gpuResourceNameSuffix   = ".com/gpu"
+	gpuResourceNamePattern  = "gpu"
 	labelGroupName          = "group-name"
 	labelMPIJobName         = "mpi-job-name"
 	labelMPIRoleType        = "mpi-job-role"
@@ -1589,6 +1590,9 @@ func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
 	for _, container := range mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers {
 		for key := range container.Resources.Limits {
 			if strings.HasSuffix(string(key), gpuResourceNameSuffix) {
+				return true
+			}
+			if strings.Contains(string(key), gpuResourceNamePattern) {
 				return true
 			}
 		}
