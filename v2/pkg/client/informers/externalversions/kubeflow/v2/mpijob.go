@@ -17,6 +17,7 @@
 package v2
 
 import (
+	"context"
 	time "time"
 
 	kubeflowv2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
@@ -59,13 +60,13 @@ func NewFilteredMPIJobInformer(client versioned.Interface, namespace string, res
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeflowV2().MPIJobs(namespace).List(options)
+				return client.KubeflowV2().MPIJobs(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeflowV2().MPIJobs(namespace).Watch(options)
+				return client.KubeflowV2().MPIJobs(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&kubeflowv2.MPIJob{},

@@ -24,8 +24,10 @@ import (
 )
 
 // MPIJobLister helps list MPIJobs.
+// All objects returned here must be treated as read-only.
 type MPIJobLister interface {
 	// List lists all MPIJobs in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.MPIJob, err error)
 	// MPIJobs returns an object that can list and get MPIJobs.
 	MPIJobs(namespace string) MPIJobNamespaceLister
@@ -56,10 +58,13 @@ func (s *mPIJobLister) MPIJobs(namespace string) MPIJobNamespaceLister {
 }
 
 // MPIJobNamespaceLister helps list and get MPIJobs.
+// All objects returned here must be treated as read-only.
 type MPIJobNamespaceLister interface {
 	// List lists all MPIJobs in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.MPIJob, err error)
 	// Get retrieves the MPIJob from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v2.MPIJob, error)
 	MPIJobNamespaceListerExpansion
 }
