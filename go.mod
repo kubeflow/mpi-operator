@@ -16,7 +16,7 @@ require (
 	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410163147-594e756bea31
-	k8s.io/sample-controller v0.0.0-00010101000000-000000000000
+	k8s.io/sample-controller v0.16.15
 	volcano.sh/apis v1.2.0-k8s1.16.15
 )
 
@@ -27,5 +27,4 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.15.10
 	k8s.io/code-generator => k8s.io/code-generator v0.15.10
 	k8s.io/klog => k8s.io/klog v1.0.0
-	k8s.io/sample-controller => k8s.io/sample-controller v0.15.10
 )
