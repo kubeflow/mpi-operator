@@ -1,4 +1,4 @@
-FROM golang:1.13.6 AS build
+FROM golang:1.15.13 AS build
 ARG version=v1alpha2
 
 ADD . /go/src/github.com/kubeflow/mpi-operator
