@@ -19,6 +19,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -91,11 +92,15 @@ func Run(opt *options.ServerOption) error {
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
 
-	fp, err := os.Open(filename)
+	fp, err := os.Open(filepath.Clean(filename))
 	if err != nil {
 		klog.Fatalf("Error open file[%s]: %v", filename, err)
 	}
-	defer fp.Close()
+	defer func() {
+		if err := fp.Close(); err != nil {
+			klog.Fatalf("Error closing file[%s]: %v", filename, err)
+		}
+	}()
 	bufReader := bufio.NewReader(fp)
 	pods := []string{}
 
