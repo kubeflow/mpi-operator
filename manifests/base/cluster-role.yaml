@@ -9,7 +9,8 @@ rules:
   - ""
   resources:
   - configmaps
-  - serviceaccounts
+  - secrets
+  - services
   verbs:
   - create
   - list
@@ -49,24 +50,6 @@ rules:
   verbs:
   - create
   - patch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - roles
-  - rolebindings
-  verbs:
-  - create
-  - list
-  - watch
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - create
-  - list
-  - update
-  - watch
 - apiGroups:
   - apps
   resources:

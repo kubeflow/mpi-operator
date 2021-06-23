@@ -23,17 +23,16 @@ import (
 
 // ServerOption is the main context object for the controller manager.
 type ServerOption struct {
-	Kubeconfig           string
-	MasterURL            string
-	KubectlDeliveryImage string
-	Threadiness          int
-	MonitoringPort       int
-	PrintVersion         bool
-	GangSchedulingName   string
-	Namespace            string
-	LockNamespace        string
-	QPS                  int
-	Burst                int
+	Kubeconfig         string
+	MasterURL          string
+	Threadiness        int
+	MonitoringPort     int
+	PrintVersion       bool
+	GangSchedulingName string
+	Namespace          string
+	LockNamespace      string
+	QPS                int
+	Burst              int
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -50,9 +49,6 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&s.Kubeconfig, "kubeConfig", "",
 		"Path to a kubeConfig. Only required if out-of-cluster.")
-
-	fs.StringVar(&s.KubectlDeliveryImage, "kubectl-delivery-image", "",
-		"The container image used to deliver the kubectl binary.")
 
 	fs.StringVar(&s.Namespace, "namespace", os.Getenv(v2.EnvKubeflowNamespace),
 		`The namespace to monitor mpijobs. If unset, it monitors all namespaces cluster-wide. 

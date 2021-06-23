@@ -23,13 +23,6 @@ configMapGenerator:
 generatorOptions:
   disableNameSuffixHash: true
 vars:
-- name: kubectl-delivery-image
-  objref:
-    kind: ConfigMap
-    name: mpi-operator-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.kubectl-delivery-image
 - name: lock-namespace
   objref:
     kind: ConfigMap

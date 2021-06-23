@@ -17,6 +17,11 @@ package controller
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"reflect"
 	"sort"
@@ -26,23 +31,21 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	rbacinformers "k8s.io/client-go/informers/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	rbaclisters "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -64,13 +67,11 @@ const (
 	configSuffix            = "-config"
 	configVolumeName        = "mpi-job-config"
 	configMountPath         = "/etc/mpi"
-	kubexecScriptName       = "kubexec.sh"
 	hostfileName            = "hostfile"
 	discoverHostsScriptName = "discover_hosts.sh"
-	kubectlDeliveryName     = "kubectl-delivery"
-	kubectlTargetDirEnv     = "TARGET_DIR"
-	kubectlVolumeName       = "mpi-job-kubectl"
-	kubectlMountPath        = "/opt/kube"
+	sshAuthSecretSuffix     = "-ssh"
+	sshAuthVolume           = "ssh-auth"
+	sshAuthMountPath        = "/mnt/ssh"
 	launcher                = "launcher"
 	worker                  = "worker"
 	launcherSuffix          = "-launcher"
@@ -80,9 +81,10 @@ const (
 	labelGroupName          = "group-name"
 	labelMPIJobName         = "mpi-job-name"
 	labelMPIRoleType        = "mpi-job-role"
-	initContainerCpu        = "100m"
-	initContainerEphStorage = "5Gi"
-	initContainerMem        = "512Mi"
+	sshPublicKey            = "ssh-publickey"
+	sshPrivateKeyFile       = "id_rsa"
+	sshPublicKeyFile        = sshPrivateKeyFile + ".pub"
+	sshAuthorizedKeysFile   = "authorized_keys"
 )
 
 const (
@@ -136,20 +138,18 @@ type MPIJobController struct {
 	// volcanoClient is a clientset for volcano.sh API.
 	volcanoClient volcanoclient.Interface
 
-	configMapLister      corelisters.ConfigMapLister
-	configMapSynced      cache.InformerSynced
-	serviceAccountLister corelisters.ServiceAccountLister
-	serviceAccountSynced cache.InformerSynced
-	roleLister           rbaclisters.RoleLister
-	roleSynced           cache.InformerSynced
-	roleBindingLister    rbaclisters.RoleBindingLister
-	roleBindingSynced    cache.InformerSynced
-	podLister            corelisters.PodLister
-	podSynced            cache.InformerSynced
-	podgroupsLister      podgroupslists.PodGroupLister
-	podgroupsSynced      cache.InformerSynced
-	mpiJobLister         listers.MPIJobLister
-	mpiJobSynced         cache.InformerSynced
+	configMapLister corelisters.ConfigMapLister
+	configMapSynced cache.InformerSynced
+	secretLister    corelisters.SecretLister
+	secretSynced    cache.InformerSynced
+	serviceLister   corelisters.ServiceLister
+	serviceSynced   cache.InformerSynced
+	podLister       corelisters.PodLister
+	podSynced       cache.InformerSynced
+	podgroupsLister podgroupslists.PodGroupLister
+	podgroupsSynced cache.InformerSynced
+	mpiJobLister    listers.MPIJobLister
+	mpiJobSynced    cache.InformerSynced
 
 	// queue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -160,8 +160,6 @@ type MPIJobController struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
-	// The container image used to deliver the kubectl binary.
-	kubectlDeliveryImage string
 	// Gang scheduler name to use
 	gangSchedulerName string
 
@@ -175,13 +173,11 @@ func NewMPIJobController(
 	kubeflowClient clientset.Interface,
 	volcanoClientSet volcanoclient.Interface,
 	configMapInformer coreinformers.ConfigMapInformer,
-	serviceAccountInformer coreinformers.ServiceAccountInformer,
-	roleInformer rbacinformers.RoleInformer,
-	roleBindingInformer rbacinformers.RoleBindingInformer,
+	secretInformer coreinformers.SecretInformer,
+	serviceInformer coreinformers.ServiceInformer,
 	podInformer coreinformers.PodInformer,
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	kubectlDeliveryImage string,
 	gangSchedulerName string) *MPIJobController {
 
 	// Create event broadcaster.
@@ -199,27 +195,24 @@ func NewMPIJobController(
 	}
 
 	controller := &MPIJobController{
-		kubeClient:           kubeClient,
-		kubeflowClient:       kubeflowClient,
-		volcanoClient:        volcanoClientSet,
-		configMapLister:      configMapInformer.Lister(),
-		configMapSynced:      configMapInformer.Informer().HasSynced,
-		serviceAccountLister: serviceAccountInformer.Lister(),
-		serviceAccountSynced: serviceAccountInformer.Informer().HasSynced,
-		roleLister:           roleInformer.Lister(),
-		roleSynced:           roleInformer.Informer().HasSynced,
-		roleBindingLister:    roleBindingInformer.Lister(),
-		roleBindingSynced:    roleBindingInformer.Informer().HasSynced,
-		podLister:            podInformer.Lister(),
-		podSynced:            podInformer.Informer().HasSynced,
-		podgroupsLister:      podgroupsLister,
-		podgroupsSynced:      podgroupsSynced,
-		mpiJobLister:         mpiJobInformer.Lister(),
-		mpiJobSynced:         mpiJobInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
-		recorder:             recorder,
-		kubectlDeliveryImage: kubectlDeliveryImage,
-		gangSchedulerName:    gangSchedulerName,
+		kubeClient:        kubeClient,
+		kubeflowClient:    kubeflowClient,
+		volcanoClient:     volcanoClientSet,
+		configMapLister:   configMapInformer.Lister(),
+		configMapSynced:   configMapInformer.Informer().HasSynced,
+		secretLister:      secretInformer.Lister(),
+		secretSynced:      secretInformer.Informer().HasSynced,
+		serviceLister:     serviceInformer.Lister(),
+		serviceSynced:     serviceInformer.Informer().HasSynced,
+		podLister:         podInformer.Lister(),
+		podSynced:         podInformer.Informer().HasSynced,
+		podgroupsLister:   podgroupsLister,
+		podgroupsSynced:   podgroupsSynced,
+		mpiJobLister:      mpiJobInformer.Lister(),
+		mpiJobSynced:      mpiJobInformer.Informer().HasSynced,
+		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
+		recorder:          recorder,
+		gangSchedulerName: gangSchedulerName,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -240,94 +233,29 @@ func NewMPIJobController(
 	// handling dependent resources. More info on this pattern:
 	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
 	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newConfigMap := new.(*corev1.ConfigMap)
-			oldConfigMap := old.(*corev1.ConfigMap)
-			if newConfigMap.ResourceVersion == oldConfigMap.ResourceVersion {
-				// Periodic re-sync will send update events for all known
-				// ConfigMaps. Two different versions of the same ConfigMap
-				// will always have different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
 	})
-	serviceAccountInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newServiceAccount := new.(*corev1.ServiceAccount)
-			oldServiceAccount := old.(*corev1.ServiceAccount)
-			if newServiceAccount.ResourceVersion == oldServiceAccount.ResourceVersion {
-				// Periodic re-sync will send update events for all known
-				// ServiceAccounts. Two different versions of the same ServiceAccount
-				// will always have different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
+	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
 	})
-	roleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newRole := new.(*rbacv1.Role)
-			oldRole := old.(*rbacv1.Role)
-			if newRole.ResourceVersion == oldRole.ResourceVersion {
-				// Periodic re-sync will send update events for all known
-				// Roles. Two different versions of the same Role
-				// will always have different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
-		DeleteFunc: controller.handleObject,
-	})
-	roleBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newRoleBinding := new.(*rbacv1.RoleBinding)
-			oldRoleBinding := old.(*rbacv1.RoleBinding)
-			if newRoleBinding.ResourceVersion == oldRoleBinding.ResourceVersion {
-				// Periodic re-sync will send update events for all known
-				// RoleBindings. Two different versions of the same RoleBinding
-				// will always have different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
+	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
 	})
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newPod := new.(*corev1.Pod)
-			oldPod := old.(*corev1.Pod)
-			if newPod.ResourceVersion == oldPod.ResourceVersion {
-				// Periodic re-sync will send update events for all known Jobs.
-				// Two different versions of the same Job will always have
-				// different RVs.
-				return
-			}
-			controller.handleObject(new)
-		},
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
 	})
 	if podgroupsInformer != nil {
 		podgroupsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc: controller.handleObject,
-			UpdateFunc: func(old, new interface{}) {
-				newPolicy := new.(*podgroupv1beta1.PodGroup)
-				oldPolicy := old.(*podgroupv1beta1.PodGroup)
-				if newPolicy.ResourceVersion == oldPolicy.ResourceVersion {
-					// Periodic re-sync will send update events for all known PodDisruptionBudgets.
-					// Two different versions of the same Job will always have
-					// different RVs.
-					return
-				}
-				controller.handleObject(new)
-			},
+			AddFunc:    controller.handleObject,
+			UpdateFunc: controller.handleObjectUpdate,
 			DeleteFunc: controller.handleObject,
 		})
 	}
@@ -347,7 +275,7 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers.
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.serviceAccountSynced, c.roleSynced, c.roleBindingSynced, c.podSynced, c.mpiJobSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.secretSynced, c.serviceSynced, c.podSynced, c.mpiJobSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 	if c.gangSchedulerName != "" {
@@ -532,36 +460,25 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && isPodFinished(launcher)
 	if !done {
-		workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
-		workerReplicas := int32(0)
-		if workerSpec != nil && workerSpec.Replicas != nil {
-			workerReplicas = *workerSpec.Replicas
-		}
 		isGPULauncher := isGPULauncher(mpiJob)
 
-		// Get the ConfigMap for this MPIJob.
-		if config, err := c.getOrCreateConfigMap(mpiJob, workerReplicas, isGPULauncher); config == nil || err != nil {
-			return err
+		_, err := c.getOrCreateWorkersService(mpiJob)
+		if err != nil {
+			return fmt.Errorf("getting or creating Service to front workers: %w", err)
 		}
 
-		// Get the launcher ServiceAccount for this MPIJob.
-		if sa, err := c.getOrCreateLauncherServiceAccount(mpiJob); sa == nil || err != nil {
-			return err
+		if config, err := c.getOrCreateConfigMap(mpiJob, isGPULauncher); config == nil || err != nil {
+			return fmt.Errorf("getting or creating ConfigMap: %w", err)
 		}
 
-		// Get the launcher Role for this MPIJob.
-		if r, err := c.getOrCreateLauncherRole(mpiJob, workerReplicas); r == nil || err != nil {
-			return err
-		}
-
-		// Get the launcher RoleBinding for this MPIJob.
-		if rb, err := c.getLauncherRoleBinding(mpiJob); rb == nil || err != nil {
-			return err
+		_, err = c.getOrCreateSSHAuthSecret(mpiJob)
+		if err != nil {
+			return fmt.Errorf("creating SSH auth secret: %w", err)
 		}
 
 		// Get the PodGroup for this MPIJob
 		if c.gangSchedulerName != "" {
-			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas+1); podgroup == nil || err != nil {
+			if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas(mpiJob)+1); podgroup == nil || err != nil {
 				return err
 			}
 		}
@@ -571,7 +488,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return err
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), c.newLauncher(mpiJob, c.kubectlDeliveryImage, isGPULauncher), metav1.CreateOptions{})
+			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), c.newLauncher(mpiJob, isGPULauncher), metav1.CreateOptions{})
 			if err != nil {
 				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
 				return err
@@ -690,8 +607,8 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
-func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) (*corev1.ConfigMap, error) {
-	newCM := newConfigMap(mpiJob, workerReplicas, isGPULauncher)
+func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, isGPULauncher bool) (*corev1.ConfigMap, error) {
+	newCM := newConfigMap(mpiJob, workerReplicas(mpiJob), isGPULauncher)
 	podList, err := c.getRunningWorkerPods(mpiJob)
 	if err != nil {
 		return nil, err
@@ -701,11 +618,8 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(context.TODO(), newCM, metav1.CreateOptions{})
+		return c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(context.TODO(), newCM, metav1.CreateOptions{})
 	}
-	// If an error occurs during Get/Create, we'll requeue the item so we
-	// can attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
 	if err != nil {
 		return nil, err
 	}
@@ -719,8 +633,10 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 	}
 
 	// If the ConfigMap is changed, update it
-	if !reflect.DeepEqual(cm.Data, newCM.Data) {
-		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Update(context.TODO(), newCM, metav1.UpdateOptions{})
+	if !equality.Semantic.DeepEqual(cm.Data, newCM.Data) {
+		cm = cm.DeepCopy()
+		cm.Data = newCM.Data
+		cm, err = c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -729,13 +645,12 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, workerR
 	return cm, nil
 }
 
-// getOrCreateLauncherServiceAccount gets the launcher ServiceAccount controlled
-// by this MPIJob, or creates one if it doesn't exist.
-func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MPIJob) (*corev1.ServiceAccount, error) {
-	sa, err := c.serviceAccountLister.ServiceAccounts(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
-	// If the ServiceAccount doesn't exist, we'll create it.
+// getOrCreateWorkerService gets the workers' Service controlled by this MPIJob,
+// or creates one if it doesn't exist.
+func (c *MPIJobController) getOrCreateWorkersService(mpiJob *kubeflow.MPIJob) (*corev1.Service, error) {
+	svc, err := c.serviceLister.Services(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
 	if errors.IsNotFound(err) {
-		sa, err = c.kubeClient.CoreV1().ServiceAccounts(mpiJob.Namespace).Create(context.TODO(), newLauncherServiceAccount(mpiJob), metav1.CreateOptions{})
+		return c.kubeClient.CoreV1().Services(mpiJob.Namespace).Create(context.TODO(), newWorkersService(mpiJob), metav1.CreateOptions{})
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -743,81 +658,73 @@ func (c *MPIJobController) getOrCreateLauncherServiceAccount(mpiJob *kubeflow.MP
 	if err != nil {
 		return nil, err
 	}
-	// If the launcher ServiceAccount is not controlled by this MPIJob resource, we
+	// If the worker Service is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(sa, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, sa.Name, sa.Kind)
+	if !metav1.IsControlledBy(svc, mpiJob) {
+		msg := fmt.Sprintf(MessageResourceExists, svc.Name, svc.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
+	newSvc := newWorkersService(mpiJob)
+	// If the Service selector is changed, update it.
+	if !equality.Semantic.DeepEqual(svc.Spec.Selector, newSvc.Spec.Selector) {
+		svc = svc.DeepCopy()
+		svc.Spec.Selector = newSvc.Spec.Selector
+		return c.kubeClient.CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metav1.UpdateOptions{})
+	}
 
-	return sa, nil
+	return svc, nil
 }
 
-// getOrCreateLauncherRole gets the launcher Role controlled by this MPIJob.
-func (c *MPIJobController) getOrCreateLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) (*rbacv1.Role, error) {
-	role, err := c.roleLister.Roles(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
-	launcherRole := newLauncherRole(mpiJob, workerReplicas)
-	// If the Role doesn't exist, we'll create it.
+// getOrCreateSSHAuthSecret gets the Secret holding the SSH auth for this job,
+// or create one if it doesn't exist.
+func (c *MPIJobController) getOrCreateSSHAuthSecret(job *kubeflow.MPIJob) (*corev1.Secret, error) {
+	secret, err := c.secretLister.Secrets(job.Namespace).Get(job.Name + sshAuthSecretSuffix)
 	if errors.IsNotFound(err) {
-		role, err = c.kubeClient.RbacV1().Roles(mpiJob.Namespace).Create(context.TODO(), launcherRole, metav1.CreateOptions{})
-	}
-	// If an error occurs during Get/Create, we'll requeue the item so we
-	// can attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
-	if err != nil {
-		return nil, err
-	}
-	// If the launcher Role is not controlled by this MPIJob resource, we
-	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(role, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, role.Name, role.Kind)
-		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return nil, fmt.Errorf(msg)
-	}
-
-	if !reflect.DeepEqual(role.Rules, launcherRole.Rules) {
-		role, err = c.kubeClient.RbacV1().Roles(mpiJob.Namespace).Update(context.TODO(), launcherRole, metav1.UpdateOptions{})
+		secret, err := newSSHAuthSecret(job)
 		if err != nil {
 			return nil, err
 		}
+		return c.kubeClient.CoreV1().Secrets(job.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	}
-
-	return role, nil
-}
-
-// getLauncherRoleBinding gets the launcher RoleBinding controlled by this
-// MPIJob, or creates one if it doesn't exist.
-func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rbacv1.RoleBinding, error) {
-	rb, err := c.roleBindingLister.RoleBindings(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
-	// If the RoleBinding doesn't exist, we'll create it.
-	if errors.IsNotFound(err) {
-		rb, err = c.kubeClient.RbacV1().RoleBindings(mpiJob.Namespace).Create(context.TODO(), newLauncherRoleBinding(mpiJob), metav1.CreateOptions{})
-	}
-	// If an error occurs during Get/Create, we'll requeue the item so we
-	// can attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
 	if err != nil {
 		return nil, err
 	}
-	// If the launcher RoleBinding is not controlled by this MPIJob resource, we
-	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(rb, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, rb.Name, rb.Kind)
-		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
+	if !metav1.IsControlledBy(secret, job) {
+		msg := fmt.Sprintf(MessageResourceExists, secret.Name, secret.Kind)
+		c.recorder.Event(job, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
+	newSecret, err := newSSHAuthSecret(job)
+	if err != nil {
+		return nil, fmt.Errorf("generating new secret: %w", err)
+	}
+	hasKeys := keysFromData(secret.Data)
+	wantKeys := keysFromData(newSecret.Data)
+	if !equality.Semantic.DeepEqual(hasKeys, wantKeys) {
+		secret := secret.DeepCopy()
+		secret.Data = newSecret.Data
+		return c.kubeClient.CoreV1().Secrets(secret.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	}
+	return secret, nil
+}
 
-	return rb, nil
+func keysFromData(data map[string][]byte) []string {
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
 // MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1.Pod, error) {
 	var (
-		workerPrefix   string        = mpiJob.Name + workerSuffix
-		workerPods     []*corev1.Pod = []*corev1.Pod{}
-		i              int32         = 0
+		workerPrefix   = mpiJob.Name + workerSuffix
+		workerPods     []*corev1.Pod
+		i              int32 = 0
 		workerReplicas *int32
 	)
 	if worker, ok := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; ok && worker != nil {
@@ -1104,6 +1011,18 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 	}
 }
 
+func (c *MPIJobController) handleObjectUpdate(old, new interface{}) {
+	oldObj := old.(metav1.Object)
+	newObj := new.(metav1.Object)
+	if newObj.GetResourceVersion() == oldObj.GetResourceVersion() {
+		// Periodic re-sync will send update events for all known
+		// ConfigMaps. Two different versions of the same ConfigMap
+		// will always have different RVs.
+		return
+	}
+	c.handleObject(new)
+}
+
 // doUpdateJobStatus updates the status of the given MPIJob by call apiServer.
 func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 	_, err := c.kubeflowClient.KubeflowV2().MPIJobs(mpiJob.Namespace).UpdateStatus(context.TODO(), mpiJob, metav1.UpdateOptions{})
@@ -1114,27 +1033,18 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) *corev1.ConfigMap {
-	kubexec := fmt.Sprintf(`#!/bin/sh
-set -x
-POD_NAME=$1
-shift
-%s/kubectl exec ${POD_NAME}`, kubectlMountPath)
-	if len(mpiJob.Spec.MainContainer) > 0 {
-		kubexec = fmt.Sprintf("%s --container %s", kubexec, mpiJob.Spec.MainContainer)
-	}
-	kubexec = fmt.Sprintf("%s -- /bin/sh -c \"$*\"", kubexec)
-
 	// If no processing unit is specified, default to 1 slot.
 	slots := 1
 	if mpiJob.Spec.SlotsPerWorker != nil {
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
 	var buffer bytes.Buffer
+	workersService := mpiJob.Name + workerSuffix
 	if isGPULauncher {
-		buffer.WriteString(fmt.Sprintf("%s%s slots=%d\n", mpiJob.Name, launcherSuffix, slots))
+		buffer.WriteString(fmt.Sprintf("%s%s.%s slots=%d\n", mpiJob.Name, launcherSuffix, workersService, slots))
 	}
 	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d slots=%d\n", mpiJob.Name, workerSuffix, i, slots))
+		buffer.WriteString(fmt.Sprintf("%s%s-%d.%s slots=%d\n", mpiJob.Name, workerSuffix, i, workersService, slots))
 	}
 
 	return &corev1.ConfigMap{
@@ -1149,8 +1059,7 @@ shift
 			},
 		},
 		Data: map[string]string{
-			hostfileName:      buffer.String(),
-			kubexecScriptName: kubexec,
+			hostfileName: buffer.String(),
 		},
 	}
 }
@@ -1167,30 +1076,25 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 		return runningPods[i].Name < runningPods[j].Name
 	})
 
-	discoverHosts := "#!/bin/sh"
+	var buffer bytes.Buffer
+	buffer.WriteString("#!/bin/sh\n")
+	workersService := mpiJob.Name + workerSuffix
 	if isGPULauncher {
-		discoverHosts = fmt.Sprintf("%s\necho %s%s:%d\n", discoverHosts, mpiJob.Name, launcherSuffix, slots)
+		buffer.WriteString(fmt.Sprintf("echo %s%s.%s:%d\n", mpiJob.Name, launcherSuffix, workersService, slots))
 	}
 	for _, p := range runningPods {
-		discoverHosts = fmt.Sprintf("%s\necho %s:%d", discoverHosts, p.Name, slots)
+		buffer.WriteString(fmt.Sprintf("echo %s.%s:%d\n", p.Name, workersService, slots))
 	}
 
-	oldDiscoverHosts, exist := configMap.Data[discoverHostsScriptName]
-	if exist {
-		if oldDiscoverHosts == discoverHosts {
-			return
-		}
-	}
-	configMap.Data[discoverHostsScriptName] = discoverHosts
+	configMap.Data[discoverHostsScriptName] = buffer.String()
 }
 
-// newLauncherServiceAccount creates a new launcher ServiceAccount for an MPIJob
-// resource. It also sets the appropriate OwnerReferences on the resource so
-// handleObject can discover the MPIJob resource that 'owns' it.
-func newLauncherServiceAccount(mpiJob *kubeflow.MPIJob) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
+// newWorkersService creates a new workers' Service for an MPIJob
+// resource.
+func newWorkersService(mpiJob *kubeflow.MPIJob) *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name + launcherSuffix,
+			Name:      mpiJob.Name + workerSuffix,
 			Namespace: mpiJob.Namespace,
 			Labels: map[string]string{
 				"app": mpiJob.Name,
@@ -1199,73 +1103,53 @@ func newLauncherServiceAccount(mpiJob *kubeflow.MPIJob) *corev1.ServiceAccount {
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-	}
-}
-
-// newLauncherRole creates a new launcher Role for an MPIJob resource. It also
-// sets the appropriate OwnerReferences on the resource so handleObject can
-// discover the MPIJob resource that 'owns' it.
-func newLauncherRole(mpiJob *kubeflow.MPIJob, workerReplicas int32) *rbacv1.Role {
-	var podNames []string
-	for i := 0; i < int(workerReplicas); i++ {
-		podNames = append(podNames, fmt.Sprintf("%s%s-%d", mpiJob.Name, workerSuffix, i))
-	}
-	return &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name + launcherSuffix,
-			Namespace: mpiJob.Namespace,
-			Labels: map[string]string{
-				"app": mpiJob.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
-			},
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "list", "watch"},
-				APIGroups: []string{""},
-				Resources: []string{"pods"},
-			},
-			{
-				Verbs:         []string{"create"},
-				APIGroups:     []string{""},
-				Resources:     []string{"pods/exec"},
-				ResourceNames: podNames,
+		Spec: corev1.ServiceSpec{
+			ClusterIP: corev1.ClusterIPNone,
+			Selector: map[string]string{
+				labelGroupName:  "kubeflow.org",
+				labelMPIJobName: mpiJob.Name,
 			},
 		},
 	}
 }
 
-// newLauncherRoleBinding creates a new launcher RoleBinding for an MPIJob
-// resource. It also sets the appropriate OwnerReferences on the resource so
-// handleObject can discover the MPIJob resource that 'owns' it.
-func newLauncherRoleBinding(mpiJob *kubeflow.MPIJob) *rbacv1.RoleBinding {
-	launcherName := mpiJob.Name + launcherSuffix
-	return &rbacv1.RoleBinding{
+// newSSHAuthSecret creates a new Secret that holds SSH auth: a private Key
+// and its public key version.
+func newSSHAuthSecret(job *kubeflow.MPIJob) (*corev1.Secret, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generating private SSH key: %w", err)
+	}
+	privateDER, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("converting private SSH key to DER format: %w", err)
+	}
+	privatePEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: privateDER,
+	})
+
+	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("generating public SSH key: %w", err)
+	}
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      launcherName,
-			Namespace: mpiJob.Namespace,
+			Name:      job.Name + sshAuthSecretSuffix,
+			Namespace: job.Namespace,
 			Labels: map[string]string{
-				"app": mpiJob.Name,
+				"app": job.Name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
+				*metav1.NewControllerRef(job, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      launcherName,
-				Namespace: mpiJob.Namespace,
-			},
+		Type: corev1.SecretTypeSSHAuth,
+		Data: map[string][]byte{
+			corev1.SSHAuthPrivateKey: privatePEM,
+			sshPublicKey:             ssh.MarshalAuthorizedKey(publicKey),
 		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "Role",
-			Name:     launcherName,
-		},
-	}
+	}, nil
 }
 
 // newPodGroup creates a new PodGroup for an MPIJob
@@ -1299,91 +1183,71 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
 func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.Pod {
-	labels := defaultWorkerLabels(mpiJob.Name)
+	defaultLabels := defaultWorkerLabels(mpiJob.Name)
 
-	podSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.DeepCopy()
+	podTemplate := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.DeepCopy()
 
 	// keep the labels which are set in PodTemplate
-	if len(podSpec.Labels) == 0 {
-		podSpec.Labels = make(map[string]string)
+	if len(podTemplate.Labels) == 0 {
+		podTemplate.Labels = make(map[string]string)
 	}
 
-	for key, value := range labels {
-		podSpec.Labels[key] = value
+	for key, value := range defaultLabels {
+		podTemplate.Labels[key] = value
 	}
-	setRestartPolicy(podSpec, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker])
+	podTemplate.Spec.Hostname = name
+	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
+	setRestartPolicy(podTemplate, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker])
 
-	if len(podSpec.Spec.Containers) == 0 {
+	if len(podTemplate.Spec.Containers) == 0 {
 		klog.Errorln("Worker pod does not have any containers in its spec")
 		return nil
 	}
-	container := podSpec.Spec.Containers[0]
-	if len(container.Command) == 0 {
-		container.Command = []string{"sleep"}
-		container.Args = []string{"365d"}
+	container := &podTemplate.Spec.Containers[0]
+	if len(container.Command) == 0 && len(container.Args) == 0 {
+		// container image should have a command (entrypoint) that knows how to copy
+		// the auth credentials into a folder with appropriate permissions.
+		container.Args = []string{"/usr/sbin/sshd", "-De"}
 	}
 
-	// We need the kubexec.sh script here because Open MPI checks for the path
-	// in every rank.
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      configVolumeName,
-		MountPath: configMountPath,
-	})
-	podSpec.Spec.Containers[0] = container
-
-	scriptMode := int32(0555)
-	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, corev1.Volume{
-		Name: configVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: mpiJob.Name + configSuffix,
-				},
-				Items: []corev1.KeyToPath{
-					{
-						Key:  kubexecScriptName,
-						Path: kubexecScriptName,
-						Mode: &scriptMode,
-					},
-				},
-			},
-		},
-	})
+	sshVolume, sshVolumeMount := podSSHAuthVolume(mpiJob.Name)
+	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, sshVolume)
+	container.VolumeMounts = append(container.VolumeMounts, sshVolumeMount)
 
 	// add SchedulerName to podSpec
 	if gangSchedulerName != "" {
-		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != gangSchedulerName {
-			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
+		if podTemplate.Spec.SchedulerName != "" && podTemplate.Spec.SchedulerName != gangSchedulerName {
+			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podTemplate.Spec.SchedulerName)
 		}
-		podSpec.Spec.SchedulerName = gangSchedulerName
+		podTemplate.Spec.SchedulerName = gangSchedulerName
 
-		if podSpec.Annotations == nil {
-			podSpec.Annotations = map[string]string{}
+		if podTemplate.Annotations == nil {
+			podTemplate.Annotations = map[string]string{}
 		}
 		// we create the podGroup with the same name as the mpijob
-		podSpec.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
+		podTemplate.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
 	}
 
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   mpiJob.Namespace,
-			Labels:      podSpec.Labels,
-			Annotations: podSpec.Annotations,
+			Labels:      podTemplate.Labels,
+			Annotations: podTemplate.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-		Spec: podSpec.Spec,
+		Spec: podTemplate.Spec,
 	}
 }
 
 // newLauncher creates a new launcher Job for an MPIJob resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
-func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryImage string, isGPULauncher bool) *corev1.Pod {
+func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bool) *corev1.Pod {
 	launcherName := mpiJob.Name + launcherSuffix
-	labels := map[string]string{
+	defaultLabels := map[string]string{
 		labelGroupName:   "kubeflow.org",
 		labelMPIJobName:  mpiJob.Name,
 		labelMPIRoleType: launcher,
@@ -1394,7 +1258,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 	if len(podSpec.Labels) == 0 {
 		podSpec.Labels = make(map[string]string)
 	}
-	for key, value := range labels {
+	for key, value := range defaultLabels {
 		podSpec.Labels[key] = value
 	}
 	// add SchedulerName to podSpec
@@ -1410,55 +1274,20 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		// we create the podGroup with the same name as the mpijob
 		podSpec.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
 	}
-	podSpec.Spec.ServiceAccountName = launcherName
-	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
-		Name:            kubectlDeliveryName,
-		Image:           kubectlDeliveryImage,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Env: []corev1.EnvVar{
-			{
-				Name:  kubectlTargetDirEnv,
-				Value: kubectlMountPath,
-			},
-			{
-				Name:  "NAMESPACE",
-				Value: mpiJob.Namespace,
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      kubectlVolumeName,
-				MountPath: kubectlMountPath,
-			},
-			{
-				Name:      configVolumeName,
-				MountPath: configMountPath,
-			},
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse(initContainerCpu),
-				corev1.ResourceMemory:           resource.MustParse(initContainerMem),
-				corev1.ResourceEphemeralStorage: resource.MustParse(initContainerEphStorage),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:              resource.MustParse(initContainerCpu),
-				corev1.ResourceMemory:           resource.MustParse(initContainerMem),
-				corev1.ResourceEphemeralStorage: resource.MustParse(initContainerEphStorage),
-			},
-		},
-	})
+	podSpec.Spec.Hostname = launcherName
+	podSpec.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
 	if len(podSpec.Spec.Containers) == 0 {
 		klog.Errorln("Launcher pod does not have any containers in its spec")
 		msg := fmt.Sprintf(MessageResourceDoesNotExist, "Launcher")
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
 		return nil
 	}
-	container := podSpec.Spec.Containers[0]
+	container := &podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
+		// Allows driver to reach workers through the Service.
 		corev1.EnvVar{
-			Name:  "OMPI_MCA_plm_rsh_agent",
-			Value: fmt.Sprintf("%s/%s", configMountPath, kubexecScriptName),
+			Name:  "OMPI_MCA_orte_keep_fqdn_hostnames",
+			Value: "true",
 		},
 		corev1.EnvVar{
 			Name:  "OMPI_MCA_orte_default_hostfile",
@@ -1480,36 +1309,26 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 				Value: "",
 			})
 	}
+	sshVolume, sshVolumeMount := podSSHAuthVolume(mpiJob.Name)
 
 	container.VolumeMounts = append(container.VolumeMounts,
-		corev1.VolumeMount{
-			Name:      kubectlVolumeName,
-			MountPath: kubectlMountPath,
-		},
+		sshVolumeMount,
 		corev1.VolumeMount{
 			Name:      configVolumeName,
 			MountPath: configMountPath,
 		})
-	podSpec.Spec.Containers[0] = container
 
 	// Submit a warning event if the user specifies restart policy for
 	// the pod template. We recommend to set it from the replica level.
-	if podSpec.Spec.RestartPolicy != corev1.RestartPolicy("") {
+	if podSpec.Spec.RestartPolicy != "" {
 		errMsg := "Restart policy in pod template will be overwritten by restart policy in replica spec"
 		klog.Warning(errMsg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, podTemplateRestartPolicyReason, errMsg)
 	}
 	setRestartPolicy(podSpec, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher])
 
-	scriptsMode := int32(0555)
-	hostfileMode := int32(0444)
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes,
-		corev1.Volume{
-			Name: kubectlVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
+		sshVolume,
 		corev1.Volume{
 			Name: configVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -1519,24 +1338,20 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 					},
 					Items: []corev1.KeyToPath{
 						{
-							Key:  kubexecScriptName,
-							Path: kubexecScriptName,
-							Mode: &scriptsMode,
-						},
-						{
 							Key:  hostfileName,
 							Path: hostfileName,
-							Mode: &hostfileMode,
+							Mode: newInt32(0444),
 						},
 						{
 							Key:  discoverHostsScriptName,
 							Path: discoverHostsScriptName,
-							Mode: &scriptsMode,
+							Mode: newInt32(0555),
 						},
 					},
 				},
 			},
-		})
+		},
+	)
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        launcherName,
@@ -1610,16 +1425,47 @@ func defaultWorkerLabels(mpiJobName string) map[string]string {
 }
 
 func workerSelector(mpiJobName string) (labels.Selector, error) {
-	labels := defaultWorkerLabels(mpiJobName)
+	set := defaultWorkerLabels(mpiJobName)
+	return labels.ValidatedSelectorFromSet(set)
+}
 
-	labelSelector := metav1.LabelSelector{
-		MatchLabels: labels,
+func workerReplicas(job *kubeflow.MPIJob) int32 {
+	workerSpec := job.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
+	if workerSpec != nil && workerSpec.Replicas != nil {
+		return *workerSpec.Replicas
 	}
+	return 0
+}
 
-	selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
-	if err != nil {
-		return nil, err
-	}
+func podSSHAuthVolume(jobName string) (corev1.Volume, corev1.VolumeMount) {
+	return corev1.Volume{
+			Name: sshAuthVolume,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  jobName + sshAuthSecretSuffix,
+					DefaultMode: newInt32(0660),
+					Items: []corev1.KeyToPath{
+						{
+							Key:  corev1.SSHAuthPrivateKey,
+							Path: sshPrivateKeyFile,
+						},
+						{
+							Key:  sshPublicKey,
+							Path: sshPublicKeyFile,
+						},
+						{
+							Key:  sshPublicKey,
+							Path: sshAuthorizedKeysFile,
+						},
+					},
+				},
+			},
+		}, corev1.VolumeMount{
+			Name:      sshAuthVolume,
+			MountPath: sshAuthMountPath,
+		}
+}
 
-	return selector, nil
+func newInt32(v int32) *int32 {
+	return &v
 }

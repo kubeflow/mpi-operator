@@ -71,9 +71,12 @@ RUN apt-get install -y --no-install-recommends openssh-client openssh-server && 
 # Allow OpenSSH to talk to containers without asking for confirmation
 RUN cat /etc/ssh/ssh_config | grep -v StrictHostKeyChecking > /etc/ssh/ssh_config.new && \
     echo "    StrictHostKeyChecking no" >> /etc/ssh/ssh_config.new && \
-    mv /etc/ssh/ssh_config.new /etc/ssh/ssh_config && mkdir /examples
+    mv /etc/ssh/ssh_config.new /etc/ssh/ssh_config
+
+WORKDIR "/examples"
 
 # Get example python scripts
 COPY tensorflow_mnist.py /examples
 
-WORKDIR "/examples"
+COPY entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

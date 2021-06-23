@@ -8,6 +8,7 @@ require (
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/kubeflow/common v0.3.4
 	github.com/prometheus/client_golang v1.7.1
+	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	k8s.io/api v0.19.9
 	k8s.io/apimachinery v0.19.9
 	k8s.io/apiserver v0.19.9
