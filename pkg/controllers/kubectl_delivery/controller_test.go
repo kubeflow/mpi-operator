@@ -39,6 +39,17 @@ func TestWaitingPodRunning(t *testing.T) {
 		},
 	}
 	fakePod.Status.Phase = corev1.PodRunning
+
+	time := metav1.Now()
+	fakePod.Status.Conditions = append(fakePod.Status.Conditions,
+		corev1.PodCondition{
+			Type:               corev1.PodReady,
+			Status:             corev1.ConditionTrue,
+			Reason:             "successfully",
+			Message:            "sync pod successfully",
+			LastProbeTime:      time,
+			LastTransitionTime: metav1.NewTime(time.Add(1000))})
+
 	f.setUpPods(fakePod)
 	f.run(namespace, podName)
 }
