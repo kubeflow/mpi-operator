@@ -124,7 +124,7 @@ func (c *KubectlDeliveryController) Run(threadiness int, stopCh <-chan struct{})
 		if err != nil {
 			continue
 		}
-		if pod.Status.Phase == corev1.PodRunning {
+		if pod.Status.Phase == corev1.PodRunning && isPodReadyConditionTrue(pod.Status) {
 			c.lock.Lock()
 			delete(c.watchedPods, pod.Name)
 			c.lock.Unlock()
@@ -283,7 +283,7 @@ func (c *KubectlDeliveryController) syncHandler(key string) error {
 		return err
 	}
 
-	if pod.Status.Phase == corev1.PodRunning {
+	if pod.Status.Phase == corev1.PodRunning && isPodReadyConditionTrue(pod.Status) {
 		c.lock.Lock()
 		defer c.lock.Unlock()
 		delete(c.watchedPods, pod.Name)
@@ -300,4 +300,24 @@ func (c *KubectlDeliveryController) enqueue(obj interface{}) {
 		return
 	}
 	c.queue.AddRateLimited(key)
+}
+
+// IsPodReadyConditionTrue returns true if a pod is ready; false otherwise.
+func isPodReadyConditionTrue(status corev1.PodStatus) bool {
+	_, condition := getPodConditionFromList(status.Conditions, corev1.PodReady)
+	return condition != nil && condition.Status == corev1.ConditionTrue
+}
+
+// GetPodConditionFromList extracts the provided condition from the given list of condition and
+// returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
+func getPodConditionFromList(conditions []corev1.PodCondition, conditionType corev1.PodConditionType) (int, *corev1.PodCondition) {
+	if conditions == nil {
+		return -1, nil
+	}
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return i, &conditions[i]
+		}
+	}
+	return -1, nil
 }
