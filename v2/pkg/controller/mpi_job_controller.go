@@ -389,7 +389,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			klog.V(4).Infof("MPIJob has been deleted: %v", key)
 			return nil
 		}
-		return err
+		return fmt.Errorf("obtaining job: %w", err)
 	}
 
 	// NEVER modify objects from the store. It's a read-only, local cache.
@@ -491,10 +491,15 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return err
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), c.newLauncher(mpiJob, isGPULauncher), metav1.CreateOptions{})
+			launcher = c.newLauncher(mpiJob, isGPULauncher)
+			if launcher == nil {
+				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod spec is invalid")
+				return fmt.Errorf("launcher pod spec is invalid")
+			}
+			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), launcher, metav1.CreateOptions{})
 			if err != nil {
 				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
-				return err
+				return fmt.Errorf("creating launcher Pod: %w", err)
 			}
 		}
 	}
@@ -734,6 +739,11 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		workerReplicas = worker.Replicas
 	} else {
 		return workerPods, nil
+	}
+	if workerReplicas == nil {
+		msg := fmt.Sprintf(MessageResourceDoesNotExist, "Worker.replicas")
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
+		return nil, fmt.Errorf(msg)
 	}
 
 	// Remove Pods when replicas are scaled down
