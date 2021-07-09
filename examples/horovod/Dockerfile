@@ -77,6 +77,3 @@ WORKDIR "/examples"
 
 # Get example python scripts
 COPY tensorflow_mnist.py /examples
-
-COPY entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]

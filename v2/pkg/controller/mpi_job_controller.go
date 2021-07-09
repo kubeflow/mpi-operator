@@ -72,19 +72,22 @@ const (
 	sshAuthSecretSuffix     = "-ssh"
 	sshAuthVolume           = "ssh-auth"
 	sshAuthMountPath        = "/mnt/ssh"
-	launcher                = "launcher"
-	worker                  = "worker"
-	launcherSuffix          = "-launcher"
-	workerSuffix            = "-worker"
-	gpuResourceNameSuffix   = ".com/gpu"
-	gpuResourceNamePattern  = "gpu"
-	labelGroupName          = "group-name"
-	labelMPIJobName         = "mpi-job-name"
-	labelMPIRoleType        = "mpi-job-role"
-	sshPublicKey            = "ssh-publickey"
-	sshPrivateKeyFile       = "id_rsa"
-	sshPublicKeyFile        = sshPrivateKeyFile + ".pub"
-	sshAuthorizedKeysFile   = "authorized_keys"
+	sshHomeVolume           = "ssh-home"
+	// TODO(alculquicondor): Make home directory configurable through the API.
+	sshHomeMountPath       = "/root/.ssh"
+	launcher               = "launcher"
+	worker                 = "worker"
+	launcherSuffix         = "-launcher"
+	workerSuffix           = "-worker"
+	gpuResourceNameSuffix  = ".com/gpu"
+	gpuResourceNamePattern = "gpu"
+	labelGroupName         = "group-name"
+	labelMPIJobName        = "mpi-job-name"
+	labelMPIRoleType       = "mpi-job-role"
+	sshPublicKey           = "ssh-publickey"
+	sshPrivateKeyFile      = "id_rsa"
+	sshPublicKeyFile       = sshPrivateKeyFile + ".pub"
+	sshAuthorizedKeysFile  = "authorized_keys"
 )
 
 const (
@@ -1205,14 +1208,13 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 	}
 	container := &podTemplate.Spec.Containers[0]
 	if len(container.Command) == 0 && len(container.Args) == 0 {
-		// container image should have a command (entrypoint) that knows how to copy
-		// the auth credentials into a folder with appropriate permissions.
-		container.Args = []string{"/usr/sbin/sshd", "-De"}
+		container.Command = []string{"/usr/sbin/sshd", "-De"}
 	}
 
 	sshVolume, sshVolumeMount := podSSHAuthVolume(mpiJob.Name)
-	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, sshVolume)
-	container.VolumeMounts = append(container.VolumeMounts, sshVolumeMount)
+	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, sshVolume...)
+	container.VolumeMounts = append(container.VolumeMounts, sshVolumeMount...)
+	podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, sshInitContainer(sshVolumeMount))
 
 	// add SchedulerName to podSpec
 	if gangSchedulerName != "" {
@@ -1311,12 +1313,12 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 	}
 	sshVolume, sshVolumeMount := podSSHAuthVolume(mpiJob.Name)
 
-	container.VolumeMounts = append(container.VolumeMounts,
-		sshVolumeMount,
-		corev1.VolumeMount{
-			Name:      configVolumeName,
-			MountPath: configMountPath,
-		})
+	container.VolumeMounts = append(container.VolumeMounts, sshVolumeMount...)
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      configVolumeName,
+		MountPath: configMountPath,
+	})
+	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, sshInitContainer(sshVolumeMount))
 
 	// Submit a warning event if the user specifies restart policy for
 	// the pod template. We recommend to set it from the replica level.
@@ -1327,31 +1329,29 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 	}
 	setRestartPolicy(podSpec, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher])
 
-	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes,
-		sshVolume,
-		corev1.Volume{
-			Name: configVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: mpiJob.Name + configSuffix,
+	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, sshVolume...)
+	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, corev1.Volume{
+		Name: configVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: mpiJob.Name + configSuffix,
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  hostfileName,
+						Path: hostfileName,
+						Mode: newInt32(0444),
 					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  hostfileName,
-							Path: hostfileName,
-							Mode: newInt32(0444),
-						},
-						{
-							Key:  discoverHostsScriptName,
-							Path: discoverHostsScriptName,
-							Mode: newInt32(0555),
-						},
+					{
+						Key:  discoverHostsScriptName,
+						Path: discoverHostsScriptName,
+						Mode: newInt32(0555),
 					},
 				},
 			},
 		},
-	)
+	})
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        launcherName,
@@ -1437,33 +1437,61 @@ func workerReplicas(job *kubeflow.MPIJob) int32 {
 	return 0
 }
 
-func podSSHAuthVolume(jobName string) (corev1.Volume, corev1.VolumeMount) {
-	return corev1.Volume{
-			Name: sshAuthVolume,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  jobName + sshAuthSecretSuffix,
-					DefaultMode: newInt32(0660),
-					Items: []corev1.KeyToPath{
-						{
-							Key:  corev1.SSHAuthPrivateKey,
-							Path: sshPrivateKeyFile,
-						},
-						{
-							Key:  sshPublicKey,
-							Path: sshPublicKeyFile,
-						},
-						{
-							Key:  sshPublicKey,
-							Path: sshAuthorizedKeysFile,
+func podSSHAuthVolume(jobName string) ([]corev1.Volume, []corev1.VolumeMount) {
+	return []corev1.Volume{
+			{
+				Name: sshAuthVolume,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  jobName + sshAuthSecretSuffix,
+						DefaultMode: newInt32(0660),
+						Items: []corev1.KeyToPath{
+							{
+								Key:  corev1.SSHAuthPrivateKey,
+								Path: sshPrivateKeyFile,
+							},
+							{
+								Key:  sshPublicKey,
+								Path: sshPublicKeyFile,
+							},
+							{
+								Key:  sshPublicKey,
+								Path: sshAuthorizedKeysFile,
+							},
 						},
 					},
 				},
 			},
-		}, corev1.VolumeMount{
-			Name:      sshAuthVolume,
-			MountPath: sshAuthMountPath,
+			{
+				Name: sshHomeVolume,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		}, []corev1.VolumeMount{
+			{
+				Name:      sshAuthVolume,
+				MountPath: sshAuthMountPath,
+			}, {
+				Name:      sshHomeVolume,
+				MountPath: sshHomeMountPath,
+			},
 		}
+}
+
+func sshInitContainer(mounts []corev1.VolumeMount) corev1.Container {
+	return corev1.Container{
+		Name:         "init-ssh",
+		Image:        "alpine:3.14",
+		VolumeMounts: mounts,
+		Command: []string{
+			"/bin/sh",
+			"-c",
+			"" +
+				"cp -RL /mnt/ssh/* /root/.ssh &&" +
+				"chmod 600 -R /root/.ssh",
+		},
+	}
 }
 
 func newInt32(v int32) *int32 {

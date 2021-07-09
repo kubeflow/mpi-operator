@@ -13,7 +13,7 @@ spec:
           containers:
           - image: docker.io/kubeflow/mpi-horovod-mnist
             name: mpi-launcher
-            args:
+            command:
             - mpirun
             - -np
             - "2"
