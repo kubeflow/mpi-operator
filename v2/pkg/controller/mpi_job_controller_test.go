@@ -38,6 +38,7 @@ import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/fake"
+	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -531,6 +532,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
@@ -566,6 +568,7 @@ func TestLauncherFailed(t *testing.T) {
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
@@ -681,6 +684,7 @@ func TestShutdownWorker(t *testing.T) {
 	}
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
 			Active:    0,
@@ -754,6 +758,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 		f.setUpWorker(worker)
 	}
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -806,6 +811,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	f.setUpConfigMap(configMap)
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -857,11 +863,13 @@ func TestWorkerReady(t *testing.T) {
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
 
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+
 	fmjc := f.newFakeMPIJobController()
-	expLauncher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	expLauncher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJob))
 	f.expectCreateJobAction(expLauncher)
 
-	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,

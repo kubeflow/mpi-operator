@@ -43,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -58,6 +57,7 @@ import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
 	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
+	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2"
 	listers "github.com/kubeflow/mpi-operator/v2/pkg/client/listers/kubeflow/v2"
 )
