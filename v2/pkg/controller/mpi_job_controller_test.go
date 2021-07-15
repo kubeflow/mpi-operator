@@ -21,7 +21,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,6 +38,7 @@ import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/fake"
+	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -61,13 +61,12 @@ type fixture struct {
 	volcanoClient *volcanofake.Clientset
 
 	// Objects to put in the store.
-	configMapLister      []*corev1.ConfigMap
-	serviceAccountLister []*corev1.ServiceAccount
-	roleLister           []*rbacv1.Role
-	roleBindingLister    []*rbacv1.RoleBinding
-	podGroupLister       []*podgroupv1beta1.PodGroup
-	podLister            []*corev1.Pod
-	mpiJobLister         []*kubeflow.MPIJob
+	configMapLister []*corev1.ConfigMap
+	serviceLister   []*corev1.Service
+	secretLister    []*corev1.Secret
+	podGroupLister  []*podgroupv1beta1.PodGroup
+	podLister       []*corev1.Pod
+	mpiJobLister    []*kubeflow.MPIJob
 
 	// Actions expected to happen on the client.
 	kubeActions []core.Action
@@ -187,20 +186,17 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		f.client,
 		f.volcanoClient,
 		k8sI.Core().V1().ConfigMaps(),
-		k8sI.Core().V1().ServiceAccounts(),
-		k8sI.Rbac().V1().Roles(),
-		k8sI.Rbac().V1().RoleBindings(),
+		k8sI.Core().V1().Secrets(),
+		k8sI.Core().V1().Services(),
 		k8sI.Core().V1().Pods(),
 		podgroupsInformer,
 		i.Kubeflow().V2().MPIJobs(),
-		"kubectl-delivery",
 		gangSchedulerName,
 	)
 
 	c.configMapSynced = alwaysReady
-	c.serviceAccountSynced = alwaysReady
-	c.roleSynced = alwaysReady
-	c.roleBindingSynced = alwaysReady
+	c.serviceSynced = alwaysReady
+	c.secretSynced = alwaysReady
 	c.podSynced = alwaysReady
 	c.podgroupsSynced = alwaysReady
 	c.mpiJobSynced = alwaysReady
@@ -213,24 +209,17 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		}
 	}
 
-	for _, serviceAccount := range f.serviceAccountLister {
-		err := k8sI.Core().V1().ServiceAccounts().Informer().GetIndexer().Add(serviceAccount)
+	for _, service := range f.serviceLister {
+		err := k8sI.Core().V1().Services().Informer().GetIndexer().Add(service)
 		if err != nil {
 			fmt.Println("Failed to create service account")
 		}
 	}
 
-	for _, role := range f.roleLister {
-		err := k8sI.Rbac().V1().Roles().Informer().GetIndexer().Add(role)
+	for _, secret := range f.secretLister {
+		err := k8sI.Core().V1().Secrets().Informer().GetIndexer().Add(secret)
 		if err != nil {
 			fmt.Println("Failed to create role")
-		}
-	}
-
-	for _, roleBinding := range f.roleBindingLister {
-		err := k8sI.Rbac().V1().RoleBindings().Informer().GetIndexer().Add(roleBinding)
-		if err != nil {
-			fmt.Println("Failed to create role binding")
 		}
 	}
 
@@ -380,12 +369,10 @@ func filterInformerActions(actions []core.Action) []core.Action {
 		if len(action.GetNamespace()) == 0 &&
 			(action.Matches("list", "configmaps") ||
 				action.Matches("watch", "configmaps") ||
-				action.Matches("list", "serviceaccounts") ||
-				action.Matches("watch", "serviceaccounts") ||
-				action.Matches("list", "roles") ||
-				action.Matches("watch", "roles") ||
-				action.Matches("list", "rolebindings") ||
-				action.Matches("watch", "rolebindings") ||
+				action.Matches("list", "services") ||
+				action.Matches("watch", "services") ||
+				action.Matches("list", "secrets") ||
+				action.Matches("watch", "secrets") ||
 				action.Matches("list", "pods") ||
 				action.Matches("watch", "pods") ||
 				action.Matches("list", "podgroups") ||
@@ -430,30 +417,14 @@ func (f *fixture) setUpConfigMap(configMap *corev1.ConfigMap) {
 	f.kubeObjects = append(f.kubeObjects, configMap)
 }
 
-func (f *fixture) setUpServiceAccount(serviceAccount *corev1.ServiceAccount) {
-	f.serviceAccountLister = append(f.serviceAccountLister, serviceAccount)
-	f.kubeObjects = append(f.kubeObjects, serviceAccount)
+func (f *fixture) setUpService(service *corev1.Service) {
+	f.serviceLister = append(f.serviceLister, service)
+	f.kubeObjects = append(f.kubeObjects, service)
 }
 
-func (f *fixture) setUpRole(role *rbacv1.Role) {
-	f.roleLister = append(f.roleLister, role)
-	f.kubeObjects = append(f.kubeObjects, role)
-}
-
-func (f *fixture) setUpRoleBinding(roleBinding *rbacv1.RoleBinding) {
-	f.roleBindingLister = append(f.roleBindingLister, roleBinding)
-	f.kubeObjects = append(f.kubeObjects, roleBinding)
-}
-
-func (f *fixture) setUpRbac(mpiJob *kubeflow.MPIJob, workerReplicas int32) {
-	serviceAccount := newLauncherServiceAccount(mpiJob)
-	f.setUpServiceAccount(serviceAccount)
-
-	role := newLauncherRole(mpiJob, workerReplicas)
-	f.setUpRole(role)
-
-	roleBinding := newLauncherRoleBinding(mpiJob)
-	f.setUpRoleBinding(roleBinding)
+func (f *fixture) setUpSecret(secret *corev1.Secret) {
+	f.secretLister = append(f.secretLister, secret)
+	f.kubeObjects = append(f.kubeObjects, secret)
 }
 
 func setUpMPIJobTimestamp(mpiJob *kubeflow.MPIJob, startTime, completionTime *metav1.Time) {
@@ -507,7 +478,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
@@ -556,11 +527,12 @@ func TestLauncherSucceeded(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodSucceeded
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
@@ -591,11 +563,12 @@ func TestLauncherFailed(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodFailed
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
@@ -625,6 +598,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	var replicas int32 = 64
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
+	f.setUpService(newWorkersService(mpiJob))
 
 	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
@@ -634,7 +608,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	f.runExpectError(getKey(mpiJob, t))
 }
 
-func TestServiceAccountNotControlledByUs(t *testing.T) {
+func TestServiceNotControlledByUs(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
@@ -643,18 +617,14 @@ func TestServiceAccountNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
-	f.setUpConfigMap(configMap)
-
-	serviceAccount := newLauncherServiceAccount(mpiJob)
-	serviceAccount.OwnerReferences = nil
-	f.setUpServiceAccount(serviceAccount)
+	service := newWorkersService(mpiJob)
+	service.OwnerReferences = nil
+	f.setUpService(service)
 
 	f.runExpectError(getKey(mpiJob, t))
 }
 
-func TestRoleNotControlledByUs(t *testing.T) {
+func TestSecretNotControlledByUs(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
@@ -666,33 +636,14 @@ func TestRoleNotControlledByUs(t *testing.T) {
 	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
+	f.setUpService(newWorkersService(mpiJob))
 
-	role := newLauncherRole(mpiJob, replicas)
-	role.OwnerReferences = nil
-	f.setUpRole(role)
-
-	f.runExpectError(getKey(mpiJob, t))
-}
-
-func TestRoleBindingNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
-	startTime := metav1.Now()
-	completionTime := metav1.Now()
-
-	var replicas int32 = 64
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
-	f.setUpMPIJob(mpiJob)
-
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
-	f.setUpConfigMap(configMap)
-	f.setUpServiceAccount(newLauncherServiceAccount(mpiJob))
-	f.setUpRole(newLauncherRole(mpiJob, replicas))
-
-	roleBinding := newLauncherRoleBinding(mpiJob)
-	roleBinding.OwnerReferences = nil
-	f.setUpRoleBinding(roleBinding)
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Creating SSH auth Secret: %v", err)
+	}
+	secret.OwnerReferences = nil
+	f.setUpSecret(secret)
 
 	f.runExpectError(getKey(mpiJob, t))
 }
@@ -712,7 +663,7 @@ func TestShutdownWorker(t *testing.T) {
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodSucceeded
 	f.setUpLauncher(launcher)
 
@@ -733,6 +684,7 @@ func TestShutdownWorker(t *testing.T) {
 	}
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
 			Active:    0,
@@ -758,7 +710,12 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-	f.setUpRbac(mpiJob, replicas)
+	f.setUpService(newWorkersService(mpiJob))
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Creating SSH auth secret: %v", err)
+	}
+	f.setUpSecret(secret)
 
 	for i := 0; i < int(replicas); i++ {
 		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
@@ -782,10 +739,15 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-	f.setUpRbac(mpiJob, replicas)
+	f.setUpService(newWorkersService(mpiJob))
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Creating SSH auth secret: %v", err)
+	}
+	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
@@ -796,6 +758,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 		f.setUpWorker(worker)
 	}
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -822,11 +785,15 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	var replicas int32 = 8
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
-
-	f.setUpRbac(mpiJob, replicas)
+	f.setUpService(newWorkersService(mpiJob))
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Creating SSH auth secret: %v", err)
+	}
+	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
@@ -844,6 +811,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	f.setUpConfigMap(configMap)
 
 	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -858,7 +826,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
+	err = updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
 	if err != nil {
 		t.Errorf("Failed to update MPIJob conditions")
 	}
@@ -875,8 +843,12 @@ func TestWorkerReady(t *testing.T) {
 	var replicas int32 = 16
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
-
-	f.setUpRbac(mpiJob, replicas)
+	f.setUpService(newWorkersService(mpiJob))
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Creating SSH auth secret: %v", err)
+	}
+	f.setUpSecret(secret)
 
 	var runningPodList []*corev1.Pod
 	for i := 0; i < 16; i++ {
@@ -891,11 +863,13 @@ func TestWorkerReady(t *testing.T) {
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
 
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+
 	fmjc := f.newFakeMPIJobController()
-	expLauncher := fmjc.newLauncher(mpiJob, "kubectl-delivery", isGPULauncher(mpiJob))
+	expLauncher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJob))
 	f.expectCreateJobAction(expLauncher)
 
-	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,

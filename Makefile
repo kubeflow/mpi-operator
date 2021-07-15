@@ -15,6 +15,7 @@ LD_FLAGS_V2=" \
     -X '${REPO_PATH}/v2/pkg/version.Built=${Date}'   \
     -X '${REPO_PATH}/v2/pkg/version.Version=${RELEASE_VERSION}'"
 IMAGE_NAME?=kubeflow/mpi-operator
+KUBEBUILDER_ASSETS := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
 
 build: all
 
@@ -50,9 +51,13 @@ fmt:
 	cd v2 && go fmt ./...
 
 .PHONY: test
-test: 
+test: bin/kubebuilder
 	go test -covermode atomic -coverprofile=profile.cov ./...
-	cd v2 && go test -covermode atomic -coverprofile=profile.cov ./...
+	@make test_v2
+
+.PHONY: test_v2
+test_v2:
+	cd v2 && KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test -covermode atomic -coverprofile=profile.cov ./...
 
 .PHONY: generate
 generate:
@@ -85,6 +90,15 @@ tidy:
 GOLANGCI_LINT = ./bin/golangci-lint
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) v1.29.0
+
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
+K8S_VERSION := "1.19.2"
+bin/kubebuilder:
+	curl -sSLo envtest-bins.tar.gz "https://storage.googleapis.com/kubebuilder-tools/kubebuilder-tools-${K8S_VERSION}-${GOOS}-${GOARCH}.tar.gz"
+	mkdir -p bin/kubebuilder
+	tar -C bin/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
+	rm envtest-bins.tar.gz
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter

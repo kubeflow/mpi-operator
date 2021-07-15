@@ -155,13 +155,11 @@ func Run(opt *options.ServerOption) error {
 			mpiJobClientSet,
 			volcanoClientSet,
 			kubeInformerFactory.Core().V1().ConfigMaps(),
-			kubeInformerFactory.Core().V1().ServiceAccounts(),
-			kubeInformerFactory.Rbac().V1().Roles(),
-			kubeInformerFactory.Rbac().V1().RoleBindings(),
+			kubeInformerFactory.Core().V1().Secrets(),
+			kubeInformerFactory.Core().V1().Services(),
 			kubeInformerFactory.Core().V1().Pods(),
 			podgroupsInformer,
 			kubeflowInformerFactory.Kubeflow().V2().MPIJobs(),
-			opt.KubectlDeliveryImage,
 			opt.GangSchedulingName)
 
 		go kubeInformerFactory.Start(ctx.Done())
