@@ -1,7 +1,6 @@
 # MPI Operator
 
 [![Build Status](https://github.com/kubeflow/mpi-operator/workflows/build/badge.svg)](https://github.com/kubeflow/mpi-operator/actions?query=event%3Apush+branch%3Amaster)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kubeflow/mpi-operator)](https://goreportcard.com/report/github.com/kubeflow/mpi-operator)
 [![Docker Pulls](https://img.shields.io/docker/pulls/mpioperator/mpi-operator)](https://hub.docker.com/r/mpioperator/mpi-operator)
 
 The MPI Operator makes it easy to run allreduce-style distributed training on Kubernetes. Please check out [this blog post](https://medium.com/kubeflow/introduction-to-kubeflow-mpi-operator-and-industry-adoption-296d5f2e6edc) for an introduction to MPI Operator and its industry adoption.
