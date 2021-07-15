@@ -1,4 +1,4 @@
-apiVersion: kubeflow.org/v2
+apiVersion: kubeflow.org/v1
 kind: MPIJob
 metadata:
   name: tensorflow-mnist
@@ -15,6 +15,7 @@ spec:
             name: mpi-launcher
             command:
             - mpirun
+            args:
             - -np
             - "2"
             - --allow-run-as-root
