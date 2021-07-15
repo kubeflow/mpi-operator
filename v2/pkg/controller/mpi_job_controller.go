@@ -56,6 +56,7 @@ import (
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/validation"
 	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2"
@@ -100,9 +101,9 @@ const (
 	// fails to sync due to dependent resources already existing.
 	MessageResourceExists = "Resource %q of Kind %q already exists and is not managed by MPIJob"
 
-	// ErrResourceDoesNotExist is used as part of the Event 'reason' when some
-	// resource is missing in yaml
-	ErrResourceDoesNotExist = "ErrResourceDoesNotExist"
+	// ValidationError is used as part of the Event 'reason' when failed to
+	// validate an MPIJob.
+	ValidationError = "ValidationError"
 
 	// MessageResourceDoesNotExist is used for Events when some
 	// resource is missing in yaml
@@ -110,7 +111,11 @@ const (
 
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
-	podTemplateRestartPolicyReason = "SettedPodTemplateRestartPolicy"
+	podTemplateRestartPolicyReason = "SetPodTemplateRestartPolicy"
+
+	// eventMessageLimit is the maximum size of an Event's message.
+	// From: k8s.io/kubernetes/pkg/apis/core/validation/events.go
+	eventMessageLimit = 1024
 )
 
 var (
@@ -404,6 +409,13 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return nil
 	}
 
+	if errs := validation.ValidateMPIJob(mpiJob); len(errs) != 0 {
+		msg := truncateMessage(fmt.Sprintf("Found validation errors: %v", errs.ToAggregate()))
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ValidationError, msg)
+		// Do not requeue
+		return nil
+	}
+
 	// Whether the job is preempted, and requeue it
 	requeue := false
 	// If the MPIJob is terminated, delete its pods according to cleanPodPolicy.
@@ -491,12 +503,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return err
 		}
 		if launcher == nil {
-			launcher = c.newLauncher(mpiJob, isGPULauncher)
-			if launcher == nil {
-				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod spec is invalid")
-				return fmt.Errorf("launcher pod spec is invalid")
-			}
-			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), launcher, metav1.CreateOptions{})
+			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), c.newLauncher(mpiJob, isGPULauncher), metav1.CreateOptions{})
 			if err != nil {
 				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
 				return fmt.Errorf("creating launcher Pod: %w", err)
@@ -730,20 +737,13 @@ func keysFromData(data map[string][]byte) []string {
 // MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1.Pod, error) {
 	var (
-		workerPrefix   = mpiJob.Name + workerSuffix
-		workerPods     []*corev1.Pod
-		i              int32 = 0
-		workerReplicas *int32
+		workerPrefix = mpiJob.Name + workerSuffix
+		workerPods   []*corev1.Pod
+		i            int32 = 0
 	)
-	if worker, ok := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; ok && worker != nil {
-		workerReplicas = worker.Replicas
-	} else {
+	worker := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
+	if worker == nil {
 		return workerPods, nil
-	}
-	if workerReplicas == nil {
-		msg := fmt.Sprintf(MessageResourceDoesNotExist, "Worker.replicas")
-		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
-		return nil, fmt.Errorf(msg)
 	}
 
 	// Remove Pods when replicas are scaled down
@@ -755,7 +755,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 	if err != nil {
 		return nil, err
 	}
-	if len(podFullList) > int(*workerReplicas) {
+	if len(podFullList) > int(*worker.Replicas) {
 		for _, pod := range podFullList {
 			indexStr, ok := pod.Labels[common.ReplicaIndexLabel]
 			if !ok {
@@ -763,7 +763,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 			}
 			index, err := strconv.Atoi(indexStr)
 			if err == nil {
-				if index >= int(*workerReplicas) {
+				if index >= int(*worker.Replicas) {
 					err = c.kubeClient.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 					if err != nil {
 						return nil, err
@@ -773,19 +773,13 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		}
 	}
 
-	for ; i < *workerReplicas; i++ {
+	for ; i < *worker.Replicas; i++ {
 		name := fmt.Sprintf("%s-%d", workerPrefix, i)
 		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(name)
 
 		// If the worker Pod doesn't exist, we'll create it.
 		if errors.IsNotFound(err) {
 			worker := newWorker(mpiJob, name, c.gangSchedulerName)
-			if worker == nil {
-				msg := fmt.Sprintf(MessageResourceDoesNotExist, "Worker")
-				c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
-				err = fmt.Errorf(msg)
-				return nil, err
-			}
 			// Insert ReplicaIndexLabel
 			worker.Labels[common.ReplicaIndexLabel] = strconv.Itoa(int(i))
 			pod, err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Create(context.TODO(), worker, metav1.CreateOptions{})
@@ -793,7 +787,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		// If an error occurs during Get/Create, we'll requeue the item so we
 		// can attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil {
 			c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "worker pod created failed: %v", err)
 			return nil, err
 		}
@@ -812,17 +806,15 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 
 func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 	var (
-		workerPrefix   string = mpiJob.Name + workerSuffix
-		i              int32  = 0
-		workerReplicas *int32
+		workerPrefix       = mpiJob.Name + workerSuffix
+		i            int32 = 0
 	)
-	if worker, ok := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; ok && worker != nil {
-		workerReplicas = worker.Replicas
-	} else {
+	worker := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
+	if worker == nil {
 		return nil
 	}
 
-	for ; i < *workerReplicas; i++ {
+	for ; i < *worker.Replicas; i++ {
 		name := fmt.Sprintf("%s-%d", workerPrefix, i)
 		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(name)
 
@@ -1212,10 +1204,6 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
 	setRestartPolicy(podTemplate, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker])
 
-	if len(podTemplate.Spec.Containers) == 0 {
-		klog.Errorln("Worker pod does not have any containers in its spec")
-		return nil
-	}
 	container := &podTemplate.Spec.Containers[0]
 	if len(container.Command) == 0 && len(container.Args) == 0 {
 		container.Command = []string{"/usr/sbin/sshd", "-De"}
@@ -1288,12 +1276,6 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 	}
 	podSpec.Spec.Hostname = launcherName
 	podSpec.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
-	if len(podSpec.Spec.Containers) == 0 {
-		klog.Errorln("Launcher pod does not have any containers in its spec")
-		msg := fmt.Sprintf(MessageResourceDoesNotExist, "Launcher")
-		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceDoesNotExist, msg)
-		return nil
-	}
 	container := &podSpec.Spec.Containers[0]
 	container.Env = append(container.Env,
 		// Allows driver to reach workers through the Service.
@@ -1333,7 +1315,7 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 	// Submit a warning event if the user specifies restart policy for
 	// the pod template. We recommend to set it from the replica level.
 	if podSpec.Spec.RestartPolicy != "" {
-		errMsg := "Restart policy in pod template will be overwritten by restart policy in replica spec"
+		errMsg := "Restart policy in pod template overridden by restart policy in replica spec"
 		klog.Warning(errMsg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, podTemplateRestartPolicyReason, errMsg)
 	}
@@ -1506,4 +1488,13 @@ func sshInitContainer(mounts []corev1.VolumeMount) corev1.Container {
 
 func newInt32(v int32) *int32 {
 	return &v
+}
+
+// truncateMessage truncates a message if it hits the NoteLengthLimit.
+func truncateMessage(message string) string {
+	if len(message) <= eventMessageLimit {
+		return message
+	}
+	suffix := "..."
+	return message[:eventMessageLimit-len(suffix)] + suffix
 }

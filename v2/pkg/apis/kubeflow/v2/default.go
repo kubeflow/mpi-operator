@@ -19,35 +19,42 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// Int32 is a helper routine that allocates a new int32 value
-// to store v and returns a pointer to it.
-func Int32(v int32) *int32 {
-	return &v
-}
-
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
 }
 
 // setDefaultsTypeLauncher sets the default value to launcher.
 func setDefaultsTypeLauncher(spec *common.ReplicaSpec) {
-	if spec != nil && spec.RestartPolicy == "" {
+	if spec == nil {
+		return
+	}
+	if spec.RestartPolicy == "" {
 		spec.RestartPolicy = DefaultRestartPolicy
+	}
+	if spec.Replicas == nil {
+		spec.Replicas = newInt32(1)
 	}
 }
 
 // setDefaultsTypeWorker sets the default value to worker.
 func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
-	if spec != nil && spec.RestartPolicy == "" {
+	if spec == nil {
+		return
+	}
+	if spec.RestartPolicy == "" {
 		spec.RestartPolicy = DefaultRestartPolicy
+	}
+	if spec.Replicas == nil {
+		spec.Replicas = newInt32(0)
 	}
 }
 
 func SetDefaults_MPIJob(mpiJob *MPIJob) {
-	// Set default cleanpod policy to None.
 	if mpiJob.Spec.CleanPodPolicy == nil {
-		none := common.CleanPodPolicyNone
-		mpiJob.Spec.CleanPodPolicy = &none
+		mpiJob.Spec.CleanPodPolicy = newCleanPodPolicy(common.CleanPodPolicyNone)
+	}
+	if mpiJob.Spec.SlotsPerWorker == nil {
+		mpiJob.Spec.SlotsPerWorker = newInt32(1)
 	}
 
 	// set default to Launcher
@@ -55,4 +62,12 @@ func SetDefaults_MPIJob(mpiJob *MPIJob) {
 
 	// set default to Worker
 	setDefaultsTypeWorker(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeWorker])
+}
+
+func newInt32(v int32) *int32 {
+	return &v
+}
+
+func newCleanPodPolicy(policy common.CleanPodPolicy) *common.CleanPodPolicy {
+	return &policy
 }

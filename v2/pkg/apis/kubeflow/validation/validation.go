@@ -1,0 +1,96 @@
+// Copyright 2021 The Kubeflow Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package validation
+
+import (
+	"fmt"
+
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
+	v2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+)
+
+var validCleanPolicies = sets.NewString(
+	string(common.CleanPodPolicyNone),
+	string(common.CleanPodPolicyRunning),
+	string(common.CleanPodPolicyAll))
+
+func ValidateMPIJob(job *v2.MPIJob) field.ErrorList {
+	return validateMPIJobSpec(&job.Spec, field.NewPath("spec"))
+}
+
+func validateMPIJobSpec(spec *v2.MPIJobSpec, path *field.Path) field.ErrorList {
+	errs := validateMPIReplicaSpecs(spec.MPIReplicaSpecs, path.Child("mpiReplicaSpecs"))
+	if spec.SlotsPerWorker == nil {
+		errs = append(errs, field.Required(path.Child("slotsPerWorker"), "must have number of slots per worker"))
+	} else {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*spec.SlotsPerWorker), path.Child("slotsPerWorker"))...)
+	}
+	if spec.CleanPodPolicy == nil {
+		errs = append(errs, field.Required(path.Child("cleanPodPolicy"), "must have clean Pod policy"))
+	} else if !validCleanPolicies.Has(string(*spec.CleanPodPolicy)) {
+		errs = append(errs, field.NotSupported(path.Child("cleanPodPolicy"), *spec.CleanPodPolicy, validCleanPolicies.List()))
+	}
+	return errs
+}
+
+func validateMPIReplicaSpecs(replicaSpecs map[v2.MPIReplicaType]*common.ReplicaSpec, path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if replicaSpecs == nil {
+		errs = append(errs, field.Required(path, "must have replica specs"))
+		return errs
+	}
+	errs = append(errs, validateLauncherReplicaSpec(replicaSpecs[v2.MPIReplicaTypeLauncher], path.Key(string(v2.MPIReplicaTypeLauncher)))...)
+	errs = append(errs, validateWorkerReplicaSpec(replicaSpecs[v2.MPIReplicaTypeWorker], path.Key(string(v2.MPIReplicaTypeWorker)))...)
+	return errs
+}
+
+func validateLauncherReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if spec == nil {
+		errs = append(errs, field.Required(path, fmt.Sprintf("must have %s replica spec", v2.MPIReplicaTypeLauncher)))
+		return errs
+	}
+	errs = append(errs, validateReplicaSpec(spec, path)...)
+	if spec.Replicas != nil && *spec.Replicas != 1 {
+		errs = append(errs, field.Invalid(path.Child("replicas"), *spec.Replicas, "must be 1"))
+	}
+	return errs
+}
+
+func validateWorkerReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if spec == nil {
+		return errs
+	}
+	errs = append(errs, validateReplicaSpec(spec, path)...)
+	if spec.Replicas != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*spec.Replicas), path.Child("replicas"))...)
+	}
+	return errs
+}
+
+func validateReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if spec.Replicas == nil {
+		errs = append(errs, field.Required(path.Child("replicas"), "must define number of replicas"))
+	}
+	if len(spec.Template.Spec.Containers) == 0 {
+		errs = append(errs, field.Required(path.Child("template", "spec", "containers"), "must define at least one container"))
+	}
+	return errs
+}
