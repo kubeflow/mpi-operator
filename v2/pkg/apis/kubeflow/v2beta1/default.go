@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v2
+package v2beta1
 
 import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"

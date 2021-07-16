@@ -53,6 +53,6 @@ chmod +x ${CODEGEN_PKG}/generate-groups.sh
 
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kubeflow/mpi-operator/v2/pkg/client github.com/kubeflow/mpi-operator/v2/pkg/apis \
-  kubeflow:v2 --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+  kubeflow:v2beta1 --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
 
 popd

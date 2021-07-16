@@ -22,12 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
-	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
-	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
-	"github.com/kubeflow/mpi-operator/v2/pkg/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +30,13 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
+
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
+	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
+	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
+	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
+	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
+	"github.com/kubeflow/mpi-operator/v2/pkg/controller"
 )
 
 const (
@@ -48,16 +49,16 @@ func TestMPIJobSuccess(t *testing.T) {
 	s := newTestSetup(ctx, t)
 	startController(ctx, s.kClient, s.mpiClient)
 
-	mpiJob := &v2.MPIJob{
+	mpiJob := &kubeflow.MPIJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "job",
 			Namespace: s.namespace,
 		},
-		Spec: v2.MPIJobSpec{
+		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
 			CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
-			MPIReplicaSpecs: map[v2.MPIReplicaType]*common.ReplicaSpec{
-				v2.MPIReplicaTypeLauncher: {
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -69,7 +70,7 @@ func TestMPIJobSuccess(t *testing.T) {
 						},
 					},
 				},
-				v2.MPIReplicaTypeWorker: {
+				kubeflow.MPIReplicaTypeWorker: {
 					Replicas: newInt32(2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -86,7 +87,7 @@ func TestMPIJobSuccess(t *testing.T) {
 		},
 	}
 	var err error
-	mpiJob, err = s.mpiClient.KubeflowV2().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed sending job to apiserver: %v", err)
 	}
@@ -98,8 +99,8 @@ func TestMPIJobSuccess(t *testing.T) {
 
 	podsByRole := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2)
 	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(v2.MPIReplicaTypeLauncher): {},
-		common.ReplicaType(v2.MPIReplicaTypeWorker):   {},
+		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {},
+		common.ReplicaType(kubeflow.MPIReplicaTypeWorker):   {},
 	})
 	s.events.verify(t)
 
@@ -108,8 +109,8 @@ func TestMPIJobSuccess(t *testing.T) {
 		t.Fatalf("Updating worker Pods to Running phase: %v", err)
 	}
 	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(v2.MPIReplicaTypeLauncher): {},
-		common.ReplicaType(v2.MPIReplicaTypeWorker): {
+		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {},
+		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
 			Active: 2,
 		},
 	})
@@ -122,10 +123,10 @@ func TestMPIJobSuccess(t *testing.T) {
 		t.Fatalf("Updating launcher Pods to Running phase: %v", err)
 	}
 	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(v2.MPIReplicaTypeLauncher): {
+		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active: 1,
 		},
-		common.ReplicaType(v2.MPIReplicaTypeWorker): {
+		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
 			Active: 2,
 		},
 	})
@@ -141,10 +142,10 @@ func TestMPIJobSuccess(t *testing.T) {
 	}
 	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
 	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(v2.MPIReplicaTypeLauncher): {
+		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Succeeded: 1,
 		},
-		common.ReplicaType(v2.MPIReplicaTypeWorker): {},
+		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {},
 	})
 	s.events.verify(t)
 }
@@ -155,16 +156,16 @@ func TestMPIJobFailure(t *testing.T) {
 	s := newTestSetup(ctx, t)
 	startController(ctx, s.kClient, s.mpiClient)
 
-	mpiJob := &v2.MPIJob{
+	mpiJob := &kubeflow.MPIJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "job",
 			Namespace: s.namespace,
 		},
-		Spec: v2.MPIJobSpec{
+		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
 			CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
-			MPIReplicaSpecs: map[v2.MPIReplicaType]*common.ReplicaSpec{
-				v2.MPIReplicaTypeLauncher: {
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -176,7 +177,7 @@ func TestMPIJobFailure(t *testing.T) {
 						},
 					},
 				},
-				v2.MPIReplicaTypeWorker: {
+				kubeflow.MPIReplicaTypeWorker: {
 					Replicas: newInt32(2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -194,7 +195,7 @@ func TestMPIJobFailure(t *testing.T) {
 	}
 
 	var err error
-	mpiJob, err = s.mpiClient.KubeflowV2().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed sending job to apiserver: %v", err)
 	}
@@ -218,10 +219,10 @@ func TestMPIJobFailure(t *testing.T) {
 	err = updatePodsToPhase(ctx, s.kClient, podsByRole["launcher"], corev1.PodFailed)
 	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
 	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(v2.MPIReplicaTypeLauncher): {
+		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Failed: 1,
 		},
-		common.ReplicaType(v2.MPIReplicaTypeWorker): {},
+		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {},
 	})
 	s.events.verify(t)
 }
@@ -238,7 +239,7 @@ func startController(ctx context.Context, kClient kubernetes.Interface, mpiClien
 		kubeInformerFactory.Core().V1().Services(),
 		kubeInformerFactory.Core().V1().Pods(),
 		nil,
-		mpiInformerFactory.Kubeflow().V2().MPIJobs(),
+		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
 		"")
 
 	go kubeInformerFactory.Start(ctx.Done())
@@ -247,7 +248,7 @@ func startController(ctx context.Context, kClient kubernetes.Interface, mpiClien
 	go ctrl.Run(1, ctx.Done())
 }
 
-func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient kubernetes.Interface, job *v2.MPIJob, workers int) map[string][]corev1.Pod {
+func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient kubernetes.Interface, job *kubeflow.MPIJob, workers int) map[string][]corev1.Pod {
 	t.Helper()
 	var (
 		svc        *corev1.Service
@@ -336,11 +337,11 @@ func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient ku
 	return podsByRole
 }
 
-func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.Interface, job *v2.MPIJob, want map[common.ReplicaType]*common.ReplicaStatus) {
+func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.Interface, job *kubeflow.MPIJob, want map[common.ReplicaType]*common.ReplicaStatus) {
 	t.Helper()
 	var got map[common.ReplicaType]*common.ReplicaStatus
 	if err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
-		newJob, err := client.KubeflowV2().MPIJobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
+		newJob, err := client.KubeflowV2beta1().MPIJobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -386,7 +387,7 @@ func diffCounts(gotMap map[string][]corev1.Pod, want map[string]int) string {
 	}))
 }
 
-func getServiceForJob(ctx context.Context, client kubernetes.Interface, job *v2.MPIJob) (*corev1.Service, error) {
+func getServiceForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob) (*corev1.Service, error) {
 	result, err := client.CoreV1().Services(job.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -399,7 +400,7 @@ func getServiceForJob(ctx context.Context, client kubernetes.Interface, job *v2.
 	return nil, nil
 }
 
-func getConfigMapForJob(ctx context.Context, client kubernetes.Interface, job *v2.MPIJob) (*corev1.ConfigMap, error) {
+func getConfigMapForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob) (*corev1.ConfigMap, error) {
 	result, err := client.CoreV1().ConfigMaps(job.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -412,7 +413,7 @@ func getConfigMapForJob(ctx context.Context, client kubernetes.Interface, job *v
 	return nil, nil
 }
 
-func getSecretForJob(ctx context.Context, client kubernetes.Interface, job *v2.MPIJob) (*corev1.Secret, error) {
+func getSecretForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob) (*corev1.Secret, error) {
 	result, err := client.CoreV1().Secrets(job.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -425,7 +426,7 @@ func getSecretForJob(ctx context.Context, client kubernetes.Interface, job *v2.M
 	return nil, nil
 }
 
-func getPodsForJob(ctx context.Context, client kubernetes.Interface, job *v2.MPIJob) ([]corev1.Pod, error) {
+func getPodsForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob) ([]corev1.Pod, error) {
 	result, err := client.CoreV1().Pods(job.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -447,7 +448,7 @@ func newCleanPodPolicy(policy common.CleanPodPolicy) *common.CleanPodPolicy {
 	return &policy
 }
 
-func eventForJob(event corev1.Event, job *v2.MPIJob) corev1.Event {
+func eventForJob(event corev1.Event, job *kubeflow.MPIJob) corev1.Event {
 	event.Namespace = job.Namespace
 	event.Source.Component = "mpi-job-controller"
 	ref, err := reference.GetReference(scheme.Scheme, job)

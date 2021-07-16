@@ -18,8 +18,8 @@ package fake
 
 import (
 	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
-	kubeflowv2 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2"
-	fakekubeflowv2 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2/fake"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
+	fakekubeflowv2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -74,7 +74,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// KubeflowV2 retrieves the KubeflowV2Client
-func (c *Clientset) KubeflowV2() kubeflowv2.KubeflowV2Interface {
-	return &fakekubeflowv2.FakeKubeflowV2{Fake: &c.Fake}
+// KubeflowV2beta1 retrieves the KubeflowV2beta1Client
+func (c *Clientset) KubeflowV2beta1() kubeflowv2beta1.KubeflowV2beta1Interface {
+	return &fakekubeflowv2beta1.FakeKubeflowV2beta1{Fake: &c.Fake}
 }

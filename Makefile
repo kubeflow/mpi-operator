@@ -103,4 +103,4 @@ bin/kubebuilder:
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run --new-from-rev=origin/master
-	cd v2 && $(GOLANGCI_LINT) run --new-from-rev=origin/master
+	cd v2 && ../$(GOLANGCI_LINT) run --new-from-rev=origin/master

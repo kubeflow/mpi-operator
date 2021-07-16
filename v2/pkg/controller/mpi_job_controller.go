@@ -55,12 +55,12 @@ import (
 	podgroupslists "volcano.sh/apis/pkg/client/listers/scheduling/v1beta1"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/validation"
 	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2"
-	listers "github.com/kubeflow/mpi-operator/v2/pkg/client/listers/kubeflow/v2"
+	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2beta1"
+	listers "github.com/kubeflow/mpi-operator/v2/pkg/client/listers/kubeflow/v2beta1"
 )
 
 const (
@@ -1030,7 +1030,7 @@ func (c *MPIJobController) handleObjectUpdate(old, new interface{}) {
 
 // doUpdateJobStatus updates the status of the given MPIJob by call apiServer.
 func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
-	_, err := c.kubeflowClient.KubeflowV2().MPIJobs(mpiJob.Namespace).UpdateStatus(context.TODO(), mpiJob, metav1.UpdateOptions{})
+	_, err := c.kubeflowClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).UpdateStatus(context.TODO(), mpiJob, metav1.UpdateOptions{})
 	return err
 }
 

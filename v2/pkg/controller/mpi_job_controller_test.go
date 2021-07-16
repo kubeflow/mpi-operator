@@ -36,7 +36,7 @@ import (
 	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/fake"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
@@ -190,7 +190,7 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		k8sI.Core().V1().Services(),
 		k8sI.Core().V1().Pods(),
 		podgroupsInformer,
-		i.Kubeflow().V2().MPIJobs(),
+		i.Kubeflow().V2beta1().MPIJobs(),
 		gangSchedulerName,
 	)
 
@@ -238,7 +238,7 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
-		err := i.Kubeflow().V2().MPIJobs().Informer().GetIndexer().Add(mpiJob)
+		err := i.Kubeflow().V2beta1().MPIJobs().Informer().GetIndexer().Add(mpiJob)
 		if err != nil {
 			fmt.Println("Failed to create mpijob")
 		}

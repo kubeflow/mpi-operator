@@ -20,23 +20,23 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestValidateMPIJob(t *testing.T) {
 	cases := map[string]struct {
-		job      v2.MPIJob
+		job      v2beta1.MPIJob
 		wantErrs field.ErrorList
 	}{
 		"valid": {
-			job: v2.MPIJob{
-				Spec: v2.MPIJobSpec{
+			job: v2beta1.MPIJob{
+				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
-					MPIReplicaSpecs: map[v2.MPIReplicaType]*common.ReplicaSpec{
-						v2.MPIReplicaTypeLauncher: {
+					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
+						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
@@ -49,12 +49,12 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"valid with worker": {
-			job: v2.MPIJob{
-				Spec: v2.MPIJobSpec{
+			job: v2beta1.MPIJob{
+				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
-					MPIReplicaSpecs: map[v2.MPIReplicaType]*common.ReplicaSpec{
-						v2.MPIReplicaTypeLauncher: {
+					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
+						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
@@ -62,7 +62,7 @@ func TestValidateMPIJob(t *testing.T) {
 								},
 							},
 						},
-						v2.MPIReplicaTypeWorker: {
+						v2beta1.MPIReplicaTypeWorker: {
 							Replicas: newInt32(3),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
@@ -91,11 +91,11 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"empty replica specs": {
-			job: v2.MPIJob{
-				Spec: v2.MPIJobSpec{
+			job: v2beta1.MPIJob{
+				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker:  newInt32(2),
 					CleanPodPolicy:  newCleanPodPolicy(common.CleanPodPolicyRunning),
-					MPIReplicaSpecs: map[v2.MPIReplicaType]*common.ReplicaSpec{},
+					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{},
 				},
 			},
 			wantErrs: field.ErrorList{
@@ -106,13 +106,13 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"missing replica spec fields": {
-			job: v2.MPIJob{
-				Spec: v2.MPIJobSpec{
+			job: v2beta1.MPIJob{
+				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
-					MPIReplicaSpecs: map[v2.MPIReplicaType]*common.ReplicaSpec{
-						v2.MPIReplicaTypeLauncher: {},
-						v2.MPIReplicaTypeWorker:   {},
+					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
+						v2beta1.MPIReplicaTypeLauncher: {},
+						v2beta1.MPIReplicaTypeWorker:   {},
 					},
 				},
 			},

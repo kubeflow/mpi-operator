@@ -149,7 +149,7 @@ spec:
                     properties:
                       replicas:
                         type: integer
-  - name: v2
+  - name: v2beta1
     served: true
     storage: true
     schema:
