@@ -18,13 +18,13 @@ package kubeflow
 
 import (
 	internalinterfaces "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2"
+	v2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2beta1"
 )
 
 // Interface provides access to each of this group's versions.
 type Interface interface {
-	// V2 provides access to shared informers for resources in V2.
-	V2() v2.Interface
+	// V2beta1 provides access to shared informers for resources in V2beta1.
+	V2beta1() v2beta1.Interface
 }
 
 type group struct {
@@ -38,7 +38,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &group{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// V2 returns a new v2.Interface.
-func (g *group) V2() v2.Interface {
-	return v2.New(g.factory, g.namespace, g.tweakListOptions)
+// V2beta1 returns a new v2beta1.Interface.
+func (g *group) V2beta1() v2beta1.Interface {
+	return v2beta1.New(g.factory, g.namespace, g.tweakListOptions)
 }

@@ -159,7 +159,7 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Core().V1().Services(),
 			kubeInformerFactory.Core().V1().Pods(),
 			podgroupsInformer,
-			kubeflowInformerFactory.Kubeflow().V2().MPIJobs(),
+			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
 			opt.GangSchedulingName)
 
 		go kubeInformerFactory.Start(ctx.Done())
@@ -284,7 +284,7 @@ func createClientSets(config *restclientset.Config) (kubeclientset.Interface, ku
 }
 
 func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool {
-	_, err := clientset.KubeflowV2().MPIJobs(namespace).List(context.TODO(), metav1.ListOptions{})
+	_, err := clientset.KubeflowV2beta1().MPIJobs(namespace).List(context.TODO(), metav1.ListOptions{})
 
 	if err != nil {
 		klog.Error(err)

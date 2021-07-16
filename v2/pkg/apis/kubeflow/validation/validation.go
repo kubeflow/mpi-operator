@@ -17,11 +17,12 @@ package validation
 import (
 	"fmt"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	v2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
+	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 )
 
 var validCleanPolicies = sets.NewString(
@@ -29,11 +30,11 @@ var validCleanPolicies = sets.NewString(
 	string(common.CleanPodPolicyRunning),
 	string(common.CleanPodPolicyAll))
 
-func ValidateMPIJob(job *v2.MPIJob) field.ErrorList {
+func ValidateMPIJob(job *kubeflow.MPIJob) field.ErrorList {
 	return validateMPIJobSpec(&job.Spec, field.NewPath("spec"))
 }
 
-func validateMPIJobSpec(spec *v2.MPIJobSpec, path *field.Path) field.ErrorList {
+func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.ErrorList {
 	errs := validateMPIReplicaSpecs(spec.MPIReplicaSpecs, path.Child("mpiReplicaSpecs"))
 	if spec.SlotsPerWorker == nil {
 		errs = append(errs, field.Required(path.Child("slotsPerWorker"), "must have number of slots per worker"))
@@ -48,21 +49,21 @@ func validateMPIJobSpec(spec *v2.MPIJobSpec, path *field.Path) field.ErrorList {
 	return errs
 }
 
-func validateMPIReplicaSpecs(replicaSpecs map[v2.MPIReplicaType]*common.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateMPIReplicaSpecs(replicaSpecs map[kubeflow.MPIReplicaType]*common.ReplicaSpec, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if replicaSpecs == nil {
 		errs = append(errs, field.Required(path, "must have replica specs"))
 		return errs
 	}
-	errs = append(errs, validateLauncherReplicaSpec(replicaSpecs[v2.MPIReplicaTypeLauncher], path.Key(string(v2.MPIReplicaTypeLauncher)))...)
-	errs = append(errs, validateWorkerReplicaSpec(replicaSpecs[v2.MPIReplicaTypeWorker], path.Key(string(v2.MPIReplicaTypeWorker)))...)
+	errs = append(errs, validateLauncherReplicaSpec(replicaSpecs[kubeflow.MPIReplicaTypeLauncher], path.Key(string(kubeflow.MPIReplicaTypeLauncher)))...)
+	errs = append(errs, validateWorkerReplicaSpec(replicaSpecs[kubeflow.MPIReplicaTypeWorker], path.Key(string(kubeflow.MPIReplicaTypeWorker)))...)
 	return errs
 }
 
 func validateLauncherReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec == nil {
-		errs = append(errs, field.Required(path, fmt.Sprintf("must have %s replica spec", v2.MPIReplicaTypeLauncher)))
+		errs = append(errs, field.Required(path, fmt.Sprintf("must have %s replica spec", kubeflow.MPIReplicaTypeLauncher)))
 		return errs
 	}
 	errs = append(errs, validateReplicaSpec(spec, path)...)

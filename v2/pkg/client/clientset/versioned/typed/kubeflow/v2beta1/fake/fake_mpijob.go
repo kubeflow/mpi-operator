@@ -19,7 +19,7 @@ package fake
 import (
 	"context"
 
-	v2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	v2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,29 +30,29 @@ import (
 
 // FakeMPIJobs implements MPIJobInterface
 type FakeMPIJobs struct {
-	Fake *FakeKubeflowV2
+	Fake *FakeKubeflowV2beta1
 	ns   string
 }
 
-var mpijobsResource = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v2", Resource: "mpijobs"}
+var mpijobsResource = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v2beta1", Resource: "mpijobs"}
 
-var mpijobsKind = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v2", Kind: "MPIJob"}
+var mpijobsKind = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v2beta1", Kind: "MPIJob"}
 
 // Get takes name of the mPIJob, and returns the corresponding mPIJob object, and an error if there is any.
-func (c *FakeMPIJobs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.MPIJob, err error) {
+func (c *FakeMPIJobs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2beta1.MPIJob, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(mpijobsResource, c.ns, name), &v2.MPIJob{})
+		Invokes(testing.NewGetAction(mpijobsResource, c.ns, name), &v2beta1.MPIJob{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2.MPIJob), err
+	return obj.(*v2beta1.MPIJob), err
 }
 
 // List takes label and field selectors, and returns the list of MPIJobs that match those selectors.
-func (c *FakeMPIJobs) List(ctx context.Context, opts v1.ListOptions) (result *v2.MPIJobList, err error) {
+func (c *FakeMPIJobs) List(ctx context.Context, opts v1.ListOptions) (result *v2beta1.MPIJobList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(mpijobsResource, mpijobsKind, c.ns, opts), &v2.MPIJobList{})
+		Invokes(testing.NewListAction(mpijobsResource, mpijobsKind, c.ns, opts), &v2beta1.MPIJobList{})
 
 	if obj == nil {
 		return nil, err
@@ -62,8 +62,8 @@ func (c *FakeMPIJobs) List(ctx context.Context, opts v1.ListOptions) (result *v2
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v2.MPIJobList{ListMeta: obj.(*v2.MPIJobList).ListMeta}
-	for _, item := range obj.(*v2.MPIJobList).Items {
+	list := &v2beta1.MPIJobList{ListMeta: obj.(*v2beta1.MPIJobList).ListMeta}
+	for _, item := range obj.(*v2beta1.MPIJobList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -79,43 +79,43 @@ func (c *FakeMPIJobs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Int
 }
 
 // Create takes the representation of a mPIJob and creates it.  Returns the server's representation of the mPIJob, and an error, if there is any.
-func (c *FakeMPIJobs) Create(ctx context.Context, mPIJob *v2.MPIJob, opts v1.CreateOptions) (result *v2.MPIJob, err error) {
+func (c *FakeMPIJobs) Create(ctx context.Context, mPIJob *v2beta1.MPIJob, opts v1.CreateOptions) (result *v2beta1.MPIJob, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(mpijobsResource, c.ns, mPIJob), &v2.MPIJob{})
+		Invokes(testing.NewCreateAction(mpijobsResource, c.ns, mPIJob), &v2beta1.MPIJob{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2.MPIJob), err
+	return obj.(*v2beta1.MPIJob), err
 }
 
 // Update takes the representation of a mPIJob and updates it. Returns the server's representation of the mPIJob, and an error, if there is any.
-func (c *FakeMPIJobs) Update(ctx context.Context, mPIJob *v2.MPIJob, opts v1.UpdateOptions) (result *v2.MPIJob, err error) {
+func (c *FakeMPIJobs) Update(ctx context.Context, mPIJob *v2beta1.MPIJob, opts v1.UpdateOptions) (result *v2beta1.MPIJob, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(mpijobsResource, c.ns, mPIJob), &v2.MPIJob{})
+		Invokes(testing.NewUpdateAction(mpijobsResource, c.ns, mPIJob), &v2beta1.MPIJob{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2.MPIJob), err
+	return obj.(*v2beta1.MPIJob), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeMPIJobs) UpdateStatus(ctx context.Context, mPIJob *v2.MPIJob, opts v1.UpdateOptions) (*v2.MPIJob, error) {
+func (c *FakeMPIJobs) UpdateStatus(ctx context.Context, mPIJob *v2beta1.MPIJob, opts v1.UpdateOptions) (*v2beta1.MPIJob, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(mpijobsResource, "status", c.ns, mPIJob), &v2.MPIJob{})
+		Invokes(testing.NewUpdateSubresourceAction(mpijobsResource, "status", c.ns, mPIJob), &v2beta1.MPIJob{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2.MPIJob), err
+	return obj.(*v2beta1.MPIJob), err
 }
 
 // Delete takes name of the mPIJob and deletes it. Returns an error if one occurs.
 func (c *FakeMPIJobs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(mpijobsResource, c.ns, name), &v2.MPIJob{})
+		Invokes(testing.NewDeleteAction(mpijobsResource, c.ns, name), &v2beta1.MPIJob{})
 
 	return err
 }
@@ -124,17 +124,17 @@ func (c *FakeMPIJobs) Delete(ctx context.Context, name string, opts v1.DeleteOpt
 func (c *FakeMPIJobs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(mpijobsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v2.MPIJobList{})
+	_, err := c.Fake.Invokes(action, &v2beta1.MPIJobList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched mPIJob.
-func (c *FakeMPIJobs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.MPIJob, err error) {
+func (c *FakeMPIJobs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.MPIJob, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(mpijobsResource, c.ns, name, pt, data, subresources...), &v2.MPIJob{})
+		Invokes(testing.NewPatchSubresourceAction(mpijobsResource, c.ns, name, pt, data, subresources...), &v2beta1.MPIJob{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2.MPIJob), err
+	return obj.(*v2beta1.MPIJob), err
 }

@@ -19,7 +19,7 @@ package versioned
 import (
 	"fmt"
 
-	kubeflowv2 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,19 +27,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	KubeflowV2() kubeflowv2.KubeflowV2Interface
+	KubeflowV2beta1() kubeflowv2beta1.KubeflowV2beta1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	kubeflowV2 *kubeflowv2.KubeflowV2Client
+	kubeflowV2beta1 *kubeflowv2beta1.KubeflowV2beta1Client
 }
 
-// KubeflowV2 retrieves the KubeflowV2Client
-func (c *Clientset) KubeflowV2() kubeflowv2.KubeflowV2Interface {
-	return c.kubeflowV2
+// KubeflowV2beta1 retrieves the KubeflowV2beta1Client
+func (c *Clientset) KubeflowV2beta1() kubeflowv2beta1.KubeflowV2beta1Interface {
+	return c.kubeflowV2beta1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -63,7 +63,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.kubeflowV2, err = kubeflowv2.NewForConfig(&configShallowCopy)
+	cs.kubeflowV2beta1, err = kubeflowv2beta1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.kubeflowV2 = kubeflowv2.NewForConfigOrDie(c)
+	cs.kubeflowV2beta1 = kubeflowv2beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -88,7 +88,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.kubeflowV2 = kubeflowv2.New(c)
+	cs.kubeflowV2beta1 = kubeflowv2beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

@@ -17,7 +17,7 @@
 package fake
 
 import (
-	kubeflowv2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,7 +29,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
-	kubeflowv2.AddToScheme,
+	kubeflowv2beta1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
