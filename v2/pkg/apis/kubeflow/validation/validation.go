@@ -79,8 +79,8 @@ func validateWorkerReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field
 		return errs
 	}
 	errs = append(errs, validateReplicaSpec(spec, path)...)
-	if spec.Replicas != nil {
-		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*spec.Replicas), path.Child("replicas"))...)
+	if spec.Replicas != nil && *spec.Replicas <= 0 {
+		errs = append(errs, field.Invalid(path.Child("replicas"), *spec.Replicas, "must be greater than or equal to 1"))
 	}
 	return errs
 }
