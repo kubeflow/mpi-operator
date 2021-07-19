@@ -21,7 +21,3 @@ jobs:
         run: make mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 mpi-operator.v2 kubectl-delivery
       - name: Run tests
         run: make test
-      - name: Send the coverage output
-        uses: shogo82148/actions-goveralls@v1
-        with:
-          path-to-profile: profile.cov
