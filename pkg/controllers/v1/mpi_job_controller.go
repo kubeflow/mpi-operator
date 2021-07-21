@@ -477,7 +477,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// If the MPIJob is terminated, delete its pods according to cleanPodPolicy.
 	if isFinished(mpiJob.Status) {
 		if isSucceeded(mpiJob.Status) && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
-			// set worker StatefulSet Replicas to 0.
 			if err := c.deleteWorkerPods(mpiJob); err != nil {
 				return err
 			}
@@ -496,7 +495,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 		if !requeue {
 			if isFailed(mpiJob.Status) && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
-				// set worker StatefulSet Replicas to 0.
 				if err := c.deleteWorkerPods(mpiJob); err != nil {
 					return err
 				}
@@ -810,7 +808,7 @@ func (c *MPIJobController) getLauncherRoleBinding(mpiJob *kubeflow.MPIJob) (*rba
 	return rb, nil
 }
 
-// getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
+// getOrCreateWorker gets the worker Pod controlled by this
 // MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1.Pod, error) {
 	var (
@@ -1294,7 +1292,7 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 	}
 }
 
-// newWorker creates a new worker StatefulSet for an MPIJob resource. It also
+// newWorker creates a new worker Pod for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
 func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.Pod {
