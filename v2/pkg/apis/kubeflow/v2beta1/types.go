@@ -51,15 +51,6 @@ type MPIJobSpec struct {
 	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
 	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
-
-	// MainContainer specifies name of the main container which
-	// executes the MPI code.
-	MainContainer string `json:"mainContainer,omitempty"`
-
-	// `RunPolicy` encapsulates various runtime policies of the distributed training
-	// job, for example how to clean up resources and how long the job can stay
-	// active.
-	RunPolicy *common.RunPolicy `json:"runPolicy,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.

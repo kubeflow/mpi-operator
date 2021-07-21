@@ -135,6 +135,42 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
+		"invalid replica counts": {
+			job: v2beta1.MPIJob{
+				Spec: v2beta1.MPIJobSpec{
+					SlotsPerWorker: newInt32(2),
+					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
+						v2beta1.MPIReplicaTypeLauncher: {
+							Replicas: newInt32(2),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						v2beta1.MPIReplicaTypeWorker: {
+							Replicas: newInt32(0),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrs: field.ErrorList{
+				{
+					Type:  field.ErrorTypeInvalid,
+					Field: "spec.mpiReplicaSpecs[Launcher].replicas",
+				},
+				{
+					Type:  field.ErrorTypeInvalid,
+					Field: "spec.mpiReplicaSpecs[Worker].replicas",
+				},
+			},
+		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

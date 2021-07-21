@@ -544,11 +544,10 @@ func TestLauncherSucceeded(t *testing.T) {
 
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
-	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJobCopy, common.JobSucceeded, mpiJobSucceededReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobSucceeded, mpiJobSucceededReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -579,11 +578,10 @@ func TestLauncherFailed(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
-	msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -656,10 +654,7 @@ func TestShutdownWorker(t *testing.T) {
 	var replicas int32 = 8
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
+	updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
@@ -759,6 +754,8 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	}
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -825,8 +822,10 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
-	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	err = updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
 	if err != nil {
 		t.Errorf("Failed to update MPIJob conditions")
 	}
@@ -882,6 +881,8 @@ func TestWorkerReady(t *testing.T) {
 			Failed:    0,
 		},
 	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
