@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,7 +158,7 @@ func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName s
 func newMPIJobWithLauncher(name string, replicas *int32, pusPerReplica int64, resourceName string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
 	mpiJob := newMPIJob(name, replicas, pusPerReplica, resourceName, startTime, completionTime)
 
-	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Replicas = int32Ptr(1)
+	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Replicas = newInt32(1)
 
 	launcherContainers := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers
 	for i := range launcherContainers {
@@ -465,7 +467,7 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
-	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.run(getKey(mpiJob, t))
 }
 
@@ -474,11 +476,13 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
@@ -509,7 +513,7 @@ func TestIsGPULauncher(t *testing.T) {
 		},
 	}
 	for testName, testCase := range testCases {
-		mpiJob := newMPIJobWithLauncher("test", int32Ptr(64), 1, testCase.gpu, &startTime, &completionTime)
+		mpiJob := newMPIJobWithLauncher("test", newInt32(64), 1, testCase.gpu, &startTime, &completionTime)
 		f.setUpMPIJob(mpiJob)
 		if result := isGPULauncher(mpiJob); result != testCase.expected {
 			t.Errorf("%s expected: %v, actual: %v, gpu=%v", testName, testCase.expected, result, testCase.gpu)
@@ -523,16 +527,16 @@ func TestLauncherSucceeded(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodSucceeded
 	f.setUpLauncher(launcher)
 
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
@@ -544,11 +548,10 @@ func TestLauncherSucceeded(t *testing.T) {
 
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
-	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJobCopy, common.JobSucceeded, mpiJobSucceededReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobSucceeded, mpiJobSucceededReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -559,16 +562,16 @@ func TestLauncherFailed(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", int32Ptr(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodFailed
 	f.setUpLauncher(launcher)
 
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
@@ -579,11 +582,10 @@ func TestLauncherFailed(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
-	msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -656,20 +658,18 @@ func TestShutdownWorker(t *testing.T) {
 	var replicas int32 = 8
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	err := updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
+	updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodSucceeded
 	f.setUpLauncher(launcher)
 
 	for i := 0; i < int(replicas); i++ {
-		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
-		worker := newWorker(mpiJob, name, "")
+		worker := newWorker(mpiJobCopy, i, "")
 		f.setUpWorker(worker)
 	}
 
@@ -683,8 +683,6 @@ func TestShutdownWorker(t *testing.T) {
 		f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, name))
 	}
 
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
 			Active:    0,
@@ -717,9 +715,10 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	}
 	f.setUpSecret(secret)
 
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
 	for i := 0; i < int(replicas); i++ {
-		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
-		worker := newWorker(mpiJob, name, "")
+		worker := newWorker(mpiJobCopy, i, "")
 		worker.OwnerReferences = nil
 		f.setUpWorker(worker)
 	}
@@ -747,18 +746,19 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
 	for i := 0; i < int(replicas); i++ {
-		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
-		worker := newWorker(mpiJob, name, "")
+		worker := newWorker(mpiJobCopy, i, "")
 		worker.Status.Phase = corev1.PodPending
 		f.setUpWorker(worker)
 	}
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -793,14 +793,15 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncher(mpiJob, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 
 	var runningPodList []*corev1.Pod
 	for i := 0; i < int(replicas); i++ {
-		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
-		worker := newWorker(mpiJob, name, "")
+		worker := newWorker(mpiJobCopy, i, "")
 		worker.Status.Phase = corev1.PodRunning
 		runningPodList = append(runningPodList, worker)
 		f.setUpWorker(worker)
@@ -810,8 +811,6 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
 
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    1,
@@ -825,8 +824,10 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 		},
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
-	msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	err = updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
 	if err != nil {
 		t.Errorf("Failed to update MPIJob conditions")
 	}
@@ -850,10 +851,12 @@ func TestWorkerReady(t *testing.T) {
 	}
 	f.setUpSecret(secret)
 
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+
 	var runningPodList []*corev1.Pod
 	for i := 0; i < 16; i++ {
-		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
-		worker := newWorker(mpiJob, name, "")
+		worker := newWorker(mpiJobCopy, i, "")
 		worker.Status.Phase = corev1.PodRunning
 		runningPodList = append(runningPodList, worker)
 		f.setUpWorker(worker)
@@ -862,9 +865,6 @@ func TestWorkerReady(t *testing.T) {
 	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 
 	fmjc := f.newFakeMPIJobController()
 	expLauncher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJob))
@@ -882,13 +882,394 @@ func TestWorkerReady(t *testing.T) {
 			Failed:    0,
 		},
 	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
 }
 
-func int32Ptr(i int32) *int32 { return &i }
+func TestNewLauncherAndWorker(t *testing.T) {
+	cases := map[string]struct {
+		job          kubeflow.MPIJob
+		workerIndex  int
+		wantLauncher corev1.Pod
+		wantWorker   corev1.Pod
+	}{
+		"defaults": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantLauncher: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-launcher",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"group-name":   "kubeflow.org",
+						"mpi-job-name": "foo",
+						"mpi-job-role": "launcher",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Hostname:      "foo-launcher",
+					Subdomain:     "foo-worker",
+					RestartPolicy: corev1.RestartPolicyNever,
+					Containers: []corev1.Container{
+						{
+							Env: func() []corev1.EnvVar {
+								var v []corev1.EnvVar
+								v = append(v, ompiEnvVars...)
+								v = append(v, nvidiaDisableEnvVars...)
+								return v
+							}(),
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-home", MountPath: "/root/.ssh"},
+								{Name: "mpi-job-config", MountPath: "/etc/mpi"},
+							},
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:    "init-ssh",
+							Image:   "alpine:3.14",
+							Command: []string{"/bin/sh"},
+							Args: []string{
+								"-c",
+								"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/*",
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-auth", MountPath: "/mnt/ssh"},
+								{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "ssh-auth",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "foo-ssh",
+									Items:      sshVolumeItems,
+								},
+							},
+						},
+						{
+							Name: "ssh-home",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "mpi-job-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "foo-config",
+									},
+									Items: configVolumeItems,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantWorker: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-worker-0",
+					Namespace: "bar",
+					Labels: map[string]string{
+						"group-name":    "kubeflow.org",
+						"mpi-job-name":  "foo",
+						"mpi-job-role":  "worker",
+						"replica-index": "0",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Hostname:      "foo-worker-0",
+					Subdomain:     "foo-worker",
+					RestartPolicy: corev1.RestartPolicyNever,
+					Containers: []corev1.Container{
+						{
+							Command: []string{"/usr/sbin/sshd", "-De"},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-home", MountPath: "/root/.ssh"},
+							},
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:    "init-ssh",
+							Image:   "alpine:3.14",
+							Command: []string{"/bin/sh"},
+							Args: []string{
+								"-c",
+								"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/*",
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-auth", MountPath: "/mnt/ssh"},
+								{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "ssh-auth",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "foo-ssh",
+									Items:      sshVolumeItems,
+								},
+							},
+						},
+						{
+							Name: "ssh-home",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		"overrides": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bar",
+					Namespace: "foo",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SSHAuthMountPath: "/home/mpiuser/.ssh",
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							RestartPolicy: common.RestartPolicyOnFailure,
+							Template: corev1.PodTemplateSpec{
+								ObjectMeta: metav1.ObjectMeta{
+									Labels: map[string]string{"foo": "bar"},
+								},
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{
+										{
+											Env: []corev1.EnvVar{
+												{Name: "FOO", Value: "bar"},
+											},
+											SecurityContext: &corev1.SecurityContext{
+												RunAsUser: newInt64(1000),
+											},
+											VolumeMounts: []corev1.VolumeMount{
+												{Name: "fool-vol", MountPath: "/mnt/foo"},
+											},
+										},
+										{},
+									},
+									Volumes: []corev1.Volume{
+										{Name: "foo-vol"},
+									},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{
+										{
+											Command: []string{"/entrypoint.sh"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			workerIndex: 12,
+			wantLauncher: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bar-launcher",
+					Namespace: "foo",
+					Labels: map[string]string{
+						"foo":          "bar",
+						"group-name":   "kubeflow.org",
+						"mpi-job-name": "bar",
+						"mpi-job-role": "launcher",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Hostname:      "bar-launcher",
+					Subdomain:     "bar-worker",
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{
+						{
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser: newInt64(1000),
+							},
+							Env: func() []corev1.EnvVar {
+								v := []corev1.EnvVar{{Name: "FOO", Value: "bar"}}
+								v = append(v, ompiEnvVars...)
+								v = append(v, nvidiaDisableEnvVars...)
+								return v
+							}(),
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "fool-vol", MountPath: "/mnt/foo"},
+								{Name: "ssh-home", MountPath: "/home/mpiuser/.ssh"},
+								{Name: "mpi-job-config", MountPath: "/etc/mpi"},
+							},
+						},
+						{},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:    "init-ssh",
+							Image:   "alpine:3.14",
+							Command: []string{"/bin/sh"},
+							Args: []string{
+								"-c",
+								"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/* && chown 1000 -R /mnt/home-ssh",
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-auth", MountPath: "/mnt/ssh"},
+								{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{Name: "foo-vol"},
+						{
+							Name: "ssh-auth",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "bar-ssh",
+									Items:      sshVolumeItems,
+								},
+							},
+						},
+						{
+							Name: "ssh-home",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "mpi-job-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "bar-config",
+									},
+									Items: configVolumeItems,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantWorker: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bar-worker-12",
+					Namespace: "foo",
+					Labels: map[string]string{
+						"group-name":    "kubeflow.org",
+						"mpi-job-name":  "bar",
+						"mpi-job-role":  "worker",
+						"replica-index": "12",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Hostname:      "bar-worker-12",
+					Subdomain:     "bar-worker",
+					RestartPolicy: corev1.RestartPolicyNever,
+					Containers: []corev1.Container{
+						{
+							Command: []string{"/entrypoint.sh"},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-home", MountPath: "/home/mpiuser/.ssh"},
+							},
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:    "init-ssh",
+							Image:   "alpine:3.14",
+							Command: []string{"/bin/sh"},
+							Args: []string{
+								"-c",
+								"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/* && chown 1000 -R /mnt/home-ssh",
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-auth", MountPath: "/mnt/ssh"},
+								{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "ssh-auth",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "bar-ssh",
+									Items:      sshVolumeItems,
+								},
+							},
+						},
+						{
+							Name: "ssh-home",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ignoreReferences := cmpopts.IgnoreFields(metav1.ObjectMeta{}, "OwnerReferences")
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			job := tc.job.DeepCopy()
+			scheme.Scheme.Default(job)
+			ctrl := &MPIJobController{}
+			launcher := ctrl.newLauncher(job, isGPULauncher(job))
+			if !metav1.IsControlledBy(launcher, job) {
+				t.Errorf("Created launcher Pod is not controlled by Job")
+			}
+			if diff := cmp.Diff(&tc.wantLauncher, launcher, ignoreReferences); diff != "" {
+				t.Errorf("Unexpected launcher pod (-want,+got):\n%s", diff)
+			}
+			worker := newWorker(job, tc.workerIndex, "")
+			if !metav1.IsControlledBy(worker, job) {
+				t.Errorf("Created worker Pod is not controlled by Job")
+			}
+			if diff := cmp.Diff(&tc.wantWorker, worker, ignoreReferences); diff != "" {
+				t.Errorf("Unexpected launcher pod (-want,+got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func newInt64(v int64) *int64 {
+	return &v
+}
 
 func (f *fixture) newFakeMPIJobController() *MPIJobController {
 	kubeClient := k8sfake.NewSimpleClientset(f.kubeObjects...)

@@ -48,18 +48,13 @@ type MPIJobSpec struct {
 	// Defaults to None.
 	CleanPodPolicy *common.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
 
-	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
+	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
 	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
 
-	// MainContainer specifies name of the main container which
-	// executes the MPI code.
-	MainContainer string `json:"mainContainer,omitempty"`
-
-	// `RunPolicy` encapsulates various runtime policies of the distributed training
-	// job, for example how to clean up resources and how long the job can stay
-	// active.
-	RunPolicy *common.RunPolicy `json:"runPolicy,omitempty"`
+	// SSHAuthMountPath is the directory where SSH keys are mounted.
+	// Defaults to "/root/.ssh".
+	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
