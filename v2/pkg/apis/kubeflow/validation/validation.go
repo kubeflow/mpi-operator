@@ -46,6 +46,9 @@ func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.Error
 	} else if !validCleanPolicies.Has(string(*spec.CleanPodPolicy)) {
 		errs = append(errs, field.NotSupported(path.Child("cleanPodPolicy"), *spec.CleanPodPolicy, validCleanPolicies.List()))
 	}
+	if spec.SSHAuthMountPath == "" {
+		errs = append(errs, field.Required(path.Child("sshAuthMountPath"), "must have a mount path for SSH credentials"))
+	}
 	return errs
 }
 

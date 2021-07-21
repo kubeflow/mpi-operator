@@ -56,6 +56,9 @@ func SetDefaults_MPIJob(mpiJob *MPIJob) {
 	if mpiJob.Spec.SlotsPerWorker == nil {
 		mpiJob.Spec.SlotsPerWorker = newInt32(1)
 	}
+	if mpiJob.Spec.SSHAuthMountPath == "" {
+		mpiJob.Spec.SSHAuthMountPath = "/root/.ssh"
+	}
 
 	// set default to Launcher
 	setDefaultsTypeLauncher(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeLauncher])

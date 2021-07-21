@@ -29,22 +29,25 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 		"base defaults": {
 			want: MPIJob{
 				Spec: MPIJobSpec{
-					SlotsPerWorker: newInt32(1),
-					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
+					SlotsPerWorker:   newInt32(1),
+					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyNone),
+					SSHAuthMountPath: "/root/.ssh",
 				},
 			},
 		},
 		"base defaults overridden": {
 			job: MPIJob{
 				Spec: MPIJobSpec{
-					SlotsPerWorker: newInt32(10),
-					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SlotsPerWorker:   newInt32(10),
+					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath: "/home/mpiuser/.ssh",
 				},
 			},
 			want: MPIJob{
 				Spec: MPIJobSpec{
-					SlotsPerWorker: newInt32(10),
-					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SlotsPerWorker:   newInt32(10),
+					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath: "/home/mpiuser/.ssh",
 				},
 			},
 		},
@@ -58,8 +61,9 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			},
 			want: MPIJob{
 				Spec: MPIJobSpec{
-					SlotsPerWorker: newInt32(1),
-					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
+					SlotsPerWorker:   newInt32(1),
+					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyNone),
+					SSHAuthMountPath: "/root/.ssh",
 					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
 						MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
@@ -79,8 +83,9 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			},
 			want: MPIJob{
 				Spec: MPIJobSpec{
-					SlotsPerWorker: newInt32(1),
-					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
+					SlotsPerWorker:   newInt32(1),
+					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyNone),
+					SSHAuthMountPath: "/root/.ssh",
 					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
 						MPIReplicaTypeWorker: {
 							Replicas:      newInt32(0),

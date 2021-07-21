@@ -104,6 +104,8 @@ spec:
                 type: string
                 enum: ["None", "Running", "All"]
                 description: "Defines which Pods must be deleted after the Job completes"
+              sshAuthMountPath:
+                type: string
               mpiReplicaSpecs:
                 type: object
                 properties:

@@ -48,9 +48,13 @@ type MPIJobSpec struct {
 	// Defaults to None.
 	CleanPodPolicy *common.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
 
-	// `MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that
+	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
 	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
+
+	// SSHAuthMountPath is the directory where SSH keys are mounted.
+	// Defaults to "/root/.ssh".
+	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
