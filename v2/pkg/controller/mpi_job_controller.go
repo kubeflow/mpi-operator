@@ -459,6 +459,13 @@ func (c *MPIJobController) syncHandler(key string) error {
 		}
 	}
 
+	if len(mpiJob.Status.Conditions) == 0 {
+		msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+		updateMPIJobConditions(mpiJob, common.JobCreated, mpiJobCreatedReason, msg)
+		c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobCreated", msg)
+		mpiJobsCreatedCount.Inc()
+	}
+
 	// first set StartTime.
 	if mpiJob.Status.StartTime == nil {
 		now := metav1.Now()
@@ -858,11 +865,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				now := metav1.Now()
 				mpiJob.Status.CompletionTime = &now
 			}
-			err := updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
-			if err != nil {
-				klog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
-				return err
-			}
+			updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 			mpiJobsSuccessCount.Inc()
 		} else if isPodFailed(launcher) {
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed = 1
@@ -878,11 +881,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				now := metav1.Now()
 				mpiJob.Status.CompletionTime = &now
 			}
-			err := updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
-			if err != nil {
-				klog.Errorf("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
-				return err
-			}
+			updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
 			mpiJobsFailureCount.Inc()
 		} else if isPodRunning(launcher) {
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = 1
@@ -914,20 +913,13 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	if evict > 0 {
 		msg := fmt.Sprintf("%d/%d workers are evicted", evict, len(worker))
 		klog.Infof("MPIJob <%s/%s>: %v", mpiJob.Namespace, mpiJob.Name, msg)
-		if err := updateMPIJobConditions(mpiJob, common.JobFailed, mpiJobEvict, msg); err != nil {
-			klog.Errorf("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
-			return err
-		}
+		updateMPIJobConditions(mpiJob, common.JobFailed, mpiJobEvict, msg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobEvict, msg)
 	}
 
 	if launcher != nil && launcher.Status.Phase == corev1.PodRunning && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-		err := updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
-		if err != nil {
-			klog.Infof("Append mpiJob(%s/%s) condition error: %v", mpiJob.Namespace, mpiJob.Name, err)
-			return err
-		}
+		updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
 		c.recorder.Eventf(mpiJob, corev1.EventTypeNormal, "MPIJobRunning", "MPIJob %s/%s is running", mpiJob.Namespace, mpiJob.Name)
 	}
 
@@ -944,15 +936,6 @@ func (c *MPIJobController) addMPIJob(obj interface{}) {
 
 	// Set default for the new mpiJob.
 	scheme.Scheme.Default(mpiJob)
-	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	// Add a created condition.
-	err := updateMPIJobConditions(mpiJob, common.JobCreated, mpiJobCreatedReason, msg)
-	if err != nil {
-		klog.Errorf("Append mpiJob condition error: %v", err)
-		return
-	}
-	c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobCreated", msg)
-	mpiJobsCreatedCount.Inc()
 	c.enqueueMPIJob(mpiJob)
 }
 

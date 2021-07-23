@@ -46,10 +46,9 @@ func initializeMPIJobStatuses(mpiJob *kubeflow.MPIJob, mtype kubeflow.MPIReplica
 }
 
 // updateMPIJobConditions updates the conditions of the given mpiJob.
-func updateMPIJobConditions(mpiJob *kubeflow.MPIJob, conditionType common.JobConditionType, reason, message string) error {
+func updateMPIJobConditions(mpiJob *kubeflow.MPIJob, conditionType common.JobConditionType, reason, message string) {
 	condition := newCondition(conditionType, reason, message)
 	setCondition(&mpiJob.Status, condition)
-	return nil
 }
 
 // newCondition creates a new mpiJob condition.

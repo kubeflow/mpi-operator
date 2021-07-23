@@ -1,4 +1,4 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: mpijobs.kubeflow.org
@@ -12,164 +12,181 @@ spec:
     shortNames:
     - mj
     - mpij
-  subresources:
-    status: {}
   versions:
-  - name: v1alpha1
-    served: false
-    storage: false
-    schema:
-      openAPIV3Schema:
-        properties:
-          spec:
-            title: The MPIJob spec
-            description: Only one of gpus, processingUnits, or replicas should be specified
-            oneOf:
-            - properties:
-                gpus:
-                  title: Total number of GPUs
-                  description: Valid values are 1, 2, 4, or any multiple of 8
-                  oneOf:
-                  - type: integer
-                    enum:
-                    - 1
-                    - 2
-                    - 4
-                  - type: integer
-                    multipleOf: 8
-                    minimum: 8
-                slotsPerWorker:
-                  title: The number of slots per worker used in hostfile
-                  description: Defaults to the number of processing units per worker
-                  type: integer
-                  minimum: 1
-                gpusPerNode:
-                  title: The maximum number of GPUs available per node
-                  description: Defaults to the number of GPUs per worker
-                  type: integer
-                  minimum: 1
-              required:
-              - gpus
-            - properties:
-                processingUnits:
-                  title: Total number of processing units
-                  description: Valid values are 1, 2, 4, or any multiple of 8
-                  oneOf:
-                  - type: integer
-                    enum:
-                    - 1
-                    - 2
-                    - 4
-                  - type: integer
-                    multipleOf: 8
-                    minimum: 8
-                slotsPerWorker:
-                  title: The number of slots per worker used in hostfile
-                  description: Defaults to the number of processing units per worker
-                  type: integer
-                  minimum: 1
-                processingUnitsPerNode:
-                  title: The maximum number of processing units available per node
-                  description: Defaults to the number of processing units per worker
-                  type: integer
-                  minimum: 1
-                processingResourceType:
-                  title: The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'
-                  description: Defaults to 'nvidia.com/gpu'
-                  type: string
-                  enum:
-                  - nvidia.com/gpu
-                  - cpu
-              required:
-              - processingUnits
-            - properties:
-                replicas:
-                  title: Total number of replicas
-                  description: The processing resource limit should be specified for each replica
-                  type: integer
-                  minimum: 1
-                slotsPerWorker:
-                  title: The number of slots per worker used in hostfile
-                  description: Defaults to the number of processing units per worker
-                  type: integer
-                  minimum: 1
-                processingResourceType:
-                  title: The processing resource type, e.g. 'nvidia.com/gpu' or 'cpu'
-                  description: Defaults to 'nvidia.com/gpu'
-                  type: string
-                  enum:
-                  - nvidia.com/gpu
-                  - cpu
-              required:
-              - replicas
   - name: v1alpha2
     served: true
     storage: false
     schema:
       openAPIV3Schema:
+        type: object
         properties:
           spec:
+            x-kubernetes-preserve-unknown-fields: true
+            type: object
             properties:
               slotsPerWorker:
                 type: integer
                 minimum: 1
               mpiReplicaSpecs:
+                type: object
                 properties:
                   Launcher:
+                    x-kubernetes-preserve-unknown-fields: true
+                    type: object
                     properties:
                       replicas:
                         type: integer
                         minimum: 1
                         maximum: 1
                   Worker:
+                    x-kubernetes-preserve-unknown-fields: true
+                    type: object
                     properties:
                       replicas:
                         type: integer
                         minimum: 1
+          status:
+            x-kubernetes-preserve-unknown-fields: true
+            type: object
+    subresources:
+      status: {}
   - name: v1
     served: true
     storage: false
     schema:
       openAPIV3Schema:
+        type: object
         properties:
           spec:
+            x-kubernetes-preserve-unknown-fields: true
+            type: object
             properties:
               slotsPerWorker:
                 type: integer
                 minimum: 1
               mpiReplicaSpecs:
+                type: object
                 properties:
                   Launcher:
+                    x-kubernetes-preserve-unknown-fields: true
+                    type: object
                     properties:
                       replicas:
                         type: integer
                         minimum: 1
                         maximum: 1
                   Worker:
+                    x-kubernetes-preserve-unknown-fields: true
+                    type: object
                     properties:
                       replicas:
                         type: integer
+                        minimum: 1
+          status:
+            x-kubernetes-preserve-unknown-fields: true
+            type: object
+    subresources:
+      status: {}
   - name: v2beta1
     served: true
     storage: true
     schema:
       openAPIV3Schema:
+        type: object
         properties:
           spec:
+            type: object
             properties:
               slotsPerWorker:
                 type: integer
                 minimum: 1
+              cleanPodPolicy:
+                type: string
+                enum: ["None", "Running", "All"]
+                description: "Defines which Pods must be deleted after the Job completes"
               mpiReplicaSpecs:
+                type: object
                 properties:
                   Launcher:
+                    type: object
                     properties:
                       replicas:
                         type: integer
                         minimum: 1
                         maximum: 1
+                      template:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      restartPolicy:
+                        type: string
+                        enum: ["Never", "OnFailure", "Always"]
                   Worker:
+                    type: object
                     properties:
                       replicas:
                         type: integer
                         minimum: 1
+                      template:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      restartPolicy:
+                        type: string
+                        enum: ["Never", "OnFailure", "Always"]
+                required:
+                - Launcher
+          status:
+            type: object
+            properties:
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum: ["Created", "Running", "Restarting", "Succeeded", "Failed"]
+                    status:
+                      type: string
+                      enum: ["True", "False", "Unknown"]
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                    lastUpdateTime:
+                      type: string
+                      format: date-time
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+              replicaStatuses:
+                type: object
+                properties:
+                  Launcher:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      succeeded:
+                        type: integer
+                      failed:
+                        type: integer
+                  Worker:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      succeeded:
+                        type: integer
+                      failed:
+                        type: integer
+              startTime:
+                type: string
+                format: date-time
+              completionTime:
+                type: string
+                format: date-time
+              lastReconcileTime:
+                type: string
+                format: date-time
+    subresources:
+      status: {}
