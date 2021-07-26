@@ -73,22 +73,21 @@ const (
 	sshAuthSecretSuffix     = "-ssh"
 	sshAuthVolume           = "ssh-auth"
 	sshAuthMountPath        = "/mnt/ssh"
+	sshHomeInitMountPath    = "/mnt/home-ssh"
 	sshHomeVolume           = "ssh-home"
-	// TODO(alculquicondor): Make home directory configurable through the API.
-	sshHomeMountPath       = "/root/.ssh"
-	launcher               = "launcher"
-	worker                 = "worker"
-	launcherSuffix         = "-launcher"
-	workerSuffix           = "-worker"
-	gpuResourceNameSuffix  = ".com/gpu"
-	gpuResourceNamePattern = "gpu"
-	labelGroupName         = "group-name"
-	labelMPIJobName        = "mpi-job-name"
-	labelMPIRoleType       = "mpi-job-role"
-	sshPublicKey           = "ssh-publickey"
-	sshPrivateKeyFile      = "id_rsa"
-	sshPublicKeyFile       = sshPrivateKeyFile + ".pub"
-	sshAuthorizedKeysFile  = "authorized_keys"
+	launcher                = "launcher"
+	worker                  = "worker"
+	launcherSuffix          = "-launcher"
+	workerSuffix            = "-worker"
+	gpuResourceNameSuffix   = ".com/gpu"
+	gpuResourceNamePattern  = "gpu"
+	labelGroupName          = "group-name"
+	labelMPIJobName         = "mpi-job-name"
+	labelMPIRoleType        = "mpi-job-role"
+	sshPublicKey            = "ssh-publickey"
+	sshPrivateKeyFile       = "id_rsa"
+	sshPublicKeyFile        = sshPrivateKeyFile + ".pub"
+	sshAuthorizedKeysFile   = "authorized_keys"
 )
 
 const (
@@ -104,10 +103,6 @@ const (
 	// ValidationError is used as part of the Event 'reason' when failed to
 	// validate an MPIJob.
 	ValidationError = "ValidationError"
-
-	// MessageResourceDoesNotExist is used for Events when some
-	// resource is missing in yaml
-	MessageResourceDoesNotExist = "Resource %q is missing in yaml"
 
 	// podTemplateRestartPolicyReason is the warning reason when the restart
 	// policy is set in pod template.
@@ -135,6 +130,50 @@ var (
 		Name: "mpi_operator_job_info",
 		Help: "Information about MPIJob",
 	}, []string{"launcher", "namespace"})
+
+	sshVolumeItems = []corev1.KeyToPath{
+		{
+			Key:  corev1.SSHAuthPrivateKey,
+			Path: sshPrivateKeyFile,
+		},
+		{
+			Key:  sshPublicKey,
+			Path: sshPublicKeyFile,
+		},
+		{
+			Key:  sshPublicKey,
+			Path: sshAuthorizedKeysFile,
+		},
+	}
+	configVolumeItems = []corev1.KeyToPath{
+		{
+			Key:  hostfileName,
+			Path: hostfileName,
+			Mode: newInt32(0444),
+		},
+		{
+			Key:  discoverHostsScriptName,
+			Path: discoverHostsScriptName,
+			Mode: newInt32(0555),
+		},
+	}
+
+	ompiEnvVars = []corev1.EnvVar{
+		// Allows driver to reach workers through the Service.
+		{
+			Name:  "OMPI_MCA_orte_keep_fqdn_hostnames",
+			Value: "true",
+		},
+		{
+			Name:  "OMPI_MCA_orte_default_hostfile",
+			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
+		},
+	}
+
+	nvidiaDisableEnvVars = []corev1.EnvVar{
+		{Name: "NVIDIA_VISIBLE_DEVICES"},
+		{Name: "NVIDIA_DRIVER_CAPABILITIES"},
+	}
 )
 
 // MPIJobController is the controller implementation for MPIJob resources.
@@ -170,6 +209,8 @@ type MPIJobController struct {
 	recorder record.EventRecorder
 	// Gang scheduler name to use
 	gangSchedulerName string
+	// Container image used for scripting.
+	scriptingImage string
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -186,7 +227,7 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	gangSchedulerName string) *MPIJobController {
+	gangSchedulerName, scriptingImage string) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -221,6 +262,7 @@ func NewMPIJobController(
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
 		recorder:          recorder,
 		gangSchedulerName: gangSchedulerName,
+		scriptingImage:    scriptingImage,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -743,11 +785,7 @@ func keysFromData(data map[string][]byte) []string {
 // getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
 // MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1.Pod, error) {
-	var (
-		workerPrefix = mpiJob.Name + workerSuffix
-		workerPods   []*corev1.Pod
-		i            int32 = 0
-	)
+	var workerPods []*corev1.Pod
 	worker := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
 	if worker == nil {
 		return workerPods, nil
@@ -780,15 +818,12 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		}
 	}
 
-	for ; i < *worker.Replicas; i++ {
-		name := fmt.Sprintf("%s-%d", workerPrefix, i)
-		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(name)
+	for i := 0; i < int(*worker.Replicas); i++ {
+		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(workerName(mpiJob, i))
 
 		// If the worker Pod doesn't exist, we'll create it.
 		if errors.IsNotFound(err) {
-			worker := newWorker(mpiJob, name, c.gangSchedulerName)
-			// Insert ReplicaIndexLabel
-			worker.Labels[common.ReplicaIndexLabel] = strconv.Itoa(int(i))
+			worker := c.newWorker(mpiJob, i)
 			pod, err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Create(context.TODO(), worker, metav1.CreateOptions{})
 		}
 		// If an error occurs during Get/Create, we'll requeue the item so we
@@ -1167,11 +1202,15 @@ func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv
 	}
 }
 
+func workerName(mpiJob *kubeflow.MPIJob, index int) string {
+	return fmt.Sprintf("%s%s-%d", mpiJob.Name, workerSuffix, index)
+}
+
 // newWorker creates a new worker StatefulSet for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
-func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.Pod {
-	defaultLabels := defaultWorkerLabels(mpiJob.Name)
+func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1.Pod {
+	name := workerName(mpiJob, index)
 
 	podTemplate := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.DeepCopy()
 
@@ -1179,10 +1218,10 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 	if len(podTemplate.Labels) == 0 {
 		podTemplate.Labels = make(map[string]string)
 	}
-
-	for key, value := range defaultLabels {
+	for key, value := range defaultWorkerLabels(mpiJob.Name) {
 		podTemplate.Labels[key] = value
 	}
+	podTemplate.Labels[common.ReplicaIndexLabel] = strconv.Itoa(index)
 	podTemplate.Spec.Hostname = name
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
 	setRestartPolicy(podTemplate, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker])
@@ -1191,18 +1230,14 @@ func newWorker(mpiJob *kubeflow.MPIJob, name, gangSchedulerName string) *corev1.
 	if len(container.Command) == 0 && len(container.Args) == 0 {
 		container.Command = []string{"/usr/sbin/sshd", "-De"}
 	}
-
-	sshVolume, sshVolumeMount := podSSHAuthVolume(mpiJob.Name)
-	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, sshVolume...)
-	container.VolumeMounts = append(container.VolumeMounts, sshVolumeMount...)
-	podTemplate.Spec.InitContainers = append(podTemplate.Spec.InitContainers, sshInitContainer(sshVolumeMount))
+	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// add SchedulerName to podSpec
-	if gangSchedulerName != "" {
-		if podTemplate.Spec.SchedulerName != "" && podTemplate.Spec.SchedulerName != gangSchedulerName {
+	if c.gangSchedulerName != "" {
+		if podTemplate.Spec.SchedulerName != "" && podTemplate.Spec.SchedulerName != c.gangSchedulerName {
 			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podTemplate.Spec.SchedulerName)
 		}
-		podTemplate.Spec.SchedulerName = gangSchedulerName
+		podTemplate.Spec.SchedulerName = c.gangSchedulerName
 
 		if podTemplate.Annotations == nil {
 			podTemplate.Annotations = map[string]string{}
@@ -1236,108 +1271,78 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 		labelMPIRoleType: launcher,
 	}
 
-	podSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.DeepCopy()
+	podTemplate := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.DeepCopy()
 	// copy the labels and annotations to pod from PodTemplate
-	if len(podSpec.Labels) == 0 {
-		podSpec.Labels = make(map[string]string)
+	if len(podTemplate.Labels) == 0 {
+		podTemplate.Labels = make(map[string]string)
 	}
 	for key, value := range defaultLabels {
-		podSpec.Labels[key] = value
+		podTemplate.Labels[key] = value
 	}
 	// add SchedulerName to podSpec
 	if c.gangSchedulerName != "" {
-		if podSpec.Spec.SchedulerName != "" && podSpec.Spec.SchedulerName != c.gangSchedulerName {
-			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podSpec.Spec.SchedulerName)
+		if podTemplate.Spec.SchedulerName != "" && podTemplate.Spec.SchedulerName != c.gangSchedulerName {
+			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podTemplate.Spec.SchedulerName)
 		}
-		podSpec.Spec.SchedulerName = c.gangSchedulerName
+		podTemplate.Spec.SchedulerName = c.gangSchedulerName
 
-		if podSpec.Annotations == nil {
-			podSpec.Annotations = map[string]string{}
+		if podTemplate.Annotations == nil {
+			podTemplate.Annotations = map[string]string{}
 		}
 		// we create the podGroup with the same name as the mpijob
-		podSpec.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
+		podTemplate.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
 	}
-	podSpec.Spec.Hostname = launcherName
-	podSpec.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
-	container := &podSpec.Spec.Containers[0]
-	container.Env = append(container.Env,
-		// Allows driver to reach workers through the Service.
-		corev1.EnvVar{
-			Name:  "OMPI_MCA_orte_keep_fqdn_hostnames",
-			Value: "true",
-		},
-		corev1.EnvVar{
-			Name:  "OMPI_MCA_orte_default_hostfile",
-			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
-		},
-	)
+	podTemplate.Spec.Hostname = launcherName
+	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
+	container := &podTemplate.Spec.Containers[0]
+	container.Env = append(container.Env, ompiEnvVars...)
 
 	if !isGPULauncher {
 		container.Env = append(container.Env,
 			// We overwrite these environment variables so that users will not
 			// be mistakenly using GPU resources for launcher due to potential
 			// issues with scheduler/container technologies.
-			corev1.EnvVar{
-				Name:  "NVIDIA_VISIBLE_DEVICES",
-				Value: "",
-			},
-			corev1.EnvVar{
-				Name:  "NVIDIA_DRIVER_CAPABILITIES",
-				Value: "",
-			})
+			nvidiaDisableEnvVars...)
 	}
-	sshVolume, sshVolumeMount := podSSHAuthVolume(mpiJob.Name)
-
-	container.VolumeMounts = append(container.VolumeMounts, sshVolumeMount...)
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      configVolumeName,
-		MountPath: configMountPath,
-	})
-	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, sshInitContainer(sshVolumeMount))
+	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// Submit a warning event if the user specifies restart policy for
 	// the pod template. We recommend to set it from the replica level.
-	if podSpec.Spec.RestartPolicy != "" {
+	if podTemplate.Spec.RestartPolicy != "" {
 		errMsg := "Restart policy in pod template overridden by restart policy in replica spec"
 		klog.Warning(errMsg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, podTemplateRestartPolicyReason, errMsg)
 	}
-	setRestartPolicy(podSpec, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher])
+	setRestartPolicy(podTemplate, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher])
 
-	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, sshVolume...)
-	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, corev1.Volume{
-		Name: configVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: mpiJob.Name + configSuffix,
-				},
-				Items: []corev1.KeyToPath{
-					{
-						Key:  hostfileName,
-						Path: hostfileName,
-						Mode: newInt32(0444),
+	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes,
+		corev1.Volume{
+			Name: configVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: mpiJob.Name + configSuffix,
 					},
-					{
-						Key:  discoverHostsScriptName,
-						Path: discoverHostsScriptName,
-						Mode: newInt32(0555),
-					},
+					Items: configVolumeItems,
 				},
 			},
-		},
+		})
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      configVolumeName,
+		MountPath: configMountPath,
 	})
+
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        launcherName,
 			Namespace:   mpiJob.Namespace,
-			Labels:      podSpec.Labels,
-			Annotations: podSpec.Annotations,
+			Labels:      podTemplate.Labels,
+			Annotations: podTemplate.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
 			},
 		},
-		Spec: podSpec.Spec,
+		Spec: podTemplate.Spec,
 	}
 }
 
@@ -1412,61 +1417,58 @@ func workerReplicas(job *kubeflow.MPIJob) int32 {
 	return 0
 }
 
-func podSSHAuthVolume(jobName string) ([]corev1.Volume, []corev1.VolumeMount) {
-	return []corev1.Volume{
-			{
-				Name: sshAuthVolume,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  jobName + sshAuthSecretSuffix,
-						DefaultMode: newInt32(0660),
-						Items: []corev1.KeyToPath{
-							{
-								Key:  corev1.SSHAuthPrivateKey,
-								Path: sshPrivateKeyFile,
-							},
-							{
-								Key:  sshPublicKey,
-								Path: sshPublicKeyFile,
-							},
-							{
-								Key:  sshPublicKey,
-								Path: sshAuthorizedKeysFile,
-							},
-						},
-					},
+func (c *MPIJobController) setupSSHOnPod(podSpec *corev1.PodSpec, job *kubeflow.MPIJob) {
+	podSpec.Volumes = append(podSpec.Volumes,
+		corev1.Volume{
+			Name: sshAuthVolume,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: job.Name + sshAuthSecretSuffix,
+					Items:      sshVolumeItems,
 				},
 			},
-			{
-				Name: sshHomeVolume,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
+		},
+		corev1.Volume{
+			Name: sshHomeVolume,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
-		}, []corev1.VolumeMount{
+		})
+
+	mainContainer := &podSpec.Containers[0]
+	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
+		corev1.VolumeMount{
+			Name:      sshHomeVolume,
+			MountPath: job.Spec.SSHAuthMountPath,
+		})
+
+	// The init script sets the permissions of the ssh folder in the user's home
+	// directory. The ownership is set based on the security context of the
+	// launcher's first container.
+	launcherSecurityCtx := job.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext
+	initScript := "" +
+		"cp -RL /mnt/ssh/* /mnt/home-ssh && " +
+		"chmod 700 /mnt/home-ssh && " +
+		"chmod 600 /mnt/home-ssh/*"
+	if launcherSecurityCtx != nil && launcherSecurityCtx.RunAsUser != nil {
+		initScript += fmt.Sprintf(" && chown %d -R /mnt/home-ssh", *launcherSecurityCtx.RunAsUser)
+	}
+	podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{
+		Name:  "init-ssh",
+		Image: c.scriptingImage,
+		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      sshAuthVolume,
 				MountPath: sshAuthMountPath,
-			}, {
-				Name:      sshHomeVolume,
-				MountPath: sshHomeMountPath,
 			},
-		}
-}
-
-func sshInitContainer(mounts []corev1.VolumeMount) corev1.Container {
-	return corev1.Container{
-		Name:         "init-ssh",
-		Image:        "alpine:3.14",
-		VolumeMounts: mounts,
-		Command: []string{
-			"/bin/sh",
-			"-c",
-			"" +
-				"cp -RL /mnt/ssh/* /root/.ssh &&" +
-				"chmod 600 -R /root/.ssh",
+			{
+				Name:      sshHomeVolume,
+				MountPath: sshHomeInitMountPath,
+			},
 		},
-	}
+		Command: []string{"/bin/sh"},
+		Args:    []string{"-c", initScript},
+	})
 }
 
 func newInt32(v int32) *int32 {

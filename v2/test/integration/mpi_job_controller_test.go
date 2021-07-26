@@ -40,7 +40,8 @@ import (
 )
 
 const (
-	waitInterval = 100 * time.Millisecond
+	waitInterval   = 100 * time.Millisecond
+	scriptingImage = "alpine"
 )
 
 func TestMPIJobSuccess(t *testing.T) {
@@ -240,7 +241,8 @@ func startController(ctx context.Context, kClient kubernetes.Interface, mpiClien
 		kubeInformerFactory.Core().V1().Pods(),
 		nil,
 		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-		"")
+		"",
+		scriptingImage)
 
 	go kubeInformerFactory.Start(ctx.Done())
 	go mpiInformerFactory.Start(ctx.Done())
