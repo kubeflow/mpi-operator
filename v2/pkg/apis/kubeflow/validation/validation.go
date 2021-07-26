@@ -16,9 +16,11 @@ package validation
 
 import (
 	"fmt"
+	"strings"
 
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
+	apimachineryvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
@@ -31,7 +33,24 @@ var validCleanPolicies = sets.NewString(
 	string(common.CleanPodPolicyAll))
 
 func ValidateMPIJob(job *kubeflow.MPIJob) field.ErrorList {
-	return validateMPIJobSpec(&job.Spec, field.NewPath("spec"))
+	errs := validateMPIJobName(job)
+	errs = append(errs, validateMPIJobSpec(&job.Spec, field.NewPath("spec"))...)
+	return errs
+}
+
+func validateMPIJobName(job *kubeflow.MPIJob) field.ErrorList {
+	var allErrs field.ErrorList
+	var replicas int32 = 1
+	if workerSpec := job.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; workerSpec != nil {
+		if workerSpec.Replicas != nil && *workerSpec.Replicas > 0 {
+			replicas = *workerSpec.Replicas
+		}
+	}
+	maximumPodHostname := fmt.Sprintf("%s-worker-%d", job.Name, replicas-1)
+	if errs := apimachineryvalidation.IsDNS1123Label(maximumPodHostname); len(errs) > 0 {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("metadata").Child("name"), job.ObjectMeta.Name, fmt.Sprintf("will not able to create pod with invalid DNS label %q: %s", maximumPodHostname, strings.Join(errs, ", "))))
+	}
+	return allErrs
 }
 
 func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.ErrorList {
