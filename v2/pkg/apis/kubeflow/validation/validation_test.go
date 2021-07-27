@@ -22,6 +22,7 @@ import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -32,6 +33,9 @@ func TestValidateMPIJob(t *testing.T) {
 	}{
 		"valid": {
 			job: v2beta1.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
@@ -50,6 +54,9 @@ func TestValidateMPIJob(t *testing.T) {
 		},
 		"valid with worker": {
 			job: v2beta1.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
@@ -77,6 +84,10 @@ func TestValidateMPIJob(t *testing.T) {
 		"empty job": {
 			wantErrs: field.ErrorList{
 				&field.Error{
+					Type:  field.ErrorTypeInvalid,
+					Field: "metadata.name",
+				},
+				&field.Error{
 					Type:  field.ErrorTypeRequired,
 					Field: "spec.mpiReplicaSpecs",
 				},
@@ -90,8 +101,46 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
+		"invalid name": {
+			job: v2beta1.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "this-name-is-waaaaaaaay-too-long-for-a-worker-hostname",
+				},
+				Spec: v2beta1.MPIJobSpec{
+					SlotsPerWorker: newInt32(2),
+					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
+						v2beta1.MPIReplicaTypeLauncher: {
+							Replicas: newInt32(1),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						v2beta1.MPIReplicaTypeWorker: {
+							Replicas: newInt32(1000),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrs: field.ErrorList{
+				{
+					Type:  field.ErrorTypeInvalid,
+					Field: "metadata.name",
+				},
+			},
+		},
 		"empty replica specs": {
 			job: v2beta1.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker:  newInt32(2),
 					CleanPodPolicy:  newCleanPodPolicy(common.CleanPodPolicyRunning),
@@ -107,6 +156,9 @@ func TestValidateMPIJob(t *testing.T) {
 		},
 		"missing replica spec fields": {
 			job: v2beta1.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
@@ -137,6 +189,9 @@ func TestValidateMPIJob(t *testing.T) {
 		},
 		"invalid replica counts": {
 			job: v2beta1.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
