@@ -160,7 +160,8 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Core().V1().Pods(),
 			podgroupsInformer,
 			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-			opt.GangSchedulingName)
+			opt.GangSchedulingName,
+			opt.ScriptingImage)
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
