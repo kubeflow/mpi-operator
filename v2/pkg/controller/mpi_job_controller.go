@@ -111,6 +111,9 @@ const (
 	// eventMessageLimit is the maximum size of an Event's message.
 	// From: k8s.io/kubernetes/pkg/apis/core/validation/events.go
 	eventMessageLimit = 1024
+
+	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
+	intelMPISlotsEnv = "I_MPI_PERHOST"
 )
 
 var (
@@ -158,6 +161,18 @@ var (
 		},
 	}
 
+	launcherEnvVars = []corev1.EnvVar{
+		{
+			Name:  "K_MPI_JOB_ROLE",
+			Value: launcher,
+		},
+	}
+	workerEnvVars = []corev1.EnvVar{
+		{
+			Name:  "K_MPI_JOB_ROLE",
+			Value: worker,
+		},
+	}
 	ompiEnvVars = []corev1.EnvVar{
 		// Allows driver to reach workers through the Service.
 		{
@@ -168,8 +183,21 @@ var (
 			Name:  "OMPI_MCA_orte_default_hostfile",
 			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
 		},
+		{
+			Name:  "OMPI_MCA_plm_rsh_args",
+			Value: "-o ConnectionAttempts=10",
+		},
 	}
-
+	intelEnvVars = []corev1.EnvVar{
+		{
+			Name:  "I_MPI_HYDRA_HOST_FILE",
+			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
+		},
+		{
+			Name:  "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS",
+			Value: "-o ConnectionAttempts=10",
+		},
+	}
 	nvidiaDisableEnvVars = []corev1.EnvVar{
 		{Name: "NVIDIA_VISIBLE_DEVICES"},
 		{Name: "NVIDIA_DRIVER_CAPABILITIES"},
@@ -526,7 +554,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	if !done {
 		isGPULauncher := isGPULauncher(mpiJob)
 
-		_, err := c.getOrCreateWorkersService(mpiJob)
+		_, err := c.getOrCreateService(mpiJob, newWorkersService(mpiJob))
 		if err != nil {
 			return fmt.Errorf("getting or creating Service to front workers: %w", err)
 		}
@@ -550,6 +578,15 @@ func (c *MPIJobController) syncHandler(key string) error {
 		worker, err = c.getOrCreateWorker(mpiJob)
 		if err != nil {
 			return err
+		}
+		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel {
+			// The Intel implementation requires workers to communicate with the
+			// launcher through its hostname. For that, we create a Service which
+			// has the same name as the launcher's hostname.
+			_, err := c.getOrCreateService(mpiJob, newLauncherService(mpiJob))
+			if err != nil {
+				return fmt.Errorf("getting or creating Service to front launcher: %w", err)
+			}
 		}
 		if launcher == nil {
 			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), c.newLauncher(mpiJob, isGPULauncher), metav1.CreateOptions{})
@@ -709,27 +746,20 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, isGPULa
 	return cm, nil
 }
 
-// getOrCreateWorkerService gets the workers' Service controlled by this MPIJob,
-// or creates one if it doesn't exist.
-func (c *MPIJobController) getOrCreateWorkersService(mpiJob *kubeflow.MPIJob) (*corev1.Service, error) {
-	svc, err := c.serviceLister.Services(mpiJob.Namespace).Get(mpiJob.Name + workerSuffix)
+func (c *MPIJobController) getOrCreateService(job *kubeflow.MPIJob, newSvc *corev1.Service) (*corev1.Service, error) {
+	svc, err := c.serviceLister.Services(job.Namespace).Get(newSvc.Name)
 	if errors.IsNotFound(err) {
-		return c.kubeClient.CoreV1().Services(mpiJob.Namespace).Create(context.TODO(), newWorkersService(mpiJob), metav1.CreateOptions{})
+		return c.kubeClient.CoreV1().Services(job.Namespace).Create(context.TODO(), newSvc, metav1.CreateOptions{})
 	}
-	// If an error occurs during Get/Create, we'll requeue the item so we
-	// can attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
 	if err != nil {
 		return nil, err
 	}
-	// If the worker Service is not controlled by this MPIJob resource, we
-	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(svc, mpiJob) {
+	if !metav1.IsControlledBy(svc, job) {
 		msg := fmt.Sprintf(MessageResourceExists, svc.Name, svc.Kind)
-		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
+		c.recorder.Event(job, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
-	newSvc := newWorkersService(mpiJob)
+
 	// If the Service selector is changed, update it.
 	if !equality.Semantic.DeepEqual(svc.Spec.Selector, newSvc.Spec.Selector) {
 		svc = svc.DeepCopy()
@@ -1056,18 +1086,13 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) *corev1.ConfigMap {
-	// If no processing unit is specified, default to 1 slot.
-	slots := 1
-	if mpiJob.Spec.SlotsPerWorker != nil {
-		slots = int(*mpiJob.Spec.SlotsPerWorker)
-	}
 	var buffer bytes.Buffer
 	workersService := mpiJob.Name + workerSuffix
 	if isGPULauncher {
-		buffer.WriteString(fmt.Sprintf("%s%s.%s slots=%d\n", mpiJob.Name, launcherSuffix, workersService, slots))
+		buffer.WriteString(fmt.Sprintf("%s%s.%s\n", mpiJob.Name, launcherSuffix, workersService))
 	}
 	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d.%s slots=%d\n", mpiJob.Name, workerSuffix, i, workersService, slots))
+		buffer.WriteString(fmt.Sprintf("%s%s-%d.%s\n", mpiJob.Name, workerSuffix, i, workersService))
 	}
 
 	return &corev1.ConfigMap{
@@ -1112,26 +1137,35 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	configMap.Data[discoverHostsScriptName] = buffer.String()
 }
 
-// newWorkersService creates a new workers' Service for an MPIJob
-// resource.
-func newWorkersService(mpiJob *kubeflow.MPIJob) *corev1.Service {
+// newWorkersService creates a new workers' Service for an MPIJob resource.
+func newWorkersService(job *kubeflow.MPIJob) *corev1.Service {
+	return newService(job, job.Name+workerSuffix, map[string]string{
+		// Selector doesn't include the role because the launcher could host ranks.
+		labelGroupName:  "kubeflow.org",
+		labelMPIJobName: job.Name,
+	})
+}
+
+// newLauncherService creates a new launcher's Service for an MPIJob resource.
+func newLauncherService(job *kubeflow.MPIJob) *corev1.Service {
+	return newService(job, job.Name+launcherSuffix, defaultLabels(job.Name, launcher))
+}
+
+func newService(job *kubeflow.MPIJob, name string, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name + workerSuffix,
-			Namespace: mpiJob.Namespace,
+			Name:      name,
+			Namespace: job.Namespace,
 			Labels: map[string]string{
-				"app": mpiJob.Name,
+				"app": job.Name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
+				*metav1.NewControllerRef(job, kubeflow.SchemeGroupVersionKind),
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: corev1.ClusterIPNone,
-			Selector: map[string]string{
-				labelGroupName:  "kubeflow.org",
-				labelMPIJobName: mpiJob.Name,
-			},
+			Selector:  selector,
 		},
 	}
 }
@@ -1218,7 +1252,7 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	if len(podTemplate.Labels) == 0 {
 		podTemplate.Labels = make(map[string]string)
 	}
-	for key, value := range defaultWorkerLabels(mpiJob.Name) {
+	for key, value := range defaultLabels(mpiJob.Name, worker) {
 		podTemplate.Labels[key] = value
 	}
 	podTemplate.Labels[common.ReplicaIndexLabel] = strconv.Itoa(index)
@@ -1230,6 +1264,7 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	if len(container.Command) == 0 && len(container.Args) == 0 {
 		container.Command = []string{"/usr/sbin/sshd", "-De"}
 	}
+	container.Env = append(container.Env, workerEnvVars...)
 	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// add SchedulerName to podSpec
@@ -1265,18 +1300,13 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 // the MPIJob resource that 'owns' it.
 func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bool) *corev1.Pod {
 	launcherName := mpiJob.Name + launcherSuffix
-	defaultLabels := map[string]string{
-		labelGroupName:   "kubeflow.org",
-		labelMPIJobName:  mpiJob.Name,
-		labelMPIRoleType: launcher,
-	}
 
 	podTemplate := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.DeepCopy()
 	// copy the labels and annotations to pod from PodTemplate
 	if len(podTemplate.Labels) == 0 {
 		podTemplate.Labels = make(map[string]string)
 	}
-	for key, value := range defaultLabels {
+	for key, value := range defaultLabels(mpiJob.Name, launcher) {
 		podTemplate.Labels[key] = value
 	}
 	// add SchedulerName to podSpec
@@ -1295,7 +1325,22 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 	podTemplate.Spec.Hostname = launcherName
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
 	container := &podTemplate.Spec.Containers[0]
-	container.Env = append(container.Env, ompiEnvVars...)
+	container.Env = append(container.Env, launcherEnvVars...)
+	slotsStr := strconv.Itoa(int(*mpiJob.Spec.SlotsPerWorker))
+	switch mpiJob.Spec.MPIImplementation {
+	case kubeflow.MPIImplementationOpenMPI:
+		container.Env = append(container.Env, ompiEnvVars...)
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  openMPISlotsEnv,
+			Value: slotsStr,
+		})
+	case kubeflow.MPIImplementationIntel:
+		container.Env = append(container.Env, intelEnvVars...)
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  intelMPISlotsEnv,
+			Value: slotsStr,
+		})
+	}
 
 	if !isGPULauncher {
 		container.Env = append(container.Env,
@@ -1396,16 +1441,16 @@ func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
 	return false
 }
 
-func defaultWorkerLabels(mpiJobName string) map[string]string {
+func defaultLabels(jobName, role string) map[string]string {
 	return map[string]string{
 		labelGroupName:   "kubeflow.org",
-		labelMPIJobName:  mpiJobName,
-		labelMPIRoleType: worker,
+		labelMPIJobName:  jobName,
+		labelMPIRoleType: role,
 	}
 }
 
 func workerSelector(mpiJobName string) (labels.Selector, error) {
-	set := defaultWorkerLabels(mpiJobName)
+	set := defaultLabels(mpiJobName, worker)
 	return labels.ValidatedSelectorFromSet(set)
 }
 
