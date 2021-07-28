@@ -107,14 +107,15 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
-		"invalid name": {
+		"invalid fields": {
 			job: v2beta1.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "this-name-is-waaaaaaaay-too-long-for-a-worker-hostname",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker: newInt32(2),
-					CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SlotsPerWorker:   newInt32(2),
+					CleanPodPolicy:   newCleanPodPolicy("unknown"),
+					SSHAuthMountPath: "/root/.ssh",
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(1),
@@ -139,6 +140,10 @@ func TestValidateMPIJob(t *testing.T) {
 				{
 					Type:  field.ErrorTypeInvalid,
 					Field: "metadata.name",
+				},
+				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.cleanPodPolicy",
 				},
 			},
 		},
