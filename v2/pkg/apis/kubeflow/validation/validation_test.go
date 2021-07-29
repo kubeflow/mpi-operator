@@ -43,7 +43,8 @@ func TestValidateMPIJob(t *testing.T) {
 					MPIImplementation: v2beta1.MPIImplementationIntel,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
-							Replicas: newInt32(1),
+							Replicas:      newInt32(1),
+							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -66,7 +67,8 @@ func TestValidateMPIJob(t *testing.T) {
 					MPIImplementation: v2beta1.MPIImplementationIntel,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
-							Replicas: newInt32(1),
+							Replicas:      newInt32(1),
+							RestartPolicy: common.RestartPolicyOnFailure,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -74,7 +76,8 @@ func TestValidateMPIJob(t *testing.T) {
 							},
 						},
 						v2beta1.MPIReplicaTypeWorker: {
-							Replicas: newInt32(3),
+							Replicas:      newInt32(3),
+							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -125,7 +128,8 @@ func TestValidateMPIJob(t *testing.T) {
 					MPIImplementation: v2beta1.MPIImplementation("Unknown"),
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
-							Replicas: newInt32(1),
+							Replicas:      newInt32(1),
+							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -133,7 +137,8 @@ func TestValidateMPIJob(t *testing.T) {
 							},
 						},
 						v2beta1.MPIReplicaTypeWorker: {
-							Replicas: newInt32(1000),
+							Replicas:      newInt32(1000),
+							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -200,6 +205,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Field: "spec.mpiReplicaSpecs[Launcher].replicas",
 				},
 				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.mpiReplicaSpecs[Launcher].restartPolicy",
+				},
+				{
 					Type:  field.ErrorTypeRequired,
 					Field: "spec.mpiReplicaSpecs[Launcher].template.spec.containers",
 				},
@@ -208,12 +217,16 @@ func TestValidateMPIJob(t *testing.T) {
 					Field: "spec.mpiReplicaSpecs[Worker].replicas",
 				},
 				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.mpiReplicaSpecs[Worker].restartPolicy",
+				},
+				{
 					Type:  field.ErrorTypeRequired,
 					Field: "spec.mpiReplicaSpecs[Worker].template.spec.containers",
 				},
 			},
 		},
-		"invalid replica counts": {
+		"invalid replica fields": {
 			job: v2beta1.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -225,7 +238,8 @@ func TestValidateMPIJob(t *testing.T) {
 					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
-							Replicas: newInt32(2),
+							Replicas:      newInt32(2),
+							RestartPolicy: common.RestartPolicyAlways,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -233,7 +247,8 @@ func TestValidateMPIJob(t *testing.T) {
 							},
 						},
 						v2beta1.MPIReplicaTypeWorker: {
-							Replicas: newInt32(0),
+							Replicas:      newInt32(0),
+							RestartPolicy: "Invalid",
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -245,8 +260,16 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 			wantErrs: field.ErrorList{
 				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.mpiReplicaSpecs[Launcher].restartPolicy",
+				},
+				{
 					Type:  field.ErrorTypeInvalid,
 					Field: "spec.mpiReplicaSpecs[Launcher].replicas",
+				},
+				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.mpiReplicaSpecs[Worker].restartPolicy",
 				},
 				{
 					Type:  field.ErrorTypeInvalid,
