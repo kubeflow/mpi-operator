@@ -27,10 +27,16 @@ import (
 	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 )
 
-var validCleanPolicies = sets.NewString(
-	string(common.CleanPodPolicyNone),
-	string(common.CleanPodPolicyRunning),
-	string(common.CleanPodPolicyAll))
+var (
+	validCleanPolicies = sets.NewString(
+		string(common.CleanPodPolicyNone),
+		string(common.CleanPodPolicyRunning),
+		string(common.CleanPodPolicyAll))
+
+	validMPIImplementations = sets.NewString(
+		string(kubeflow.MPIImplementationOpenMPI),
+		string(kubeflow.MPIImplementationIntel))
+)
 
 func ValidateMPIJob(job *kubeflow.MPIJob) field.ErrorList {
 	errs := validateMPIJobName(job)
@@ -67,6 +73,9 @@ func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.Error
 	}
 	if spec.SSHAuthMountPath == "" {
 		errs = append(errs, field.Required(path.Child("sshAuthMountPath"), "must have a mount path for SSH credentials"))
+	}
+	if !validMPIImplementations.Has(string(spec.MPIImplementation)) {
+		errs = append(errs, field.NotSupported(path.Child("mpiImplementation"), spec.MPIImplementation, validMPIImplementations.List()))
 	}
 	return errs
 }

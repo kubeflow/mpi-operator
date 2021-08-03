@@ -55,6 +55,10 @@ type MPIJobSpec struct {
 	// SSHAuthMountPath is the directory where SSH keys are mounted.
 	// Defaults to "/root/.ssh".
 	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
+
+	// MPIImplementation is the MPI implementation.
+	// Options are "OpenMPI" (default) and "Intel".
+	MPIImplementation MPIImplementation `json:"mpiImplementation,omitempty"`
 }
 
 // MPIReplicaType is the type for MPIReplica.
@@ -66,4 +70,11 @@ const (
 
 	// MPIReplicaTypeWorker is the type for worker replicas.
 	MPIReplicaTypeWorker MPIReplicaType = "Worker"
+)
+
+type MPIImplementation string
+
+const (
+	MPIImplementationOpenMPI MPIImplementation = "OpenMPI"
+	MPIImplementationIntel   MPIImplementation = "Intel"
 )

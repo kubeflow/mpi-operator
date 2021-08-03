@@ -106,6 +106,9 @@ spec:
                 description: "Defines which Pods must be deleted after the Job completes"
               sshAuthMountPath:
                 type: string
+              mpiImplementation:
+                type: string
+                enum: ["OpenMPI", "Intel"]
               mpiReplicaSpecs:
                 type: object
                 properties:

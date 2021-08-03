@@ -6,19 +6,20 @@ spec:
   slotsPerWorker: 1
   cleanPodPolicy: Running
   sshAuthMountPath: /home/mpiuser/.ssh
+  mpiImplementation: Intel
   mpiReplicaSpecs:
     Launcher:
       replicas: 1
       template:
         spec:
           containers:
-          - image: docker.io/kubeflow/mpi-pi
+          - image: docker.io/kubeflow/mpi-pi:intel
+            imagePullPolicy: Always
             name: mpi-launcher
             securityContext:
               runAsUser: 1000
-            command:
-            - mpirun
             args:
+            - mpirun
             - -n
             - "2"
             - /home/mpiuser/pi
@@ -31,7 +32,8 @@ spec:
       template:
         spec:
           containers:
-          - image: docker.io/kubeflow/mpi-pi
+          - image: docker.io/kubeflow/mpi-pi:intel
+            imagePullPolicy: Always
             name: mpi-worker
             securityContext:
               runAsUser: 1000
@@ -39,8 +41,8 @@ spec:
                 add:
                 - NET_BIND_SERVICE
             command:
-            - /usr/sbin/sshd
             args:
+            - /usr/sbin/sshd
             - -De
             - -f
             - /home/mpiuser/.sshd_config

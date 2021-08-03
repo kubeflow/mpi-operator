@@ -37,9 +37,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker:   newInt32(2),
-					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
-					SSHAuthMountPath: "/home/mpiuser/.ssh",
+					SlotsPerWorker:    newInt32(2),
+					CleanPodPolicy:    newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: v2beta1.MPIImplementationIntel,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(1),
@@ -59,9 +60,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker:   newInt32(2),
-					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
-					SSHAuthMountPath: "/home/mpiuser/.ssh",
+					SlotsPerWorker:    newInt32(2),
+					CleanPodPolicy:    newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: v2beta1.MPIImplementationIntel,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(1),
@@ -105,6 +107,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Type:  field.ErrorTypeRequired,
 					Field: "spec.sshAuthMountPath",
 				},
+				&field.Error{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.mpiImplementation",
+				},
 			},
 		},
 		"invalid fields": {
@@ -113,9 +119,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Name: "this-name-is-waaaaaaaay-too-long-for-a-worker-hostname",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker:   newInt32(2),
-					CleanPodPolicy:   newCleanPodPolicy("unknown"),
-					SSHAuthMountPath: "/root/.ssh",
+					SlotsPerWorker:    newInt32(2),
+					CleanPodPolicy:    newCleanPodPolicy("unknown"),
+					SSHAuthMountPath:  "/root/.ssh",
+					MPIImplementation: v2beta1.MPIImplementation("Unknown"),
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(1),
@@ -145,6 +152,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Type:  field.ErrorTypeNotSupported,
 					Field: "spec.cleanPodPolicy",
 				},
+				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.mpiImplementation",
+				},
 			},
 		},
 		"empty replica specs": {
@@ -153,10 +164,11 @@ func TestValidateMPIJob(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker:   newInt32(2),
-					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
-					SSHAuthMountPath: "/root/.ssh",
-					MPIReplicaSpecs:  map[v2beta1.MPIReplicaType]*common.ReplicaSpec{},
+					SlotsPerWorker:    newInt32(2),
+					CleanPodPolicy:    newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath:  "/root/.ssh",
+					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
+					MPIReplicaSpecs:   map[v2beta1.MPIReplicaType]*common.ReplicaSpec{},
 				},
 			},
 			wantErrs: field.ErrorList{
@@ -172,9 +184,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker:   newInt32(2),
-					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
-					SSHAuthMountPath: "/root/.ssh",
+					SlotsPerWorker:    newInt32(2),
+					CleanPodPolicy:    newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath:  "/root/.ssh",
+					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {},
 						v2beta1.MPIReplicaTypeWorker:   {},
@@ -206,9 +219,10 @@ func TestValidateMPIJob(t *testing.T) {
 					Name: "foo",
 				},
 				Spec: v2beta1.MPIJobSpec{
-					SlotsPerWorker:   newInt32(2),
-					CleanPodPolicy:   newCleanPodPolicy(common.CleanPodPolicyRunning),
-					SSHAuthMountPath: "/root/.ssh",
+					SlotsPerWorker:    newInt32(2),
+					CleanPodPolicy:    newCleanPodPolicy(common.CleanPodPolicyRunning),
+					SSHAuthMountPath:  "/root/.ssh",
+					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
 					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
 						v2beta1.MPIReplicaTypeLauncher: {
 							Replicas: newInt32(2),

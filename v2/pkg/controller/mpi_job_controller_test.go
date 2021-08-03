@@ -391,7 +391,7 @@ func filterInformerActions(actions []core.Action) []core.Action {
 	return ret
 }
 
-func (f *fixture) expectCreateJobAction(d *corev1.Pod) {
+func (f *fixture) expectCreatePodAction(d *corev1.Pod) {
 	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "pods"}, d.Namespace, d))
 }
 
@@ -612,16 +612,53 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	f.runExpectError(getKey(mpiJob, t))
 }
 
-func TestServiceNotControlledByUs(t *testing.T) {
+func TestWorkerServiceNotControlledByUs(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	var replicas int32 = 64
+	var replicas int32 = 2
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	service := newWorkersService(mpiJob)
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	service := newWorkersService(mpiJobCopy)
+	service.OwnerReferences = nil
+	f.setUpService(service)
+
+	f.runExpectError(getKey(mpiJob, t))
+}
+
+func TestLauncherServiceNotControlledByUs(t *testing.T) {
+	f := newFixture(t)
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	var replicas int32 = 2
+	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
+	f.setUpMPIJob(mpiJob)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	service := newWorkersService(mpiJobCopy)
+	f.setUpService(service)
+	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
+	secret, err := newSSHAuthSecret(mpiJobCopy)
+	if err != nil {
+		t.Fatalf("Creating SSH auth Secret: %v", err)
+	}
+	f.setUpSecret(secret)
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
+	f.setUpConfigMap(configMap)
+	fmjc := f.newFakeMPIJobController()
+	for i := 0; i < int(replicas); i++ {
+		worker := fmjc.newWorker(mpiJobCopy, i)
+		f.setUpWorker(worker)
+	}
+
+	service = newLauncherService(mpiJobCopy)
 	service.OwnerReferences = nil
 	f.setUpService(service)
 
@@ -637,12 +674,14 @@ func TestSecretNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-	f.setUpService(newWorkersService(mpiJob))
+	f.setUpService(newWorkersService(mpiJobCopy))
 
-	secret, err := newSSHAuthSecret(mpiJob)
+	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth Secret: %v", err)
 	}
@@ -707,19 +746,19 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-	f.setUpService(newWorkersService(mpiJob))
-	secret, err := newSSHAuthSecret(mpiJob)
+	f.setUpService(newWorkersService(mpiJobCopy))
+	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
 	}
 	f.setUpSecret(secret)
 	fmjc := f.newFakeMPIJobController()
 
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	for i := 0; i < int(replicas); i++ {
 		worker := fmjc.newWorker(mpiJobCopy, i)
 		worker.OwnerReferences = nil
@@ -738,19 +777,19 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
 	f.setUpConfigMap(configMap)
-	f.setUpService(newWorkersService(mpiJob))
-	secret, err := newSSHAuthSecret(mpiJob)
+	f.setUpService(newWorkersService(mpiJobCopy))
+	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
 	}
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
@@ -788,16 +827,17 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	var replicas int32 = 8
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
-	f.setUpService(newWorkersService(mpiJob))
-	secret, err := newSSHAuthSecret(mpiJob)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	f.setUpService(newWorkersService(mpiJobCopy))
+	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
 	}
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 	launcher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
@@ -810,8 +850,8 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 		f.setUpWorker(worker)
 	}
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJobCopy))
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList, isGPULauncher(mpiJobCopy))
 	f.setUpConfigMap(configMap)
 
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
@@ -847,16 +887,17 @@ func TestWorkerReady(t *testing.T) {
 	var replicas int32 = 16
 	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
-	f.setUpService(newWorkersService(mpiJob))
-	secret, err := newSSHAuthSecret(mpiJob)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	f.setUpService(newWorkersService(mpiJobCopy))
+	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
 	}
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
 
 	var runningPodList []*corev1.Pod
 	for i := 0; i < 16; i++ {
@@ -866,12 +907,12 @@ func TestWorkerReady(t *testing.T) {
 		f.setUpWorker(worker)
 	}
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, runningPodList, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJobCopy))
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList, isGPULauncher(mpiJobCopy))
 	f.setUpConfigMap(configMap)
 
-	expLauncher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJob))
-	f.expectCreateJobAction(expLauncher)
+	expLauncher := fmjc.newLauncher(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	f.expectCreatePodAction(expLauncher)
 
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
@@ -941,7 +982,11 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{
 						{
-							Env: appendEnvVars(nil, ompiEnvVars, nvidiaDisableEnvVars),
+							Env: joinEnvVars(
+								launcherEnvVars,
+								ompiEnvVars,
+								corev1.EnvVar{Name: openMPISlotsEnv, Value: "1"},
+								nvidiaDisableEnvVars),
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "ssh-home", MountPath: "/root/.ssh"},
 								{Name: "mpi-job-config", MountPath: "/etc/mpi"},
@@ -1014,6 +1059,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "ssh-home", MountPath: "/root/.ssh"},
 							},
+							Env: workerEnvVars,
 						},
 					},
 					InitContainers: []corev1.Container{
@@ -1058,7 +1104,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Namespace: "foo",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					SSHAuthMountPath: "/home/mpiuser/.ssh",
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					SlotsPerWorker:    newInt32(5),
+					MPIImplementation: kubeflow.MPIImplementationIntel,
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							RestartPolicy: common.RestartPolicyOnFailure,
@@ -1093,6 +1141,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 									Containers: []corev1.Container{
 										{
 											Command: []string{"/entrypoint.sh"},
+											Env: []corev1.EnvVar{
+												{Name: "FOO", Value: "bar"},
+											},
 										},
 									},
 								},
@@ -1122,7 +1173,12 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: newInt64(1000),
 							},
-							Env: appendEnvVars([]corev1.EnvVar{{Name: "FOO", Value: "bar"}}, ompiEnvVars, nvidiaDisableEnvVars),
+							Env: joinEnvVars(
+								corev1.EnvVar{Name: "FOO", Value: "bar"},
+								launcherEnvVars,
+								intelEnvVars,
+								corev1.EnvVar{Name: "I_MPI_PERHOST", Value: "5"},
+								nvidiaDisableEnvVars),
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "fool-vol", MountPath: "/mnt/foo"},
 								{Name: "ssh-home", MountPath: "/home/mpiuser/.ssh"},
@@ -1198,6 +1254,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "ssh-home", MountPath: "/home/mpiuser/.ssh"},
 							},
+							Env: joinEnvVars(corev1.EnvVar{Name: "FOO", Value: "bar"}, workerEnvVars),
 						},
 					},
 					InitContainers: []corev1.Container{
@@ -1266,11 +1323,19 @@ func newInt64(v int64) *int64 {
 	return &v
 }
 
-func appendEnvVars(v []corev1.EnvVar, others ...[]corev1.EnvVar) []corev1.EnvVar {
-	for _, other := range others {
-		v = append(v, other...)
+func joinEnvVars(evs ...interface{}) []corev1.EnvVar {
+	var result []corev1.EnvVar
+	for _, ev := range evs {
+		switch v := ev.(type) {
+		case corev1.EnvVar:
+			result = append(result, v)
+		case []corev1.EnvVar:
+			result = append(result, v...)
+		default:
+			panic("must by of type EnvVar or []EnvVar")
+		}
 	}
-	return v
+	return result
 }
 
 func (f *fixture) newFakeMPIJobController() *MPIJobController {
