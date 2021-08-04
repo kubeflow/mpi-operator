@@ -1166,6 +1166,11 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					SlotsPerWorker:    newInt32(5),
 					MPIImplementation: kubeflow.MPIImplementationIntel,
+					RunPolicy: common.RunPolicy{
+						TTLSecondsAfterFinished: newInt32(1),
+						ActiveDeadlineSeconds:   newInt64(2),
+						BackoffLimit:            newInt32(3),
+					},
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							RestartPolicy: common.RestartPolicyOnFailure,
@@ -1221,6 +1226,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: batchv1.JobSpec{
+					TTLSecondsAfterFinished: newInt32(1),
+					ActiveDeadlineSeconds:   newInt64(2),
+					BackoffLimit:            newInt32(3),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{

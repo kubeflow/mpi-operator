@@ -53,6 +53,8 @@ func setDefaultsRunPolicy(policy *common.RunPolicy) {
 	if policy.CleanPodPolicy == nil {
 		policy.CleanPodPolicy = newCleanPodPolicy(common.CleanPodPolicyNone)
 	}
+	// The remaining fields are passed as-is to the k8s Job API, which does its
+	// own defaulting.
 }
 
 func SetDefaults_MPIJob(mpiJob *MPIJob) {

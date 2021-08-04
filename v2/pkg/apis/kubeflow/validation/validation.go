@@ -88,6 +88,16 @@ func validateRunPolicy(policy *common.RunPolicy, path *field.Path) field.ErrorLi
 	} else if !validCleanPolicies.Has(string(*policy.CleanPodPolicy)) {
 		errs = append(errs, field.NotSupported(path.Child("cleanPodPolicy"), *policy.CleanPodPolicy, validCleanPolicies.List()))
 	}
+	// The remaining fields can be nil.
+	if policy.TTLSecondsAfterFinished != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.TTLSecondsAfterFinished), path.Child("ttlSecondsAfterFinished"))...)
+	}
+	if policy.ActiveDeadlineSeconds != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(*policy.ActiveDeadlineSeconds, path.Child("activeDeadlineSeconds"))...)
+	}
+	if policy.BackoffLimit != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.BackoffLimit), path.Child("backoffLimit"))...)
+	}
 	return errs
 }
 

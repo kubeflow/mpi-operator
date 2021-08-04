@@ -106,7 +106,23 @@ spec:
                   cleanPodPolicy:
                     type: string
                     enum: ["None", "Running", "All"]
-                    description: "Defines which Pods must be deleted after the Job completes"
+                    description: "Defines which worker Pods must be deleted after the Job completes"
+                  ttlSecondsAfterFinished:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Defines the TTL to clean up the launcher Job.
+                      Defaults to infinite. Requires kubernetes 1.21+.
+                  activeDeadlineSeconds:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Defines the duration in seconds, relative to its start time, that the launcher
+                      Job may be active before the system tries to terminate it. Defaults to infinite.
+                  backoffLimit:
+                    type: integer
+                    minimum: 0
+                    description: "Specifies the number of retries before marking the launcher Job as failed. Defaults to 6."
               sshAuthMountPath:
                 type: string
               mpiImplementation:

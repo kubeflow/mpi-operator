@@ -6,6 +6,7 @@ spec:
   slotsPerWorker: 1
   runPolicy:
     cleanPodPolicy: Running
+    ttlSecondsAfterFinished: 60
   sshAuthMountPath: /home/mpiuser/.ssh
   mpiReplicaSpecs:
     Launcher:

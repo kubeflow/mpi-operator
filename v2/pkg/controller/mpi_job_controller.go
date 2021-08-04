@@ -1334,7 +1334,10 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob, isGPULauncher
 			},
 		},
 		Spec: batchv1.JobSpec{
-			Template: c.newLauncherPodTemplate(mpiJob, isGPULauncher),
+			TTLSecondsAfterFinished: mpiJob.Spec.RunPolicy.TTLSecondsAfterFinished,
+			ActiveDeadlineSeconds:   mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
+			BackoffLimit:            mpiJob.Spec.RunPolicy.BackoffLimit,
+			Template:                c.newLauncherPodTemplate(mpiJob, isGPULauncher),
 		},
 	}
 }

@@ -43,7 +43,10 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
 					RunPolicy: common.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy:          newCleanPodPolicy(common.CleanPodPolicyRunning),
+						TTLSecondsAfterFinished: newInt32(2),
+						ActiveDeadlineSeconds:   newInt64(3),
+						BackoffLimit:            newInt32(4),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: MPIImplementationIntel,
@@ -53,7 +56,10 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
 					RunPolicy: common.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy:          newCleanPodPolicy(common.CleanPodPolicyRunning),
+						TTLSecondsAfterFinished: newInt32(2),
+						ActiveDeadlineSeconds:   newInt64(3),
+						BackoffLimit:            newInt32(4),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: MPIImplementationIntel,
@@ -120,4 +126,8 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newInt64(v int64) *int64 {
+	return &v
 }

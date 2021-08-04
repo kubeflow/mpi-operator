@@ -128,7 +128,10 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: common.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy("unknown"),
+						CleanPodPolicy:          newCleanPodPolicy("unknown"),
+						TTLSecondsAfterFinished: newInt32(-1),
+						ActiveDeadlineSeconds:   newInt64(-1),
+						BackoffLimit:            newInt32(-1),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: v2beta1.MPIImplementation("Unknown"),
@@ -162,6 +165,18 @@ func TestValidateMPIJob(t *testing.T) {
 				{
 					Type:  field.ErrorTypeNotSupported,
 					Field: "spec.runPolicy.cleanPodPolicy",
+				},
+				{
+					Type:  field.ErrorTypeInvalid,
+					Field: "spec.runPolicy.ttlSecondsAfterFinished",
+				},
+				{
+					Type:  field.ErrorTypeInvalid,
+					Field: "spec.runPolicy.activeDeadlineSeconds",
+				},
+				{
+					Type:  field.ErrorTypeInvalid,
+					Field: "spec.runPolicy.backoffLimit",
 				},
 				{
 					Type:  field.ErrorTypeNotSupported,
@@ -301,6 +316,10 @@ func TestValidateMPIJob(t *testing.T) {
 }
 
 func newInt32(v int32) *int32 {
+	return &v
+}
+
+func newInt64(v int64) *int64 {
 	return &v
 }
 
