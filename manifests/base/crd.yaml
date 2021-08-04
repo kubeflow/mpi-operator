@@ -100,10 +100,13 @@ spec:
               slotsPerWorker:
                 type: integer
                 minimum: 1
-              cleanPodPolicy:
-                type: string
-                enum: ["None", "Running", "All"]
-                description: "Defines which Pods must be deleted after the Job completes"
+              runPolicy:
+                type: object
+                properties:
+                  cleanPodPolicy:
+                    type: string
+                    enum: ["None", "Running", "All"]
+                    description: "Defines which Pods must be deleted after the Job completes"
               sshAuthMountPath:
                 type: string
               mpiImplementation:

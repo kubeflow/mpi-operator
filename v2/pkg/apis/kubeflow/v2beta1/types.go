@@ -44,9 +44,8 @@ type MPIJobSpec struct {
 	// +optional
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
-	// CleanPodPolicy defines the policy that whether to kill pods after the job completes.
-	// Defaults to None.
-	CleanPodPolicy *common.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
+	// RunPolicy encapsulates various runtime policies of the job.
+	RunPolicy common.RunPolicy `json:"runPolicy"`
 
 	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.

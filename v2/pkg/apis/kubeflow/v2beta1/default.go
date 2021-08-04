@@ -49,10 +49,14 @@ func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
 	}
 }
 
-func SetDefaults_MPIJob(mpiJob *MPIJob) {
-	if mpiJob.Spec.CleanPodPolicy == nil {
-		mpiJob.Spec.CleanPodPolicy = newCleanPodPolicy(common.CleanPodPolicyNone)
+func setDefaultsRunPolicy(policy *common.RunPolicy) {
+	if policy.CleanPodPolicy == nil {
+		policy.CleanPodPolicy = newCleanPodPolicy(common.CleanPodPolicyNone)
 	}
+}
+
+func SetDefaults_MPIJob(mpiJob *MPIJob) {
+	setDefaultsRunPolicy(&mpiJob.Spec.RunPolicy)
 	if mpiJob.Spec.SlotsPerWorker == nil {
 		mpiJob.Spec.SlotsPerWorker = newInt32(1)
 	}

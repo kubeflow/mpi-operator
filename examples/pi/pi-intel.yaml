@@ -4,7 +4,8 @@ metadata:
   name: pi
 spec:
   slotsPerWorker: 1
-  cleanPodPolicy: Running
+  runPolicy:
+    cleanPodPolicy: Running
   sshAuthMountPath: /home/mpiuser/.ssh
   mpiImplementation: Intel
   mpiReplicaSpecs:
