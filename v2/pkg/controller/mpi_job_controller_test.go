@@ -45,7 +45,6 @@ import (
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/fake"
 	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -54,9 +53,7 @@ var (
 )
 
 const (
-	gpuResourceName         = "nvidia.com/gpu"
-	extendedGPUResourceName = "vendor-domain/gpu"
-	scriptingImage          = "alpine"
+	scriptingImage = "alpine"
 )
 
 type fixture struct {
@@ -144,39 +141,9 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 	return mpiJob
 }
 
-func newMPIJob(name string, replicas *int32, pusPerReplica int64, resourceName string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
+func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
 	mpiJob := newMPIJobCommon(name, startTime, completionTime)
-
 	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = replicas
-
-	workerContainers := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers
-	for i := range workerContainers {
-		container := &workerContainers[i]
-		container.Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceName(resourceName): *resource.NewQuantity(pusPerReplica, resource.DecimalExponent),
-			},
-		}
-	}
-
-	return mpiJob
-}
-
-func newMPIJobWithLauncher(name string, replicas *int32, pusPerReplica int64, resourceName string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
-	mpiJob := newMPIJob(name, replicas, pusPerReplica, resourceName, startTime, completionTime)
-
-	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Replicas = newInt32(1)
-
-	launcherContainers := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers
-	for i := range launcherContainers {
-		container := &launcherContainers[i]
-		container.Resources = corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceName(resourceName): *resource.NewQuantity(pusPerReplica, resource.DecimalExponent),
-			},
-		}
-	}
-
 	return mpiJob
 }
 
@@ -489,7 +456,7 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	f := newFixture(t)
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
-	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
 	f.run(getKey(mpiJob, t))
 }
 
@@ -498,49 +465,17 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
 	f.runExpectError(getKey(mpiJob, t))
-}
-
-func TestIsGPULauncher(t *testing.T) {
-	f := newFixture(t)
-
-	startTime := metav1.Now()
-	completionTime := metav1.Now()
-
-	testCases := map[string]struct {
-		gpu      string
-		expected bool
-	}{
-		"isNvidiaGPU": {
-			gpu:      gpuResourceName,
-			expected: true,
-		},
-		"isExtendedGPU": {
-			gpu:      extendedGPUResourceName,
-			expected: true,
-		},
-		"notGPU": {
-			gpu:      "vendor-domain/resourcetype",
-			expected: false,
-		},
-	}
-	for testName, testCase := range testCases {
-		mpiJob := newMPIJobWithLauncher("test", newInt32(64), 1, testCase.gpu, &startTime, &completionTime)
-		f.setUpMPIJob(mpiJob)
-		if result := isGPULauncher(mpiJob); result != testCase.expected {
-			t.Errorf("%s expected: %v, actual: %v, gpu=%v", testName, testCase.expected, result, testCase.gpu)
-		}
-	}
 }
 
 func TestLauncherSucceeded(t *testing.T) {
@@ -549,13 +484,13 @@ func TestLauncherSucceeded(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
 	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
 		Type:   batchv1.JobComplete,
 		Status: corev1.ConditionTrue,
@@ -587,13 +522,13 @@ func TestLauncherFailed(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", newInt32(64), 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
 	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
 		Type:    batchv1.JobFailed,
 		Status:  corev1.ConditionTrue,
@@ -643,12 +578,12 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 64
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 	f.setUpService(newWorkersService(mpiJob))
 
-	configMap := newConfigMap(mpiJob, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJob, replicas)
+	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil)
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
@@ -661,7 +596,7 @@ func TestWorkerServiceNotControlledByUs(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 2
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -679,7 +614,7 @@ func TestLauncherServiceNotControlledByUs(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 2
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
 	f.setUpMPIJob(mpiJob)
 
@@ -687,13 +622,13 @@ func TestLauncherServiceNotControlledByUs(t *testing.T) {
 	scheme.Scheme.Default(mpiJobCopy)
 	service := newWorkersService(mpiJobCopy)
 	f.setUpService(service)
-	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJobCopy, replicas)
 	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth Secret: %v", err)
 	}
 	f.setUpSecret(secret)
-	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
 	fmjc := f.newFakeMPIJobController()
 	for i := 0; i < int(replicas); i++ {
@@ -714,13 +649,13 @@ func TestSecretNotControlledByUs(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 64
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJobCopy, replicas)
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
 	f.setUpService(newWorkersService(mpiJobCopy))
 
@@ -740,7 +675,7 @@ func TestShutdownWorker(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 8
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 	f.setUpMPIJob(mpiJob)
@@ -748,7 +683,7 @@ func TestShutdownWorker(t *testing.T) {
 	fmjc := f.newFakeMPIJobController()
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
 	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
 		Type:   batchv1.JobComplete,
 		Status: corev1.ConditionTrue,
@@ -789,13 +724,13 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 8
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJobCopy, replicas)
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
 	f.setUpService(newWorkersService(mpiJobCopy))
 	secret, err := newSSHAuthSecret(mpiJobCopy)
@@ -820,13 +755,13 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 8
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJob))
-	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil, isGPULauncher(mpiJob))
+	configMap := newConfigMap(mpiJobCopy, replicas)
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
 	f.setUpService(newWorkersService(mpiJobCopy))
 	secret, err := newSSHAuthSecret(mpiJobCopy)
@@ -836,7 +771,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
 	launcherPod := mockJobPod(launcher)
 	launcherPod.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
@@ -873,7 +808,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 8
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -886,7 +821,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	f.setUpSecret(secret)
 
 	fmjc := f.newFakeMPIJobController()
-	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
 	launcherPod := mockJobPod(launcher)
 	launcherPod.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
@@ -900,8 +835,8 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 		f.setUpPod(worker)
 	}
 
-	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJobCopy))
-	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList, isGPULauncher(mpiJobCopy))
+	configMap := newConfigMap(mpiJobCopy, replicas)
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList)
 	f.setUpConfigMap(configMap)
 
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
@@ -921,9 +856,6 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJobCopy, common.JobRunning, mpiJobRunningReason, msg)
-	if err != nil {
-		t.Errorf("Failed to update MPIJob conditions")
-	}
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -935,7 +867,7 @@ func TestWorkerReady(t *testing.T) {
 	completionTime := metav1.Now()
 
 	var replicas int32 = 16
-	mpiJob := newMPIJob("test", &replicas, 1, gpuResourceName, &startTime, &completionTime)
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	mpiJobCopy := mpiJob.DeepCopy()
@@ -957,11 +889,11 @@ func TestWorkerReady(t *testing.T) {
 		f.setUpPod(worker)
 	}
 
-	configMap := newConfigMap(mpiJobCopy, replicas, isGPULauncher(mpiJobCopy))
-	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList, isGPULauncher(mpiJobCopy))
+	configMap := newConfigMap(mpiJobCopy, replicas)
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList)
 	f.setUpConfigMap(configMap)
 
-	expLauncher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
+	expLauncher := fmjc.newLauncherJob(mpiJobCopy)
 	f.expectCreateJobAction(expLauncher)
 
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
@@ -1377,7 +1309,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 			ctrl := &MPIJobController{
 				scriptingImage: scriptingImage,
 			}
-			launcher := ctrl.newLauncherJob(job, isGPULauncher(job))
+			launcher := ctrl.newLauncherJob(job)
 			if !metav1.IsControlledBy(launcher, job) {
 				t.Errorf("Created launcher Pod is not controlled by Job")
 			}
