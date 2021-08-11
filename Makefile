@@ -15,7 +15,10 @@ LD_FLAGS_V2=" \
     -X '${REPO_PATH}/v2/pkg/version.Built=${Date}'   \
     -X '${REPO_PATH}/v2/pkg/version.Version=${RELEASE_VERSION}'"
 IMAGE_NAME?=kubeflow/mpi-operator
-KUBEBUILDER_ASSETS := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
+KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
+KIND_VERSION=v0.11.1
+# This kubectl version supports -k for kustomization.
+KUBECTL_VERSION=v1.21.4
 
 build: all
 
@@ -51,13 +54,25 @@ fmt:
 	cd v2 && go fmt ./...
 
 .PHONY: test
-test: bin/kubebuilder
+test:
 	go test -covermode atomic -coverprofile=profile.cov ./...
 	@make test_v2
 
 .PHONY: test_v2
-test_v2:
-	cd v2 && KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) go test -covermode atomic -coverprofile=profile.cov ./...
+test_v2: export KUBEBUILDER_ASSETS = ${KUBEBUILDER_ASSETS_PATH}
+test_v2: bin/kubebuilder
+	cd v2 && go test -covermode atomic -coverprofile=profile.cov ./cmd/... ./pkg/... ./test/integration/...
+
+# Only works with CONTROLLER_VERSION=v2
+.PHONY: test_e2e
+test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
+test_e2e: bin/kubectl kind images test_images dev_manifest
+	cd v2 && go test ./test/e2e/...
+
+.PHONY: dev_manifest
+dev_manifest:
+	# Use `~` instead of `/` because image name might contain `/`.
+	sed -e "s~%IMAGE_NAME%~${IMAGE_NAME}~g" -e "s~%IMAGE_TAG%~${RELEASE_VERSION}~g" manifests/overlays/dev/kustomization.yaml.template > manifests/overlays/dev/kustomization.yaml
 
 .PHONY: generate
 generate:
@@ -82,6 +97,10 @@ images:
 	@echo "version: ${RELEASE_VERSION}"
 	${IMG_BUILDER} build --build-arg version=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
 
+.PHONY: test_images
+test_images:
+	${IMG_BUILDER} build -t kubeflow/mpi-pi:openmpi examples/pi
+
 .PHONY: tidy
 tidy:
 	go mod tidy
@@ -100,7 +119,16 @@ bin/kubebuilder:
 	tar -C bin/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
 	rm envtest-bins.tar.gz
 
+bin/kubectl:
+	mkdir -p bin
+	curl -L -o bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+	chmod +x bin/kubectl
+
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run --new-from-rev=origin/master
 	cd v2 && ../$(GOLANGCI_LINT) run --new-from-rev=origin/master
+
+.PHONY: kind
+kind:
+	go install sigs.k8s.io/kind@${KIND_VERSION}

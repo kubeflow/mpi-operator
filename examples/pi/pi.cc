@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> distribution(-1.0, 1.0);
   double x, y;
   long long worker_count = 0;
-  int worker_tests = 100000000;
+  int worker_tests = 10000000;
   for (int i = 0; i < worker_tests; i++) {
     x = distribution(generator);
     y = distribution(generator);

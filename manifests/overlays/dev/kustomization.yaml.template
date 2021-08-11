@@ -11,8 +11,8 @@ commonLabels:
   app.kubernetes.io/component: mpijob
 images:
 - name: mpioperator/mpi-operator
-  newName: dev-registry/mpi-operator
-  newTag: latest
+  newName: %IMAGE_NAME%
+  newTag: %IMAGE_TAG%
 configMapGenerator:
 - name: mpi-operator-config
   envs:

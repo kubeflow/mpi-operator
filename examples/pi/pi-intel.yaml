@@ -13,7 +13,7 @@ spec:
       template:
         spec:
           containers:
-          - image: docker.io/kubeflow/mpi-pi:intel
+          - image: kubeflow/mpi-pi:intel
             imagePullPolicy: Always
             name: mpi-launcher
             securityContext:
@@ -32,7 +32,7 @@ spec:
       template:
         spec:
           containers:
-          - image: docker.io/kubeflow/mpi-pi:intel
+          - image: kubeflow/mpi-pi:intel
             imagePullPolicy: Always
             name: mpi-worker
             securityContext:
