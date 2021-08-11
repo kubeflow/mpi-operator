@@ -34,7 +34,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,6 +113,10 @@ const (
 	// eventMessageLimit is the maximum size of an Event's message.
 	// From: k8s.io/kubernetes/pkg/apis/core/validation/events.go
 	eventMessageLimit = 1024
+
+	// jobBackoffLimitExceededReason is the reason that the k8s job controller
+	// uses when the backoff limit is exceeded.
+	jobBackoffLimitExceededReason = "BackoffLimitExceeded"
 
 	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
 	intelMPISlotsEnv = "I_MPI_PERHOST"
@@ -911,12 +914,13 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 
 func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker []*corev1.Pod) error {
 	oldStatus := mpiJob.Status.DeepCopy()
-	// Job.status.Active accounts for Pending and Running pods. Querying
-	// the pods to get only the Running pods.
-	launcherPodsCnt, err := c.jobRunningPodsCount(launcher)
+	launcherPods, err := c.jobPods(launcher)
 	if err != nil {
 		return fmt.Errorf("checking launcher pods running: %w", err)
 	}
+	// Job.status.Active accounts for Pending and Running pods. Count running pods
+	// from the lister instead.
+	launcherPodsCnt := countRunningPods(launcherPods)
 	if launcher != nil {
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
 		launcherStatus := mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)]
@@ -931,18 +935,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 			mpiJobsSuccessCount.Inc()
 		} else if isJobFailed(launcher) {
-			msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-			reason := getJobCondition(launcher, batchv1.JobFailed).Reason
-			if reason == "" {
-				reason = mpiJobFailedReason
-			}
-			c.recorder.Event(mpiJob, corev1.EventTypeWarning, reason, msg)
-			if mpiJob.Status.CompletionTime == nil {
-				now := metav1.Now()
-				mpiJob.Status.CompletionTime = &now
-			}
-			updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
-			mpiJobsFailureCount.Inc()
+			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
 		} else {
 			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = int32(launcherPodsCnt)
 		}
@@ -988,6 +981,39 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		return c.updateStatusHandler(mpiJob)
 	}
 	return nil
+}
+
+func (c *MPIJobController) updateMPIJobFailedStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, launcherPods []*corev1.Pod) {
+	jobFailedCond := getJobCondition(launcher, batchv1.JobFailed)
+	reason := jobFailedCond.Reason
+	if reason == "" {
+		reason = mpiJobFailedReason
+	}
+	msg := jobFailedCond.Message
+	if msg == "" {
+		msg = fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+	}
+	if reason == jobBackoffLimitExceededReason {
+		// Concatenate the reason and message from the last failed Pod.
+		var lastFailedPod *corev1.Pod
+		for _, p := range launcherPods {
+			if isPodFailed(p) && (lastFailedPod == nil || lastFailedPod.CreationTimestamp.Before(&p.CreationTimestamp)) {
+				lastFailedPod = p
+			}
+		}
+		if lastFailedPod != nil {
+			reason += "/" + lastFailedPod.Status.Reason
+			msg += ": " + lastFailedPod.Status.Message
+			msg = truncateMessage(msg)
+		}
+	}
+	c.recorder.Event(mpiJob, corev1.EventTypeWarning, reason, msg)
+	if mpiJob.Status.CompletionTime == nil {
+		now := metav1.Now()
+		mpiJob.Status.CompletionTime = &now
+	}
+	updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
+	mpiJobsFailureCount.Inc()
 }
 
 // When a mpiJob is added, set the defaults and enqueue the current mpiJob.
@@ -1407,29 +1433,39 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob, isGPU
 	}
 }
 
-func (c *MPIJobController) jobRunningPodsCount(j *batchv1.Job) (int, error) {
+func (c *MPIJobController) jobPods(j *batchv1.Job) ([]*corev1.Pod, error) {
 	selector, err := metav1.LabelSelectorAsSelector(j.Spec.Selector)
 	if err != nil {
-		return 0, fmt.Errorf("parsing Pod selector: %w", err)
+		return nil, fmt.Errorf("parsing Pod selector: %w", err)
 	}
 	pods, err := c.podLister.Pods(j.Namespace).List(selector)
 	if err != nil {
-		return 0, fmt.Errorf("obtaining pods: %w", err)
+		return nil, fmt.Errorf("obtaining pods: %w", err)
 	}
+	var result = make([]*corev1.Pod, 0, len(pods))
+	for _, p := range pods {
+		if metav1.IsControlledBy(p, j) {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
+func countRunningPods(pods []*corev1.Pod) int {
 	running := 0
 	for _, p := range pods {
-		if metav1.IsControlledBy(p, j) && isPodRunning(p) {
+		if isPodRunning(p) {
 			running++
 		}
 	}
-	return running, nil
+	return running
 }
 
 func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *common.ReplicaSpec) {
 	if spec.RestartPolicy == common.RestartPolicyExitCode {
-		podTemplateSpec.Spec.RestartPolicy = v1.RestartPolicyNever
+		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicyNever
 	} else {
-		podTemplateSpec.Spec.RestartPolicy = v1.RestartPolicy(spec.RestartPolicy)
+		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
 	}
 }
 
@@ -1462,6 +1498,10 @@ func isPodRunning(p *corev1.Pod) bool {
 
 func isPodPending(p *corev1.Pod) bool {
 	return p.Status.Phase == corev1.PodPending
+}
+
+func isPodFailed(p *corev1.Pod) bool {
+	return p.Status.Phase == corev1.PodFailed
 }
 
 func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {

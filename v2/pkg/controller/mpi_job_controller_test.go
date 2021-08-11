@@ -593,17 +593,33 @@ func TestLauncherFailed(t *testing.T) {
 	scheme.Scheme.Default(mpiJobCopy)
 	launcher := fmjc.newLauncherJob(mpiJobCopy, isGPULauncher(mpiJobCopy))
 	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
-		Type:   batchv1.JobFailed,
-		Status: corev1.ConditionTrue,
+		Type:    batchv1.JobFailed,
+		Status:  corev1.ConditionTrue,
+		Reason:  jobBackoffLimitExceededReason,
+		Message: "Job has reached the specified backoff limit",
 	})
-	launcher.Status.Failed = 1
+	launcher.Status.Failed = 2
 	f.setUpLauncher(launcher)
+
+	now := time.Now()
+	launcherPod1 := mockJobPod(launcher)
+	launcherPod1.Status.Phase = corev1.PodFailed
+	launcherPod1.Status.Reason = "FailedReason1"
+	launcherPod1.Status.Message = "first message"
+	launcherPod1.CreationTimestamp = metav1.NewTime(now)
+	f.setUpPod(launcherPod1)
+	launcherPod2 := mockJobPod(launcher)
+	launcherPod2.Status.Phase = corev1.PodFailed
+	launcherPod2.Status.Reason = "FailedReason2"
+	launcherPod2.Status.Message = "second message"
+	launcherPod2.CreationTimestamp = metav1.NewTime(now.Add(time.Second))
+	f.setUpPod(launcherPod2)
 
 	mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
 		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
 			Active:    0,
 			Succeeded: 0,
-			Failed:    1,
+			Failed:    2,
 		},
 		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {},
 	}
@@ -611,8 +627,8 @@ func TestLauncherFailed(t *testing.T) {
 
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJobCopy, common.JobCreated, mpiJobCreatedReason, msg)
-	msg = fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, common.JobFailed, mpiJobFailedReason, msg)
+	msg = "Job has reached the specified backoff limit: second message"
+	updateMPIJobConditions(mpiJobCopy, common.JobFailed, jobBackoffLimitExceededReason+"/FailedReason2", msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
