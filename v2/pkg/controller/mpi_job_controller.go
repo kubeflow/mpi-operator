@@ -1114,11 +1114,6 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher b
 
 // updateDiscoverHostsInConfigMap updates the ConfigMap if the content of `discover_hosts.sh` changes.
 func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod, isGPULauncher bool) {
-	slots := 1
-	if mpiJob.Spec.SlotsPerWorker != nil {
-		slots = int(*mpiJob.Spec.SlotsPerWorker)
-	}
-
 	// Sort the slice of Pods to make sure the order of entries in `discover_hosts.sh` is maintained.
 	sort.Slice(runningPods, func(i, j int) bool {
 		return runningPods[i].Name < runningPods[j].Name
@@ -1128,10 +1123,10 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	buffer.WriteString("#!/bin/sh\n")
 	workersService := mpiJob.Name + workerSuffix
 	if isGPULauncher {
-		buffer.WriteString(fmt.Sprintf("echo %s%s.%s:%d\n", mpiJob.Name, launcherSuffix, workersService, slots))
+		buffer.WriteString(fmt.Sprintf("echo %s%s.%s\n", mpiJob.Name, launcherSuffix, workersService))
 	}
 	for _, p := range runningPods {
-		buffer.WriteString(fmt.Sprintf("echo %s.%s:%d\n", p.Name, workersService, slots))
+		buffer.WriteString(fmt.Sprintf("echo %s.%s\n", p.Name, workersService))
 	}
 
 	configMap.Data[discoverHostsScriptName] = buffer.String()
