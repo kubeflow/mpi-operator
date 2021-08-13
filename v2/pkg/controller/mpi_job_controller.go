@@ -32,8 +32,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/ssh"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,9 +41,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	batchinformers "k8s.io/client-go/informers/batch/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	batchlisters "k8s.io/client-go/listers/batch/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -111,6 +113,10 @@ const (
 	// eventMessageLimit is the maximum size of an Event's message.
 	// From: k8s.io/kubernetes/pkg/apis/core/validation/events.go
 	eventMessageLimit = 1024
+
+	// jobBackoffLimitExceededReason is the reason that the k8s job controller
+	// uses when the backoff limit is exceeded.
+	jobBackoffLimitExceededReason = "BackoffLimitExceeded"
 
 	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
 	intelMPISlotsEnv = "I_MPI_PERHOST"
@@ -219,6 +225,8 @@ type MPIJobController struct {
 	secretSynced    cache.InformerSynced
 	serviceLister   corelisters.ServiceLister
 	serviceSynced   cache.InformerSynced
+	jobLister       batchlisters.JobLister
+	jobSynced       cache.InformerSynced
 	podLister       corelisters.PodLister
 	podSynced       cache.InformerSynced
 	podgroupsLister podgroupslists.PodGroupLister
@@ -252,6 +260,7 @@ func NewMPIJobController(
 	configMapInformer coreinformers.ConfigMapInformer,
 	secretInformer coreinformers.SecretInformer,
 	serviceInformer coreinformers.ServiceInformer,
+	jobInformer batchinformers.JobInformer,
 	podInformer coreinformers.PodInformer,
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
@@ -281,6 +290,8 @@ func NewMPIJobController(
 		secretSynced:      secretInformer.Informer().HasSynced,
 		serviceLister:     serviceInformer.Lister(),
 		serviceSynced:     serviceInformer.Informer().HasSynced,
+		jobLister:         jobInformer.Lister(),
+		jobSynced:         jobInformer.Informer().HasSynced,
 		podLister:         podInformer.Lister(),
 		podSynced:         podInformer.Informer().HasSynced,
 		podgroupsLister:   podgroupsLister,
@@ -325,6 +336,11 @@ func NewMPIJobController(
 		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
 	})
+	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	})
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.handleObject,
 		UpdateFunc: controller.handleObjectUpdate,
@@ -353,7 +369,7 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers.
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.secretSynced, c.serviceSynced, c.podSynced, c.mpiJobSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.secretSynced, c.serviceSynced, c.jobSynced, c.podSynced, c.mpiJobSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 	if c.gangSchedulerName != "" {
@@ -486,54 +502,32 @@ func (c *MPIJobController) syncHandler(key string) error {
 		return nil
 	}
 
-	// Whether the job is preempted, and requeue it
-	requeue := false
-	// If the MPIJob is terminated, delete its pods according to cleanPodPolicy.
-	if isFinished(mpiJob.Status) {
-		if isSucceeded(mpiJob.Status) && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
-			// set worker StatefulSet Replicas to 0.
-			if err := c.deleteWorkerPods(mpiJob); err != nil {
-				return err
-			}
-			initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
-			if c.gangSchedulerName != "" {
-				if err := c.deletePodGroups(mpiJob); err != nil {
-					return err
-				}
-			}
-		}
-		if isFailed(mpiJob.Status) {
-			if isEvicted(mpiJob.Status) || mpiJob.Status.CompletionTime == nil {
-				requeue = true
-			}
-		}
-		if !requeue {
-			if isFailed(mpiJob.Status) && isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
-				// set worker StatefulSet Replicas to 0.
-				if err := c.deleteWorkerPods(mpiJob); err != nil {
-					return err
-				}
-			}
-			return c.updateStatusHandler(mpiJob)
-		} else {
-			launcher, err := c.getLauncherJob(mpiJob)
-			if err == nil && launcher != nil && isPodFailed(launcher) {
-				// In requeue, should delete launcher pod
-				err = c.kubeClient.CoreV1().Pods(launcher.Namespace).Delete(context.TODO(), launcher.Name, metav1.DeleteOptions{})
-				if err != nil && !errors.IsNotFound(err) {
-					klog.Errorf("Failed to delete pod[%s/%s]: %v", mpiJob.Namespace, name, err)
-					return err
-				}
-			}
-		}
-	}
-
 	if len(mpiJob.Status.Conditions) == 0 {
 		msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, common.JobCreated, mpiJobCreatedReason, msg)
 		c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobCreated", msg)
 		mpiJobsCreatedCount.Inc()
+	}
+
+	// CompletionTime is only filled when the launcher Job succeeded or stopped
+	// retrying (it reached .spec.backoffLimit). If it's filled, we want to
+	// cleanup and stop retrying the MPIJob.
+	if isFinished(mpiJob.Status) && mpiJob.Status.CompletionTime != nil {
+		if isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
+			// set worker StatefulSet Replicas to 0.
+			if err := c.deleteWorkerPods(mpiJob); err != nil {
+				return err
+			}
+			initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
+			if c.gangSchedulerName != "" {
+				if err := c.deletePodGroups(mpiJob); err != nil {
+					return err
+				}
+			}
+			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
+			return c.updateStatusHandler(mpiJob)
+		}
+		return nil
 	}
 
 	// first set StartTime.
@@ -550,7 +544,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	var worker []*corev1.Pod
 	// We're done if the launcher either succeeded or failed.
-	done := launcher != nil && isPodFinished(launcher)
+	done := launcher != nil && isJobFinished(launcher)
 	if !done {
 		isGPULauncher := isGPULauncher(mpiJob)
 
@@ -589,7 +583,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.CoreV1().Pods(namespace).Create(context.TODO(), c.newLauncher(mpiJob, isGPULauncher), metav1.CreateOptions{})
+			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob, isGPULauncher), metav1.CreateOptions{})
 			if err != nil {
 				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
 				return fmt.Errorf("creating launcher Pod: %w", err)
@@ -608,8 +602,8 @@ func (c *MPIJobController) syncHandler(key string) error {
 }
 
 // getLauncherJob gets the launcher Job controlled by this MPIJob.
-func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*corev1.Pod, error) {
-	launcher, err := c.podLister.Pods(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job, error) {
+	launcher, err := c.jobLister.Jobs(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
 	if errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -890,7 +884,7 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 		name := fmt.Sprintf("%s-%d", workerPrefix, i)
 		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(name)
 
-		// If the worker Pod doesn't exist, we'll create it.
+		// If the worker Pod doesn't exist, no need to remove it.
 		if errors.IsNotFound(err) {
 			continue
 		}
@@ -918,38 +912,32 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 	return nil
 }
 
-func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *corev1.Pod, worker []*corev1.Pod) error {
+func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker []*corev1.Pod) error {
 	oldStatus := mpiJob.Status.DeepCopy()
+	launcherPods, err := c.jobPods(launcher)
+	if err != nil {
+		return fmt.Errorf("checking launcher pods running: %w", err)
+	}
+	// Job.status.Active accounts for Pending and Running pods. Count running pods
+	// from the lister instead.
+	launcherPodsCnt := countRunningPods(launcherPods)
 	if launcher != nil {
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
-		if isPodSucceeded(launcher) {
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Succeeded = 1
+		launcherStatus := mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)]
+		launcherStatus.Failed = launcher.Status.Failed
+		if isJobSucceeded(launcher) {
+			launcherStatus.Succeeded = 1
 			msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
 			c.recorder.Event(mpiJob, corev1.EventTypeNormal, mpiJobSucceededReason, msg)
 			if mpiJob.Status.CompletionTime == nil {
-				now := metav1.Now()
-				mpiJob.Status.CompletionTime = &now
+				mpiJob.Status.CompletionTime = launcher.Status.CompletionTime
 			}
 			updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
 			mpiJobsSuccessCount.Inc()
-		} else if isPodFailed(launcher) {
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Failed = 1
-			msg := fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
-			reason := launcher.Status.Reason
-			if reason == "" {
-				reason = mpiJobFailedReason
-			}
-			c.recorder.Event(mpiJob, corev1.EventTypeWarning, reason, msg)
-			if reason == "Evicted" {
-				reason = mpiJobEvict
-			} else if !isEvicted(mpiJob.Status) && mpiJob.Status.CompletionTime == nil {
-				now := metav1.Now()
-				mpiJob.Status.CompletionTime = &now
-			}
-			updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
-			mpiJobsFailureCount.Inc()
-		} else if isPodRunning(launcher) {
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = 1
+		} else if isJobFailed(launcher) {
+			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
+		} else {
+			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = int32(launcherPodsCnt)
 		}
 		mpiJobInfoGauge.WithLabelValues(launcher.Name, mpiJob.Namespace).Set(1)
 	}
@@ -982,7 +970,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobEvict, msg)
 	}
 
-	if launcher != nil && launcher.Status.Phase == corev1.PodRunning && running == len(worker) {
+	if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
 		c.recorder.Eventf(mpiJob, corev1.EventTypeNormal, "MPIJobRunning", "MPIJob %s/%s is running", mpiJob.Namespace, mpiJob.Name)
@@ -993,6 +981,39 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		return c.updateStatusHandler(mpiJob)
 	}
 	return nil
+}
+
+func (c *MPIJobController) updateMPIJobFailedStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, launcherPods []*corev1.Pod) {
+	jobFailedCond := getJobCondition(launcher, batchv1.JobFailed)
+	reason := jobFailedCond.Reason
+	if reason == "" {
+		reason = mpiJobFailedReason
+	}
+	msg := jobFailedCond.Message
+	if msg == "" {
+		msg = fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
+	}
+	if reason == jobBackoffLimitExceededReason {
+		// Concatenate the reason and message from the last failed Pod.
+		var lastFailedPod *corev1.Pod
+		for _, p := range launcherPods {
+			if isPodFailed(p) && (lastFailedPod == nil || lastFailedPod.CreationTimestamp.Before(&p.CreationTimestamp)) {
+				lastFailedPod = p
+			}
+		}
+		if lastFailedPod != nil {
+			reason += "/" + lastFailedPod.Status.Reason
+			msg += ": " + lastFailedPod.Status.Message
+			msg = truncateMessage(msg)
+		}
+	}
+	c.recorder.Event(mpiJob, corev1.EventTypeWarning, reason, msg)
+	if mpiJob.Status.CompletionTime == nil {
+		now := metav1.Now()
+		mpiJob.Status.CompletionTime = &now
+	}
+	updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
+	mpiJobsFailureCount.Inc()
 }
 
 // When a mpiJob is added, set the defaults and enqueue the current mpiJob.
@@ -1039,29 +1060,39 @@ func (c *MPIJobController) handleObject(obj interface{}) {
 		klog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
 	klog.V(4).Infof("Processing object: %s", object.GetName())
-	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		// Parse the Group out of the OwnerReference to compare it to what was parsed out of the requested OwnerType
-		refGV, err := schema.ParseGroupVersion(ownerRef.APIVersion)
-		if err != nil {
-			runtime.HandleError(fmt.Errorf("Could not parse OwnerReference APIVersion: %v", err))
-			return
-		}
-
-		// Compare the OwnerReference Group and Kind against the OwnerType Group and Kind.
-		// Since we do not support conversion webhook now, we do not deal with v1alpha1 resources in this operator.
-		if ownerRef.Kind != kubeflow.Kind || refGV.Group != kubeflow.GroupName || refGV.Version != kubeflow.GroupVersion {
-			return
-		}
-
-		mpiJob, err := c.mpiJobLister.MPIJobs(object.GetNamespace()).Get(ownerRef.Name)
-		if err != nil {
-			klog.V(4).Infof("ignoring orphaned object '%s' of mpi job '%s'", object.GetSelfLink(), ownerRef.Name)
-			return
-		}
-
-		c.enqueueMPIJob(mpiJob)
+	ownerRef, ownerGVK, err := ownerReferenceAndGVK(object)
+	if err != nil {
+		runtime.HandleError(err)
 		return
 	}
+
+	// If the Pod is controlled by a Job, get the Job's ownerReference.
+	if ownerGVK.Group == batchv1.GroupName && ownerGVK.Kind == "Job" {
+		j, err := c.jobLister.Jobs(object.GetNamespace()).Get(ownerRef.Name)
+		if err != nil {
+			runtime.HandleError(fmt.Errorf("obtaining owning k8s Job: %w", err))
+			return
+		}
+		ownerRef, ownerGVK, err = ownerReferenceAndGVK(j)
+		if err != nil {
+			runtime.HandleError(fmt.Errorf("obtaining k8s Job's owner: %w", err))
+			return
+		}
+	}
+
+	// Compare the OwnerReference Group and Kind against the OwnerType Group and Kind.
+	// Since we do not support conversion webhook now, we do not deal with v1alpha1/v1alpha2/v1 resources in this operator.
+	if ownerGVK.Kind != kubeflow.Kind || ownerGVK.Group != kubeflow.GroupName || ownerGVK.Version != kubeflow.GroupVersion {
+		return
+	}
+
+	mpiJob, err := c.mpiJobLister.MPIJobs(object.GetNamespace()).Get(ownerRef.Name)
+	if err != nil {
+		klog.V(4).Infof("ignoring orphaned object '%s' of mpi job '%s'", object.GetSelfLink(), ownerRef.Name)
+		return
+	}
+
+	c.enqueueMPIJob(mpiJob)
 }
 
 func (c *MPIJobController) handleObjectUpdate(old, new interface{}) {
@@ -1290,10 +1321,28 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	}
 }
 
-// newLauncher creates a new launcher Job for an MPIJob resource. It also sets
+func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob, isGPULauncher bool) *batchv1.Job {
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mpiJob.Name + launcherSuffix,
+			Namespace: mpiJob.Namespace,
+			Labels: map[string]string{
+				"app": mpiJob.Name,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
+			},
+		},
+		Spec: batchv1.JobSpec{
+			Template: c.newLauncherPodTemplate(mpiJob, isGPULauncher),
+		},
+	}
+}
+
+// newLauncherPodTemplate creates a new launcher Job for an MPIJob resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
-func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bool) *corev1.Pod {
+func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob, isGPULauncher bool) corev1.PodTemplateSpec {
 	launcherName := mpiJob.Name + launcherSuffix
 
 	podTemplate := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.DeepCopy()
@@ -1372,10 +1421,8 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 		MountPath: configMountPath,
 	})
 
-	return &corev1.Pod{
+	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        launcherName,
-			Namespace:   mpiJob.Namespace,
 			Labels:      podTemplate.Labels,
 			Annotations: podTemplate.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
@@ -1386,24 +1433,63 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, isGPULauncher bo
 	}
 }
 
+func (c *MPIJobController) jobPods(j *batchv1.Job) ([]*corev1.Pod, error) {
+	selector, err := metav1.LabelSelectorAsSelector(j.Spec.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("parsing Pod selector: %w", err)
+	}
+	pods, err := c.podLister.Pods(j.Namespace).List(selector)
+	if err != nil {
+		return nil, fmt.Errorf("obtaining pods: %w", err)
+	}
+	var result = make([]*corev1.Pod, 0, len(pods))
+	for _, p := range pods {
+		if metav1.IsControlledBy(p, j) {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
+func countRunningPods(pods []*corev1.Pod) int {
+	running := 0
+	for _, p := range pods {
+		if isPodRunning(p) {
+			running++
+		}
+	}
+	return running
+}
+
 func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *common.ReplicaSpec) {
 	if spec.RestartPolicy == common.RestartPolicyExitCode {
-		podTemplateSpec.Spec.RestartPolicy = v1.RestartPolicyNever
+		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicyNever
 	} else {
-		podTemplateSpec.Spec.RestartPolicy = v1.RestartPolicy(spec.RestartPolicy)
+		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
 	}
 }
 
-func isPodFinished(j *corev1.Pod) bool {
-	return isPodSucceeded(j) || isPodFailed(j)
+func isJobFinished(j *batchv1.Job) bool {
+	return isJobSucceeded(j) || isJobFailed(j)
 }
 
-func isPodFailed(p *corev1.Pod) bool {
-	return p.Status.Phase == corev1.PodFailed
+func isJobFailed(j *batchv1.Job) bool {
+	c := getJobCondition(j, batchv1.JobFailed)
+	return c != nil && c.Status == corev1.ConditionTrue
 }
 
-func isPodSucceeded(p *corev1.Pod) bool {
-	return p.Status.Phase == corev1.PodSucceeded
+func isJobSucceeded(j *batchv1.Job) bool {
+	c := getJobCondition(j, batchv1.JobComplete)
+	return c != nil && c.Status == corev1.ConditionTrue
+}
+
+func getJobCondition(j *batchv1.Job, condition batchv1.JobConditionType) *batchv1.JobCondition {
+	for _, c := range j.Status.Conditions {
+		if c.Type == condition {
+			return &c
+		}
+	}
+	return nil
 }
 
 func isPodRunning(p *corev1.Pod) bool {
@@ -1412,6 +1498,10 @@ func isPodRunning(p *corev1.Pod) bool {
 
 func isPodPending(p *corev1.Pod) bool {
 	return p.Status.Phase == corev1.PodPending
+}
+
+func isPodFailed(p *corev1.Pod) bool {
+	return p.Status.Phase == corev1.PodFailed
 }
 
 func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
@@ -1509,6 +1599,18 @@ func (c *MPIJobController) setupSSHOnPod(podSpec *corev1.PodSpec, job *kubeflow.
 		Command: []string{"/bin/sh"},
 		Args:    []string{"-c", initScript},
 	})
+}
+
+func ownerReferenceAndGVK(object metav1.Object) (*metav1.OwnerReference, schema.GroupVersionKind, error) {
+	ownerRef := metav1.GetControllerOf(object)
+	if ownerRef == nil {
+		return nil, schema.GroupVersionKind{}, nil
+	}
+	gv, err := schema.ParseGroupVersion(ownerRef.APIVersion)
+	if err != nil {
+		return nil, schema.GroupVersionKind{}, fmt.Errorf("parsing owner's API version: %w", err)
+	}
+	return ownerRef, gv.WithKind(ownerRef.Kind), nil
 }
 
 func newInt32(v int32) *int32 {

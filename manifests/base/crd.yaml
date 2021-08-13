@@ -124,7 +124,7 @@ spec:
                         type: object
                       restartPolicy:
                         type: string
-                        enum: ["Never", "OnFailure", "Always"]
+                        enum: ["Never", "OnFailure"]
                   Worker:
                     type: object
                     properties:
@@ -136,7 +136,7 @@ spec:
                         type: object
                       restartPolicy:
                         type: string
-                        enum: ["Never", "OnFailure", "Always"]
+                        enum: ["Never", "OnFailure"]
                 required:
                 - Launcher
           status:

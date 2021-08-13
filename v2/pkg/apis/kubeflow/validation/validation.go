@@ -36,6 +36,11 @@ var (
 	validMPIImplementations = sets.NewString(
 		string(kubeflow.MPIImplementationOpenMPI),
 		string(kubeflow.MPIImplementationIntel))
+
+	validRestartPolicies = sets.NewString(
+		string(common.RestartPolicyNever),
+		string(common.RestartPolicyOnFailure),
+	)
 )
 
 func ValidateMPIJob(job *kubeflow.MPIJob) field.ErrorList {
@@ -120,6 +125,9 @@ func validateReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.Error
 	var errs field.ErrorList
 	if spec.Replicas == nil {
 		errs = append(errs, field.Required(path.Child("replicas"), "must define number of replicas"))
+	}
+	if !validRestartPolicies.Has(string(spec.RestartPolicy)) {
+		errs = append(errs, field.NotSupported(path.Child("restartPolicy"), spec.RestartPolicy, validRestartPolicies.List()))
 	}
 	if len(spec.Template.Spec.Containers) == 0 {
 		errs = append(errs, field.Required(path.Child("template", "spec", "containers"), "must define at least one container"))
