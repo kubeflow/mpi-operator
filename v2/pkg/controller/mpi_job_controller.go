@@ -513,7 +513,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// retrying (it reached .spec.backoffLimit). If it's filled, we want to
 	// cleanup and stop retrying the MPIJob.
 	if isFinished(mpiJob.Status) && mpiJob.Status.CompletionTime != nil {
-		if isCleanUpPods(mpiJob.Spec.CleanPodPolicy) {
+		if isCleanUpPods(mpiJob.Spec.RunPolicy.CleanPodPolicy) {
 			// set worker StatefulSet Replicas to 0.
 			if err := c.deleteWorkerPods(mpiJob); err != nil {
 				return err
@@ -899,7 +899,7 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 		// set to CleanPodPolicyRunning, keep the pod.
 		// Note that pending pod should still be removed under this
 		// situation, since it may turn to running in the future.
-		if *mpiJob.Spec.CleanPodPolicy == common.CleanPodPolicyRunning && !isPodRunning(pod) && !isPodPending(pod) {
+		if *mpiJob.Spec.RunPolicy.CleanPodPolicy == common.CleanPodPolicyRunning && !isPodRunning(pod) && !isPodPending(pod) {
 			// Keep the worker pod
 			continue
 		}
@@ -1334,7 +1334,10 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob, isGPULauncher
 			},
 		},
 		Spec: batchv1.JobSpec{
-			Template: c.newLauncherPodTemplate(mpiJob, isGPULauncher),
+			TTLSecondsAfterFinished: mpiJob.Spec.RunPolicy.TTLSecondsAfterFinished,
+			ActiveDeadlineSeconds:   mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
+			BackoffLimit:            mpiJob.Spec.RunPolicy.BackoffLimit,
+			Template:                c.newLauncherPodTemplate(mpiJob, isGPULauncher),
 		},
 	}
 }

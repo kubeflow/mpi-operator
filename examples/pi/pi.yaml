@@ -4,7 +4,9 @@ metadata:
   name: pi
 spec:
   slotsPerWorker: 1
-  cleanPodPolicy: Running
+  runPolicy:
+    cleanPodPolicy: Running
+    ttlSecondsAfterFinished: 60
   sshAuthMountPath: /home/mpiuser/.ssh
   mpiReplicaSpecs:
     Launcher:

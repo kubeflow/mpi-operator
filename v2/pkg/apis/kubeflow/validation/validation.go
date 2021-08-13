@@ -71,16 +71,32 @@ func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.Error
 	} else {
 		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*spec.SlotsPerWorker), path.Child("slotsPerWorker"))...)
 	}
-	if spec.CleanPodPolicy == nil {
-		errs = append(errs, field.Required(path.Child("cleanPodPolicy"), "must have clean Pod policy"))
-	} else if !validCleanPolicies.Has(string(*spec.CleanPodPolicy)) {
-		errs = append(errs, field.NotSupported(path.Child("cleanPodPolicy"), *spec.CleanPodPolicy, validCleanPolicies.List()))
-	}
+	errs = append(errs, validateRunPolicy(&spec.RunPolicy, path.Child("runPolicy"))...)
 	if spec.SSHAuthMountPath == "" {
 		errs = append(errs, field.Required(path.Child("sshAuthMountPath"), "must have a mount path for SSH credentials"))
 	}
 	if !validMPIImplementations.Has(string(spec.MPIImplementation)) {
 		errs = append(errs, field.NotSupported(path.Child("mpiImplementation"), spec.MPIImplementation, validMPIImplementations.List()))
+	}
+	return errs
+}
+
+func validateRunPolicy(policy *common.RunPolicy, path *field.Path) field.ErrorList {
+	var errs field.ErrorList
+	if policy.CleanPodPolicy == nil {
+		errs = append(errs, field.Required(path.Child("cleanPodPolicy"), "must have clean Pod policy"))
+	} else if !validCleanPolicies.Has(string(*policy.CleanPodPolicy)) {
+		errs = append(errs, field.NotSupported(path.Child("cleanPodPolicy"), *policy.CleanPodPolicy, validCleanPolicies.List()))
+	}
+	// The remaining fields can be nil.
+	if policy.TTLSecondsAfterFinished != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.TTLSecondsAfterFinished), path.Child("ttlSecondsAfterFinished"))...)
+	}
+	if policy.ActiveDeadlineSeconds != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(*policy.ActiveDeadlineSeconds, path.Child("activeDeadlineSeconds"))...)
+	}
+	if policy.BackoffLimit != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.BackoffLimit), path.Child("backoffLimit"))...)
 	}
 	return errs
 }
