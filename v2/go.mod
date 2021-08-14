@@ -7,6 +7,8 @@ require (
 	github.com/go-openapi/spec v0.19.3
 	github.com/google/go-cmp v0.5.6
 	github.com/kubeflow/common v0.3.4
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/prometheus/client_golang v1.7.1
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
 	k8s.io/api v0.19.9

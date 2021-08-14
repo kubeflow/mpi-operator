@@ -14,7 +14,7 @@ spec:
       template:
         spec:
           containers:
-          - image: docker.io/kubeflow/mpi-pi
+          - image: kubeflow/mpi-pi
             name: mpi-launcher
             securityContext:
               runAsUser: 1000
@@ -33,7 +33,7 @@ spec:
       template:
         spec:
           containers:
-          - image: docker.io/kubeflow/mpi-pi
+          - image: kubeflow/mpi-pi
             name: mpi-worker
             securityContext:
               runAsUser: 1000
