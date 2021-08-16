@@ -61,13 +61,13 @@ test:
 .PHONY: test_v2
 test_v2: export KUBEBUILDER_ASSETS = ${KUBEBUILDER_ASSETS_PATH}
 test_v2: bin/kubebuilder
-	cd v2 && go test -covermode atomic -coverprofile=profile.cov ./cmd/... ./pkg/... ./test/integration/...
+	cd v2 && go test -covermode atomic -coverprofile=profile.cov ./...
 
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
 test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: bin/kubectl kind images test_images dev_manifest
-	cd v2 && go test ./test/e2e/...
+	cd v2 && go test -tags e2e ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
