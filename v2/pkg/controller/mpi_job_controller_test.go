@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kubeinformers "k8s.io/client-go/informers"
@@ -50,6 +49,9 @@ import (
 var (
 	alwaysReady        = func() bool { return true }
 	noResyncPeriodFunc = func() time.Duration { return 0 }
+
+	ignoreConditionTimes = cmpopts.IgnoreFields(common.JobCondition{}, "LastUpdateTime", "LastTransitionTime")
+	ignoreSecretEntries  = cmpopts.IgnoreMapEntries(func(k string, v []uint8) bool { return true })
 )
 
 const (
@@ -307,40 +309,24 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		expObject := e.GetObject()
 		object := a.GetObject()
 
-		expMPIJob, ok1 := expObject.(*kubeflow.MPIJob)
-		gotMPIJob, ok2 := object.(*kubeflow.MPIJob)
-		if ok1 && ok2 {
-			clearConditionTime(expMPIJob)
-			clearConditionTime(gotMPIJob)
-
-			if !reflect.DeepEqual(expMPIJob, gotMPIJob) {
-				t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-					a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
-			}
-			return
-		}
-
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
+		if diff := cmp.Diff(expObject, object, ignoreSecretEntries, ignoreConditionTimes); diff != "" {
+			t.Errorf("Action %s %s has wrong object (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
 	case core.CreateAction:
 		e, _ := expected.(core.CreateAction)
 		expObject := e.GetObject()
 		object := a.GetObject()
 
-		if !reflect.DeepEqual(expObject, object) {
-			t.Errorf("Action %s %s has wrong object\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expObject, object))
+		if diff := cmp.Diff(expObject, object, ignoreSecretEntries); diff != "" {
+			t.Errorf("Action %s %s has wrong object (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
 	case core.PatchAction:
 		e, _ := expected.(core.PatchAction)
 		expPatch := e.GetPatch()
 		patch := a.GetPatch()
 
-		if !reflect.DeepEqual(expPatch, expPatch) {
-			t.Errorf("Action %s %s has wrong patch\nDiff:\n %s",
-				a.GetVerb(), a.GetResource().Resource, diff.ObjectGoPrintDiff(expPatch, patch))
+		if diff := cmp.Diff(expPatch, patch); diff != "" {
+			t.Errorf("Action %s %s has wrong patch (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
 	}
 }
@@ -380,6 +366,18 @@ func (f *fixture) expectCreateJobAction(d *batchv1.Job) {
 
 func (f *fixture) expectCreatePodAction(d *corev1.Pod) {
 	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "pods"}, d.Namespace, d))
+}
+
+func (f *fixture) expectCreateServiceAction(d *corev1.Service) {
+	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "services"}, d.Namespace, d))
+}
+
+func (f *fixture) expectCreateConfigMapAction(d *corev1.ConfigMap) {
+	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "configmaps"}, d.Namespace, d))
+}
+
+func (f *fixture) expectCreateSecretAction(d *corev1.Secret) {
+	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "secrets"}, d.Namespace, d))
 }
 
 func (f *fixture) expectUpdateMPIJobStatusAction(mpiJob *kubeflow.MPIJob) {
@@ -428,16 +426,6 @@ func setUpMPIJobTimestamp(mpiJob *kubeflow.MPIJob, startTime, completionTime *me
 	}
 }
 
-func clearConditionTime(mpiJob *kubeflow.MPIJob) {
-	var clearConditions []common.JobCondition
-	for _, condition := range mpiJob.Status.Conditions {
-		condition.LastTransitionTime = metav1.Time{}
-		condition.LastUpdateTime = metav1.Time{}
-		clearConditions = append(clearConditions, condition)
-	}
-	mpiJob.Status.Conditions = clearConditions
-}
-
 func getKey(mpiJob *kubeflow.MPIJob, t *testing.T) string {
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(mpiJob)
 	if err != nil {
@@ -458,6 +446,61 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	completionTime := metav1.Now()
 	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
 	f.run(getKey(mpiJob, t))
+}
+
+func TestDoNothingWithInvalidMPIJob(t *testing.T) {
+	f := newFixture(t)
+	// An empty MPIJob doesn't pass validation.
+	mpiJob := &kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+	}
+	f.setUpMPIJob(mpiJob)
+	f.run(getKey(mpiJob, t))
+}
+
+func TestAllResourcesCreated(t *testing.T) {
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
+	for _, implementation := range impls {
+		t.Run(string(implementation), func(t *testing.T) {
+			f := newFixture(t)
+			now := metav1.Now()
+			mpiJob := newMPIJob("foo", newInt32(5), &now, nil)
+			mpiJob.Spec.MPIImplementation = implementation
+			f.setUpMPIJob(mpiJob)
+
+			fmjc := f.newFakeMPIJobController()
+			mpiJobCopy := mpiJob.DeepCopy()
+			scheme.Scheme.Default(mpiJobCopy)
+			f.expectCreateServiceAction(newWorkersService(mpiJobCopy))
+			cfgMap := newConfigMap(mpiJobCopy, 5)
+			updateDiscoverHostsInConfigMap(cfgMap, mpiJob, nil)
+			f.expectCreateConfigMapAction(cfgMap)
+			secret, err := newSSHAuthSecret(mpiJobCopy)
+			if err != nil {
+				t.Fatalf("Failed creating secret")
+			}
+			f.expectCreateSecretAction(secret)
+			for i := 0; i < 5; i++ {
+				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
+			}
+			if implementation == kubeflow.MPIImplementationIntel {
+				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
+			}
+			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
+
+			mpiJobCopy.Status.Conditions = []common.JobCondition{newCondition(common.JobCreated, mpiJobCreatedReason, "MPIJob default/foo is created.")}
+			mpiJobCopy.Status.ReplicaStatuses = map[common.ReplicaType]*common.ReplicaStatus{
+				common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {},
+				common.ReplicaType(kubeflow.MPIReplicaTypeWorker):   {},
+			}
+			f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+			f.run(getKey(mpiJob, t))
+		})
+	}
 }
 
 func TestLauncherNotControlledByUs(t *testing.T) {
@@ -695,11 +738,6 @@ func TestShutdownWorker(t *testing.T) {
 		f.setUpPod(worker)
 	}
 
-	/*
-		if err := fmjc.deleteWorkerPods(mpiJob); err != nil {
-			t.Errorf("Failed to delete worker: %v", err)
-		}
-	*/
 	for i := 0; i < int(replicas); i++ {
 		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
 		f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, name))

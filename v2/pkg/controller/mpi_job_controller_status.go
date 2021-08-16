@@ -94,17 +94,6 @@ func isFailed(status common.JobStatus) bool {
 	return hasCondition(status, common.JobFailed)
 }
 
-func isEvicted(status common.JobStatus) bool {
-	for _, condition := range status.Conditions {
-		if condition.Type == common.JobFailed &&
-			condition.Status == v1.ConditionTrue &&
-			condition.Reason == mpiJobEvict {
-			return true
-		}
-	}
-	return false
-}
-
 // setCondition updates the mpiJob to include the provided condition.
 // If the condition that we are about to add already exists
 // and has the same status and reason then we are not going to update.

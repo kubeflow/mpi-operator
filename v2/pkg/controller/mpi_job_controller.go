@@ -465,9 +465,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
-	if len(namespace) == 0 || len(name) == 0 {
-		return fmt.Errorf("invalid job key %q: either namespace or name is missing", key)
-	}
 
 	// Get the MPIJob with this namespace/name.
 	sharedJob, err := c.mpiJobLister.MPIJobs(namespace).Get(name)
