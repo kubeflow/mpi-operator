@@ -26,7 +26,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -81,8 +80,6 @@ const (
 	worker                  = "worker"
 	launcherSuffix          = "-launcher"
 	workerSuffix            = "-worker"
-	gpuResourceNameSuffix   = ".com/gpu"
-	gpuResourceNamePattern  = "gpu"
 	labelGroupName          = "group-name"
 	labelMPIJobName         = "mpi-job-name"
 	labelMPIRoleType        = "mpi-job-role"
@@ -546,14 +543,12 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && isJobFinished(launcher)
 	if !done {
-		isGPULauncher := isGPULauncher(mpiJob)
-
 		_, err := c.getOrCreateService(mpiJob, newWorkersService(mpiJob))
 		if err != nil {
 			return fmt.Errorf("getting or creating Service to front workers: %w", err)
 		}
 
-		if config, err := c.getOrCreateConfigMap(mpiJob, isGPULauncher); config == nil || err != nil {
+		if config, err := c.getOrCreateConfigMap(mpiJob); config == nil || err != nil {
 			return fmt.Errorf("getting or creating ConfigMap: %w", err)
 		}
 
@@ -583,7 +578,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob, isGPULauncher), metav1.CreateOptions{})
+			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
 			if err != nil {
 				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
 				return fmt.Errorf("creating launcher Pod: %w", err)
@@ -702,13 +697,13 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
-func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob, isGPULauncher bool) (*corev1.ConfigMap, error) {
-	newCM := newConfigMap(mpiJob, workerReplicas(mpiJob), isGPULauncher)
+func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev1.ConfigMap, error) {
+	newCM := newConfigMap(mpiJob, workerReplicas(mpiJob))
 	podList, err := c.getRunningWorkerPods(mpiJob)
 	if err != nil {
 		return nil, err
 	}
-	updateDiscoverHostsInConfigMap(newCM, mpiJob, podList, isGPULauncher)
+	updateDiscoverHostsInConfigMap(newCM, mpiJob, podList)
 
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
@@ -1116,12 +1111,9 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher bool) *corev1.ConfigMap {
+func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 	workersService := mpiJob.Name + workerSuffix
-	if isGPULauncher {
-		buffer.WriteString(fmt.Sprintf("%s%s.%s\n", mpiJob.Name, launcherSuffix, workersService))
-	}
 	for i := 0; i < int(workerReplicas); i++ {
 		buffer.WriteString(fmt.Sprintf("%s%s-%d.%s\n", mpiJob.Name, workerSuffix, i, workersService))
 	}
@@ -1144,7 +1136,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, isGPULauncher b
 }
 
 // updateDiscoverHostsInConfigMap updates the ConfigMap if the content of `discover_hosts.sh` changes.
-func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod, isGPULauncher bool) {
+func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod) {
 	// Sort the slice of Pods to make sure the order of entries in `discover_hosts.sh` is maintained.
 	sort.Slice(runningPods, func(i, j int) bool {
 		return runningPods[i].Name < runningPods[j].Name
@@ -1153,9 +1145,6 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	var buffer bytes.Buffer
 	buffer.WriteString("#!/bin/sh\n")
 	workersService := mpiJob.Name + workerSuffix
-	if isGPULauncher {
-		buffer.WriteString(fmt.Sprintf("echo %s%s.%s\n", mpiJob.Name, launcherSuffix, workersService))
-	}
 	for _, p := range runningPods {
 		buffer.WriteString(fmt.Sprintf("echo %s.%s\n", p.Name, workersService))
 	}
@@ -1165,11 +1154,7 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 
 // newWorkersService creates a new workers' Service for an MPIJob resource.
 func newWorkersService(job *kubeflow.MPIJob) *corev1.Service {
-	return newService(job, job.Name+workerSuffix, map[string]string{
-		// Selector doesn't include the role because the launcher could host ranks.
-		labelGroupName:  "kubeflow.org",
-		labelMPIJobName: job.Name,
-	})
+	return newService(job, job.Name+workerSuffix, defaultLabels(job.Name, worker))
 }
 
 // newLauncherService creates a new launcher's Service for an MPIJob resource.
@@ -1321,7 +1306,7 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	}
 }
 
-func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob, isGPULauncher bool) *batchv1.Job {
+func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob) *batchv1.Job {
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mpiJob.Name + launcherSuffix,
@@ -1337,7 +1322,7 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob, isGPULauncher
 			TTLSecondsAfterFinished: mpiJob.Spec.RunPolicy.TTLSecondsAfterFinished,
 			ActiveDeadlineSeconds:   mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
 			BackoffLimit:            mpiJob.Spec.RunPolicy.BackoffLimit,
-			Template:                c.newLauncherPodTemplate(mpiJob, isGPULauncher),
+			Template:                c.newLauncherPodTemplate(mpiJob),
 		},
 	}
 }
@@ -1345,7 +1330,7 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob, isGPULauncher
 // newLauncherPodTemplate creates a new launcher Job for an MPIJob resource. It also sets
 // the appropriate OwnerReferences on the resource so handleObject can discover
 // the MPIJob resource that 'owns' it.
-func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob, isGPULauncher bool) corev1.PodTemplateSpec {
+func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev1.PodTemplateSpec {
 	launcherName := mpiJob.Name + launcherSuffix
 
 	podTemplate := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.DeepCopy()
@@ -1389,13 +1374,11 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob, isGPU
 		})
 	}
 
-	if !isGPULauncher {
-		container.Env = append(container.Env,
-			// We overwrite these environment variables so that users will not
-			// be mistakenly using GPU resources for launcher due to potential
-			// issues with scheduler/container technologies.
-			nvidiaDisableEnvVars...)
-	}
+	container.Env = append(container.Env,
+		// We overwrite these environment variables so that users will not
+		// be mistakenly using GPU resources for launcher due to potential
+		// issues with scheduler/container technologies.
+		nvidiaDisableEnvVars...)
 	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// Submit a warning event if the user specifies restart policy for
@@ -1510,21 +1493,6 @@ func isPodFailed(p *corev1.Pod) bool {
 func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
 	if *cleanPodPolicy == common.CleanPodPolicyAll || *cleanPodPolicy == common.CleanPodPolicyRunning {
 		return true
-	}
-	return false
-}
-
-// isGPULauncher checks whether the launcher needs GPU.
-func isGPULauncher(mpiJob *kubeflow.MPIJob) bool {
-	for _, container := range mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers {
-		for key := range container.Resources.Limits {
-			if strings.HasSuffix(string(key), gpuResourceNameSuffix) {
-				return true
-			}
-			if strings.Contains(string(key), gpuResourceNamePattern) {
-				return true
-			}
-		}
 	}
 	return false
 }

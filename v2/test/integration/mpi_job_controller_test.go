@@ -388,9 +388,6 @@ func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient ku
 			t.Errorf("Secret %s not mounted in Pod %s", secret.Name, p.Name)
 		}
 	}
-	if !svcSelector.Matches(labels.Set(launcherJob.Spec.Template.Labels)) {
-		t.Errorf("Workers Service selector doesn't match Job pod template")
-	}
 	if !hasVolumeForSecret(&launcherJob.Spec.Template.Spec, secret) {
 		t.Errorf("Secret %s not mounted in launcher Job", secret.Name)
 	}
