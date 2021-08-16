@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build e2e
+
 package e2e
 
 import (
@@ -35,6 +37,7 @@ import (
 
 const (
 	envUseExistingCluster   = "USE_EXISTING_CLUSTER"
+	envUseExistingOperator  = "USE_EXISTING_OPERATOR"
 	envTestMPIOperatorImage = "TEST_MPI_OPERATOR_IMAGE"
 	envTestKindImage        = "TEST_KIND_IMAGE"
 
@@ -52,10 +55,11 @@ const (
 )
 
 var (
-	useExistingCluster bool
-	kindPath           string
-	mpiOperatorImage   string
-	kindImage          string
+	useExistingCluster  bool
+	useExistingOperator bool
+	kindPath            string
+	mpiOperatorImage    string
+	kindImage           string
 
 	k8sClient kubernetes.Interface
 	mpiClient clientset.Interface
@@ -63,6 +67,7 @@ var (
 
 func init() {
 	useExistingCluster = getEnvDefault(envUseExistingCluster, "false") == "true"
+	useExistingOperator = getEnvDefault(envUseExistingOperator, "false") == "true"
 	mpiOperatorImage = getEnvDefault(envTestMPIOperatorImage, defaultMPIOperatorImage)
 	kindImage = getEnvDefault(envTestKindImage, defaultKindImage)
 	kindPath = "kind"
@@ -92,9 +97,11 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	mpiClient, err = clientset.NewForConfig(restConfig)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	ginkgo.By("Installing operator")
-	err = installOperator()
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	if !useExistingOperator {
+		ginkgo.By("Installing operator")
+		err = installOperator()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
 
 	return nil
 }, func([]byte) {})
@@ -104,7 +111,7 @@ var _ = ginkgo.SynchronizedAfterSuite(func() {
 		ginkgo.By("Deleting local cluster")
 		err := runCommand(kindPath, "delete", "cluster")
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	} else {
+	} else if !useExistingOperator {
 		ginkgo.By("Uninstalling operator")
 		err := runCommand(kubectlPath, "delete", "-k", operatorManifestsPath)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
