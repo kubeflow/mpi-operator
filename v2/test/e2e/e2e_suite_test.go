@@ -51,7 +51,7 @@ const (
 	mpiOperator = "mpi-operator"
 
 	waitInterval   = 500 * time.Millisecond
-	foreverTimeout = 100 * time.Second
+	foreverTimeout = 200 * time.Second
 )
 
 var (
