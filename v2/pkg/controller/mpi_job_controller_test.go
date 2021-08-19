@@ -998,9 +998,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"group-name":   "kubeflow.org",
-								"mpi-job-name": "foo",
-								"mpi-job-role": "launcher",
+								common.OperatorNameLabel: kubeflow.OperatorName,
+								common.JobNameLabel:      "foo",
+								common.JobRoleLabel:      "launcher",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1072,10 +1072,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Name:      "foo-worker-0",
 					Namespace: "bar",
 					Labels: map[string]string{
-						"group-name":    "kubeflow.org",
-						"mpi-job-name":  "foo",
-						"mpi-job-role":  "worker",
-						"replica-index": "0",
+						common.OperatorNameLabel: kubeflow.OperatorName,
+						common.JobNameLabel:      "foo",
+						common.JobRoleLabel:      "worker",
+						common.ReplicaIndexLabel: "0",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -1202,10 +1202,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"foo":          "bar",
-								"group-name":   "kubeflow.org",
-								"mpi-job-name": "bar",
-								"mpi-job-role": "launcher",
+								"foo":                    "bar",
+								common.OperatorNameLabel: kubeflow.OperatorName,
+								common.JobNameLabel:      "bar",
+								common.JobRoleLabel:      "launcher",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1284,10 +1284,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Name:      "bar-worker-12",
 					Namespace: "foo",
 					Labels: map[string]string{
-						"group-name":    "kubeflow.org",
-						"mpi-job-name":  "bar",
-						"mpi-job-role":  "worker",
-						"replica-index": "12",
+						common.OperatorNameLabel: kubeflow.OperatorName,
+						common.JobNameLabel:      "bar",
+						common.JobRoleLabel:      "worker",
+						common.ReplicaIndexLabel: "12",
 					},
 				},
 				Spec: corev1.PodSpec{
