@@ -12,7 +12,7 @@ You can deploy the operator with default settings by running the following comma
 ```shell
 git clone https://github.com/kubeflow/mpi-operator
 cd mpi-operator
-kubectl create -f deploy/v1alpha2/mpi-operator.yaml
+kubectl apply -f deploy/v2beta1/mpi-operator.yaml
 ```
 
 Alternatively, follow the [getting started guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
@@ -34,15 +34,21 @@ mpijobs.kubeflow.org                       4d
 ...
 ```
 
-If it is not included you can add it as follows using [kustomize](https://github.com/kubernetes-sigs/kustomize):
+If it is not included, you can add it as follows using [kustomize](https://github.com/kubernetes-sigs/kustomize):
 
 ```bash
 git clone https://github.com/kubeflow/mpi-operator
-cd mpi-operator/manifests
-kustomize build overlays/kubeflow | kubectl apply -f -
+cd mpi-operator
+kustomize build manifests/overlays/kubeflow | kubectl apply -f -
 ```
 
 Note that since Kubernetes v1.14, `kustomize` became a subcommand in `kubectl` so you can also run the following command instead:
+
+Since Kubernetes v1.21, you can use:
+
+```bash
+kubectl apply -k manifests/overlays/kubeflow
+```
 
 ```bash
 kubectl kustomize base | kubectl apply -f -
@@ -53,13 +59,13 @@ kubectl kustomize base | kubectl apply -f -
 You can create an MPI job by defining an `MPIJob` config file. See [TensorFlow benchmark example](https://github.com/kubeflow/mpi-operator/blob/master/examples/v1alpha2/tensorflow-benchmarks.yaml) config file for launching a multi-node TensorFlow benchmark training job. You may change the config file based on your requirements.
 
 ```
-cat examples/v1alpha2/tensorflow-benchmarks.yaml
+cat examples/v2beta1/tensorflow-benchmarks.yaml
 ```
 
 Deploy the `MPIJob` resource to start training:
 
 ```
-kubectl create -f examples/v1alpha2/tensorflow-benchmarks.yaml
+kubectl apply -f examples/v2beta1/tensorflow-benchmarks.yaml
 ```
 
 ## Monitoring an MPI Job
@@ -71,7 +77,7 @@ kubectl get -o yaml mpijobs tensorflow-benchmarks
 ```
 
 ```
-apiVersion: kubeflow.org/v1alpha2
+apiVersion: kubeflow.org/v2beta1
 kind: MPIJob
 metadata:
   creationTimestamp: "2019-07-09T22:15:51Z"
@@ -82,7 +88,8 @@ metadata:
   selfLink: /apis/kubeflow.org/v1alpha2/namespaces/default/mpijobs/tensorflow-benchmarks
   uid: 1c5b470f-a297-11e9-964d-88d7f67c6e6d
 spec:
-  cleanPodPolicy: Running
+  runPolicy:
+    cleanPodPolicy: Running
   mpiReplicaSpecs:
     Launcher:
       replicas: 1
@@ -199,6 +206,12 @@ Variables:   horovod
 total images/sec: 308.27
 ```
 
+For a sample that uses Intel MPI, see:
+
+```bash
+cat examples/pi/pi-intel.yaml
+```
+
 ## Exposed Metrics
 
 | Metric name | Metric type | Description | Labels |
@@ -213,9 +226,21 @@ total images/sec: 308.27
 With [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics), one can join metrics by labels.
 For example `kube_pod_info * on(pod,namespace) group_left label_replace(mpi_operator_job_infos, "pod", "$0", "launcher", ".*")`
 
-# Docker Images
+## Docker Images
 
-Docker images are built and pushed automatically to [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator). You can use the following Dockerfiles to build the images yourself:
+We push Docker images of [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator) for every release.
+You can use the following Dockerfile to build the image yourself:
 
 - [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
-- [kubectl-delivery](https://github.com/kubeflow/mpi-operator/blob/master/cmd/kubectl-delivery/Dockerfile)
+
+Alternative, you can build the image using make:
+
+```bash
+make RELEASE_VERSION=dev images
+```
+
+This will produce an image with the tag `kubeflow/mpi-operator:dev`.
+
+## Contributing
+
+Learn more in [CONTRIBUTING](https://github.com/kubeflow/mpi-operator/blob/master/CONTRIBUTING.md).
