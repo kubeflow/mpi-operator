@@ -1496,9 +1496,9 @@ func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
 
 func defaultLabels(jobName, role string) map[string]string {
 	return map[string]string{
-		labelGroupName:   "kubeflow.org",
-		labelMPIJobName:  jobName,
-		labelMPIRoleType: role,
+		common.OperatorNameLabel: kubeflow.OperatorName,
+		common.JobNameLabel:      jobName,
+		common.JobRoleLabel:      role,
 	}
 }
 
