@@ -1,0 +1,485 @@
+# --------------------------------------------------
+# - Single configuration deployment YAML for MPI-Operator
+# - Includes:
+#      CRD
+#      Namespace
+#      RBAC
+#      Controller deployment
+# --------------------------------------------------
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpi-operator
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpijobs.kubeflow.org
+spec:
+  group: kubeflow.org
+  names:
+    kind: MPIJob
+    plural: mpijobs
+    shortNames:
+    - mj
+    - mpij
+    singular: mpijob
+  scope: Namespaced
+  versions:
+  - name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              mpiReplicaSpecs:
+                properties:
+                  Launcher:
+                    properties:
+                      replicas:
+                        maximum: 1
+                        minimum: 1
+                        type: integer
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  Worker:
+                    properties:
+                      replicas:
+                        minimum: 1
+                        type: integer
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              slotsPerWorker:
+                minimum: 1
+                type: integer
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              mpiReplicaSpecs:
+                properties:
+                  Launcher:
+                    properties:
+                      replicas:
+                        maximum: 1
+                        minimum: 1
+                        type: integer
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  Worker:
+                    properties:
+                      replicas:
+                        minimum: 1
+                        type: integer
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              slotsPerWorker:
+                minimum: 1
+                type: integer
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v2beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              mpiImplementation:
+                enum:
+                - OpenMPI
+                - Intel
+                type: string
+              mpiReplicaSpecs:
+                properties:
+                  Launcher:
+                    properties:
+                      replicas:
+                        maximum: 1
+                        minimum: 1
+                        type: integer
+                      restartPolicy:
+                        enum:
+                        - Never
+                        - OnFailure
+                        type: string
+                      template:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  Worker:
+                    properties:
+                      replicas:
+                        minimum: 1
+                        type: integer
+                      restartPolicy:
+                        enum:
+                        - Never
+                        - OnFailure
+                        type: string
+                      template:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                required:
+                - Launcher
+                type: object
+              runPolicy:
+                properties:
+                  activeDeadlineSeconds:
+                    description: |
+                      Defines the duration in seconds, relative to its start time, that the launcher
+                      Job may be active before the system tries to terminate it. Defaults to infinite.
+                    minimum: 0
+                    type: integer
+                  backoffLimit:
+                    description: Specifies the number of retries before marking the
+                      launcher Job as failed. Defaults to 6.
+                    minimum: 0
+                    type: integer
+                  cleanPodPolicy:
+                    description: Defines which worker Pods must be deleted after the
+                      Job completes
+                    enum:
+                    - None
+                    - Running
+                    - All
+                    type: string
+                  ttlSecondsAfterFinished:
+                    description: |
+                      Defines the TTL to clean up the launcher Job.
+                      Defaults to infinite. Requires kubernetes 1.21+.
+                    minimum: 0
+                    type: integer
+                type: object
+              slotsPerWorker:
+                minimum: 1
+                type: integer
+              sshAuthMountPath:
+                type: string
+            type: object
+          status:
+            properties:
+              completionTime:
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    lastUpdateTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      enum:
+                      - Created
+                      - Running
+                      - Restarting
+                      - Succeeded
+                      - Failed
+                      type: string
+                  type: object
+                type: array
+              lastReconcileTime:
+                format: date-time
+                type: string
+              replicaStatuses:
+                properties:
+                  Launcher:
+                    properties:
+                      active:
+                        type: integer
+                      failed:
+                        type: integer
+                      succeeded:
+                        type: integer
+                    type: object
+                  Worker:
+                    properties:
+                      active:
+                        type: integer
+                      failed:
+                        type: integer
+                      succeeded:
+                        type: integer
+                    type: object
+                type: object
+              startTime:
+                format: date-time
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpi-operator
+  namespace: mpi-operator
+---
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.authorization.kubeflow.org/aggregate-to-kubeflow-mpijobs-admin: "true"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-admin: "true"
+  name: kubeflow-mpijobs-admin
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-edit: "true"
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-mpijobs-admin: "true"
+  name: kubeflow-mpijobs-edit
+rules:
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - mpijobs
+  - mpijobs/status
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-view: "true"
+  name: kubeflow-mpijobs-view
+rules:
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - mpijobs
+  - mpijobs/status
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpi-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - services
+  verbs:
+  - create
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - list
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - list
+  - update
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - kubeflow.org
+  resources:
+  - mpijobs
+  - mpijobs/finalizers
+  - mpijobs/status
+  verbs:
+  - '*'
+- apiGroups:
+  - scheduling.incubator.k8s.io
+  - scheduling.sigs.dev
+  resources:
+  - queues
+  - podgroups
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpi-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mpi-operator
+subjects:
+- kind: ServiceAccount
+  name: mpi-operator
+  namespace: mpi-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpi-operator
+  namespace: mpi-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mpi-operator
+      app.kubernetes.io/component: mpijob
+      app.kubernetes.io/name: mpi-operator
+      kustomize.component: mpi-operator
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: mpi-operator
+        app.kubernetes.io/component: mpijob
+        app.kubernetes.io/name: mpi-operator
+        kustomize.component: mpi-operator
+    spec:
+      containers:
+      - args:
+        - -alsologtostderr
+        - --lock-namespace
+        - mpi-operator
+        image: mpioperator/mpi-operator:latest
+        name: mpi-operator
+      serviceAccountName: mpi-operator
