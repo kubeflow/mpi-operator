@@ -41,7 +41,7 @@ const (
 	envTestMPIOperatorImage = "TEST_MPI_OPERATOR_IMAGE"
 	envTestKindImage        = "TEST_KIND_IMAGE"
 
-	defaultMPIOperatorImage = "kubeflow/mpi-operator:local"
+	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
 	defaultKindImage        = "kindest/node:v1.21.2"
 	openMPIImage            = "mpioperator/mpi-pi:openmpi"
 	intelMPIImage           = "mpioperator/mpi-pi:intel"

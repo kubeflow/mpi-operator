@@ -33,7 +33,6 @@ type ServerOption struct {
 	LockNamespace      string
 	QPS                int
 	Burst              int
-	ScriptingImage     string
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -69,6 +68,4 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.IntVar(&s.QPS, "kube-api-qps", 5, "QPS indicates the maximum QPS to the master from this client.")
 	fs.IntVar(&s.Burst, "kube-api-burst", 10, "Maximum burst for throttle.")
-
-	fs.StringVar(&s.ScriptingImage, "scripting-image", "alpine:3.14", "Container image used for scripting, such as in init containers.")
 }
