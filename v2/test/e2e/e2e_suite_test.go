@@ -43,7 +43,8 @@ const (
 
 	defaultMPIOperatorImage = "kubeflow/mpi-operator:local"
 	defaultKindImage        = "kindest/node:v1.21.2"
-	openMPIImage            = "kubeflow/mpi-pi:openmpi"
+	openMPIImage            = "mpioperator/mpi-pi:openmpi"
+	intelMPIImage           = "mpioperator/mpi-pi:intel"
 	rootPath                = "../../.."
 	kubectlPath             = rootPath + "/bin/kubectl"
 	operatorManifestsPath   = rootPath + "/manifests/overlays/dev"
@@ -131,7 +132,7 @@ func bootstrapKindCluster() error {
 	if err != nil {
 		return fmt.Errorf("creating kind cluster: %w", err)
 	}
-	err = runCommand(kindPath, "load", "docker-image", mpiOperatorImage, openMPIImage)
+	err = runCommand(kindPath, "load", "docker-image", mpiOperatorImage, openMPIImage, intelMPIImage)
 	if err != nil {
 		return fmt.Errorf("loading container images: %w", err)
 	}

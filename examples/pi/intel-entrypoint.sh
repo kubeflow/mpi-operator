@@ -8,7 +8,7 @@ fi
 function resolve_host() {
   host="$1"
   check="nslookup $host"
-  max_retry=5
+  max_retry=10
   counter=0
   backoff=0.1
   until $check > /dev/null
