@@ -99,7 +99,8 @@ images:
 
 .PHONY: test_images
 test_images:
-	${IMG_BUILDER} build -t kubeflow/mpi-pi:openmpi examples/pi
+	${IMG_BUILDER} build -t mpioperator/mpi-pi:openmpi examples/pi
+	${IMG_BUILDER} build -t mpioperator/mpi-pi:intel examples/pi -f examples/pi/intel.Dockerfile
 
 .PHONY: tidy
 tidy:

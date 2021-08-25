@@ -18,6 +18,8 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"io"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
@@ -63,8 +65,13 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				Namespace: namespace,
 			},
 			Spec: kubeflow.MPIJobSpec{
+				RunPolicy: common.RunPolicy{
+					BackoffLimit: newInt32(10),
+				},
 				MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
-					kubeflow.MPIReplicaTypeLauncher: {},
+					kubeflow.MPIReplicaTypeLauncher: {
+						RestartPolicy: common.RestartPolicyOnFailure,
+					},
 					kubeflow.MPIReplicaTypeWorker: {
 						Replicas: newInt32(2),
 					},
@@ -100,7 +107,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				mpiJob.Spec.RunPolicy.BackoffLimit = newInt32(1)
 			})
 			ginkgo.It("should fail", func() {
-				mpiJob := createJobAndWaitForCompletion(namespace, mpiJob)
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
 				expectConditionToBeTrue(mpiJob, common.JobFailed)
 			})
 		})
@@ -112,7 +119,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			})
 
 			ginkgo.It("should succeed", func() {
-				mpiJob := createJobAndWaitForCompletion(namespace, mpiJob)
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
 				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
 			})
 		})
@@ -135,7 +142,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			})
 
 			ginkgo.It("should succeed", func() {
-				mpiJob := createJobAndWaitForCompletion(namespace, mpiJob)
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
 				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
 			})
 		})
@@ -149,21 +156,21 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
 					{
 						Name:    "launcher",
-						Image:   openMPIImage,
+						Image:   intelMPIImage,
 						Command: []string{}, // uses entrypoint.
 						Args: []string{
 							"mpirun",
-							"--allow-run-as-root",
 							"-n",
-							"2",
+							"1",
 							"/home/mpiuser/pi",
 						},
 					},
 				}
+				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = newInt32(1)
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
 					{
 						Name:    "worker",
-						Image:   openMPIImage,
+						Image:   intelMPIImage,
 						Command: []string{}, // uses entrypoint.
 						Args: []string{
 							"/usr/sbin/sshd",
@@ -174,7 +181,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			})
 
 			ginkgo.It("should succeed", func() {
-				mpiJob := createJobAndWaitForCompletion(namespace, mpiJob)
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
 				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
 			})
 		})
@@ -182,24 +189,90 @@ var _ = ginkgo.Describe("MPIJob", func() {
 	})
 })
 
-func createJobAndWaitForCompletion(ns string, mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
+func createJobAndWaitForCompletion(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
 	ctx := context.Background()
 	var err error
 	ginkgo.By("Creating MPIJob")
-	mpiJob, err = mpiClient.KubeflowV2beta1().MPIJobs(ns).Create(ctx, mpiJob, metav1.CreateOptions{})
+	mpiJob, err = mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	ginkgo.By("Waiting for MPIJob to finish")
 	err = wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
-		updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(ns).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+		updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		mpiJob = updatedJob
 		return mpiJob.Status.CompletionTime != nil, nil
 	})
+	if err != nil {
+		err := debugJob(ctx, mpiJob)
+		if err != nil {
+			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to debug job: %v\n", err)
+		}
+	}
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	return mpiJob
+}
+
+func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
+	selector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			common.OperatorNameLabel: kubeflow.OperatorName,
+			common.JobNameLabel:      mpiJob.Name,
+			common.JobRoleLabel:      "launcher",
+		},
+	}
+	launcherPods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(&selector),
+	})
+	if err != nil {
+		return fmt.Errorf("getting launcher Pods: %w", err)
+	}
+	if len(launcherPods.Items) == 0 {
+		return fmt.Errorf("no launcher Pods found")
+	}
+	lastPod := launcherPods.Items[0]
+	for _, p := range launcherPods.Items[1:] {
+		if p.CreationTimestamp.After(p.CreationTimestamp.Time) {
+			lastPod = p
+		}
+	}
+	err = podLogs(ctx, &lastPod)
+	if err != nil {
+		return fmt.Errorf("obtaining launcher logs: %w", err)
+	}
+
+	selector.MatchLabels[common.JobRoleLabel] = "worker"
+	workerPods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(&selector),
+	})
+	if err != nil {
+		return fmt.Errorf("getting worker Pods: %w", err)
+	}
+	for _, p := range workerPods.Items {
+		err = podLogs(ctx, &p)
+		if err != nil {
+			return fmt.Errorf("obtaining worker logs: %w", err)
+		}
+	}
+	return nil
+}
+
+func podLogs(ctx context.Context, p *corev1.Pod) error {
+	req := k8sClient.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{})
+	stream, err := req.Stream(ctx)
+	if err != nil {
+		return fmt.Errorf("reading logs: %v", err)
+	}
+	defer stream.Close()
+	fmt.Fprintf(ginkgo.GinkgoWriter, "== BEGIN %s pod logs ==\n", p.Name)
+	_, err = io.Copy(ginkgo.GinkgoWriter, stream)
+	if err != nil {
+		return fmt.Errorf("writing logs: %v", err)
+	}
+	fmt.Fprintf(ginkgo.GinkgoWriter, "\n== END %s pod logs ==\n", p.Name)
+	return nil
 }
 
 func expectConditionToBeTrue(mpiJob *kubeflow.MPIJob, condType common.JobConditionType) {
