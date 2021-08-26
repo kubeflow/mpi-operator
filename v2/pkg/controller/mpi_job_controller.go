@@ -73,9 +73,7 @@ const (
 	discoverHostsScriptName = "discover_hosts.sh"
 	sshAuthSecretSuffix     = "-ssh"
 	sshAuthVolume           = "ssh-auth"
-	sshAuthMountPath        = "/mnt/ssh"
-	sshHomeInitMountPath    = "/mnt/home-ssh"
-	sshHomeVolume           = "ssh-home"
+	rootSSHPath             = "/root/.ssh"
 	launcher                = "launcher"
 	worker                  = "worker"
 	launcherSuffix          = "-launcher"
@@ -242,8 +240,6 @@ type MPIJobController struct {
 	recorder record.EventRecorder
 	// Gang scheduler name to use
 	gangSchedulerName string
-	// Container image used for scripting.
-	scriptingImage string
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -261,7 +257,7 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	gangSchedulerName, scriptingImage string) *MPIJobController {
+	gangSchedulerName string) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -298,7 +294,6 @@ func NewMPIJobController(
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
 		recorder:          recorder,
 		gangSchedulerName: gangSchedulerName,
-		scriptingImage:    scriptingImage,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -1516,57 +1511,28 @@ func workerReplicas(job *kubeflow.MPIJob) int32 {
 }
 
 func (c *MPIJobController) setupSSHOnPod(podSpec *corev1.PodSpec, job *kubeflow.MPIJob) {
+	var mode *int32
+	if job.Spec.SSHAuthMountPath == rootSSHPath {
+		mode = newInt32(0600)
+	}
+	mainContainer := &podSpec.Containers[0]
 	podSpec.Volumes = append(podSpec.Volumes,
 		corev1.Volume{
 			Name: sshAuthVolume,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: job.Name + sshAuthSecretSuffix,
-					Items:      sshVolumeItems,
+					DefaultMode: mode,
+					SecretName:  job.Name + sshAuthSecretSuffix,
+					Items:       sshVolumeItems,
 				},
 			},
-		},
-		corev1.Volume{
-			Name: sshHomeVolume,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
 		})
 
-	mainContainer := &podSpec.Containers[0]
 	mainContainer.VolumeMounts = append(mainContainer.VolumeMounts,
 		corev1.VolumeMount{
-			Name:      sshHomeVolume,
+			Name:      sshAuthVolume,
 			MountPath: job.Spec.SSHAuthMountPath,
 		})
-
-	// The init script sets the permissions of the ssh folder in the user's home
-	// directory. The ownership is set based on the security context of the
-	// launcher's first container.
-	launcherSecurityCtx := job.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext
-	initScript := "" +
-		"cp -RL /mnt/ssh/* /mnt/home-ssh && " +
-		"chmod 700 /mnt/home-ssh && " +
-		"chmod 600 /mnt/home-ssh/*"
-	if launcherSecurityCtx != nil && launcherSecurityCtx.RunAsUser != nil {
-		initScript += fmt.Sprintf(" && chown %d -R /mnt/home-ssh", *launcherSecurityCtx.RunAsUser)
-	}
-	podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{
-		Name:  "init-ssh",
-		Image: c.scriptingImage,
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      sshAuthVolume,
-				MountPath: sshAuthMountPath,
-			},
-			{
-				Name:      sshHomeVolume,
-				MountPath: sshHomeInitMountPath,
-			},
-		},
-		Command: []string{"/bin/sh"},
-		Args:    []string{"-c", initScript},
-	})
 }
 
 func ownerReferenceAndGVK(object metav1.Object) (*metav1.OwnerReference, schema.GroupVersionKind, error) {

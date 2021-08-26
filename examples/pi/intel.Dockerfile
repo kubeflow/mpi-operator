@@ -52,6 +52,13 @@ WORKDIR /home/mpiuser
 COPY intel-entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 COPY --chown=mpiuser sshd_config .sshd_config
-RUN sed -i 's/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g' /etc/ssh/ssh_config
+# Allow OpenSSH to talk to containers without asking for confirmation
+# by disabling StrictHostKeyChecking.
+# mpi-operator mounts the .ssh folder from a Secret. For that to work, we need
+# to disable UserKnownHostsFile to avoid write permissions.
+# Disabling StrictModes avoids directory and files read permission checks.
+RUN sed -i 's/[ #]\(.*StrictHostKeyChecking \).*/ \1no/g' /etc/ssh/ssh_config && \
+    echo "    UserKnownHostsFile /dev/null" >> /etc/ssh/ssh_config && \
+    sed -i 's/#\(StrictModes \).*/\1no/g' /etc/ssh/sshd_config
 
 COPY --from=builder /pi /home/mpiuser/pi

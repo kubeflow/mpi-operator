@@ -54,10 +54,6 @@ var (
 	ignoreSecretEntries  = cmpopts.IgnoreMapEntries(func(k string, v []uint8) bool { return true })
 )
 
-const (
-	scriptingImage = "alpine"
-)
-
 type fixture struct {
 	t *testing.T
 
@@ -171,7 +167,6 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		podgroupsInformer,
 		i.Kubeflow().V2beta1().MPIJobs(),
 		gangSchedulerName,
-		scriptingImage,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -1015,23 +1010,8 @@ func TestNewLauncherAndWorker(t *testing.T) {
 										corev1.EnvVar{Name: openMPISlotsEnv, Value: "1"},
 										nvidiaDisableEnvVars),
 									VolumeMounts: []corev1.VolumeMount{
-										{Name: "ssh-home", MountPath: "/root/.ssh"},
+										{Name: "ssh-auth", MountPath: "/root/.ssh"},
 										{Name: "mpi-job-config", MountPath: "/etc/mpi"},
-									},
-								},
-							},
-							InitContainers: []corev1.Container{
-								{
-									Name:    "init-ssh",
-									Image:   scriptingImage,
-									Command: []string{"/bin/sh"},
-									Args: []string{
-										"-c",
-										"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/*",
-									},
-									VolumeMounts: []corev1.VolumeMount{
-										{Name: "ssh-auth", MountPath: "/mnt/ssh"},
-										{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
 									},
 								},
 							},
@@ -1040,15 +1020,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 									Name: "ssh-auth",
 									VolumeSource: corev1.VolumeSource{
 										Secret: &corev1.SecretVolumeSource{
-											SecretName: "foo-ssh",
-											Items:      sshVolumeItems,
+											DefaultMode: newInt32(0600),
+											SecretName:  "foo-ssh",
+											Items:       sshVolumeItems,
 										},
-									},
-								},
-								{
-									Name: "ssh-home",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
@@ -1086,24 +1061,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						{
 							Command: []string{"/usr/sbin/sshd", "-De"},
 							VolumeMounts: []corev1.VolumeMount{
-								{Name: "ssh-home", MountPath: "/root/.ssh"},
+								{Name: "ssh-auth", MountPath: "/root/.ssh"},
 							},
 							Env: workerEnvVars,
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:    "init-ssh",
-							Image:   scriptingImage,
-							Command: []string{"/bin/sh"},
-							Args: []string{
-								"-c",
-								"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/*",
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "ssh-auth", MountPath: "/mnt/ssh"},
-								{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
-							},
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -1111,15 +1071,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							Name: "ssh-auth",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: "foo-ssh",
-									Items:      sshVolumeItems,
+									DefaultMode: newInt32(0600),
+									SecretName:  "foo-ssh",
+									Items:       sshVolumeItems,
 								},
-							},
-						},
-						{
-							Name: "ssh-home",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -1225,26 +1180,11 @@ func TestNewLauncherAndWorker(t *testing.T) {
 										nvidiaDisableEnvVars),
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "fool-vol", MountPath: "/mnt/foo"},
-										{Name: "ssh-home", MountPath: "/home/mpiuser/.ssh"},
+										{Name: "ssh-auth", MountPath: "/home/mpiuser/.ssh"},
 										{Name: "mpi-job-config", MountPath: "/etc/mpi"},
 									},
 								},
 								{},
-							},
-							InitContainers: []corev1.Container{
-								{
-									Name:    "init-ssh",
-									Image:   scriptingImage,
-									Command: []string{"/bin/sh"},
-									Args: []string{
-										"-c",
-										"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/* && chown 1000 -R /mnt/home-ssh",
-									},
-									VolumeMounts: []corev1.VolumeMount{
-										{Name: "ssh-auth", MountPath: "/mnt/ssh"},
-										{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
-									},
-								},
 							},
 							Volumes: []corev1.Volume{
 								{Name: "foo-vol"},
@@ -1255,12 +1195,6 @@ func TestNewLauncherAndWorker(t *testing.T) {
 											SecretName: "bar-ssh",
 											Items:      sshVolumeItems,
 										},
-									},
-								},
-								{
-									Name: "ssh-home",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
 								},
 								{
@@ -1298,24 +1232,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						{
 							Command: []string{"/entrypoint.sh"},
 							VolumeMounts: []corev1.VolumeMount{
-								{Name: "ssh-home", MountPath: "/home/mpiuser/.ssh"},
+								{Name: "ssh-auth", MountPath: "/home/mpiuser/.ssh"},
 							},
 							Env: joinEnvVars(corev1.EnvVar{Name: "FOO", Value: "bar"}, workerEnvVars),
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:    "init-ssh",
-							Image:   scriptingImage,
-							Command: []string{"/bin/sh"},
-							Args: []string{
-								"-c",
-								"cp -RL /mnt/ssh/* /mnt/home-ssh && chmod 700 /mnt/home-ssh && chmod 600 /mnt/home-ssh/* && chown 1000 -R /mnt/home-ssh",
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "ssh-auth", MountPath: "/mnt/ssh"},
-								{Name: "ssh-home", MountPath: "/mnt/home-ssh"},
-							},
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -1328,12 +1247,6 @@ func TestNewLauncherAndWorker(t *testing.T) {
 								},
 							},
 						},
-						{
-							Name: "ssh-home",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
 					},
 				},
 			},
@@ -1344,9 +1257,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			job := tc.job.DeepCopy()
 			scheme.Scheme.Default(job)
-			ctrl := &MPIJobController{
-				scriptingImage: scriptingImage,
-			}
+			ctrl := &MPIJobController{}
 			launcher := ctrl.newLauncherJob(job)
 			if !metav1.IsControlledBy(launcher, job) {
 				t.Errorf("Created launcher Pod is not controlled by Job")
@@ -1407,8 +1318,7 @@ func (f *fixture) newFakeMPIJobController() *MPIJobController {
 
 	k8sI := kubeinformers.NewSharedInformerFactory(kubeClient, noResyncPeriodFunc())
 	return &MPIJobController{
-		recorder:       &record.FakeRecorder{},
-		podLister:      k8sI.Core().V1().Pods().Lister(),
-		scriptingImage: scriptingImage,
+		recorder:  &record.FakeRecorder{},
+		podLister: k8sI.Core().V1().Pods().Lister(),
 	}
 }
