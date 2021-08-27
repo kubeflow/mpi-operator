@@ -1,1 +1,16 @@
+# From .gitignore
+.idea/
+.vscode/
+_output/
+bin/
+profile.cov
+
+# Additional
 .gitignore
+.github/
+deploy/
+examples/
+hack/
+manifests/
+proposals/
+sdk/
