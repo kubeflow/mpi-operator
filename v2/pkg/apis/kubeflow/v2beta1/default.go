@@ -29,7 +29,7 @@ func setDefaultsTypeLauncher(spec *common.ReplicaSpec) {
 		return
 	}
 	if spec.RestartPolicy == "" {
-		spec.RestartPolicy = DefaultRestartPolicy
+		spec.RestartPolicy = DefaultLauncherRestartPolicy
 	}
 	if spec.Replicas == nil {
 		spec.Replicas = newInt32(1)
