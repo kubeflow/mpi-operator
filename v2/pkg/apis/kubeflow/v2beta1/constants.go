@@ -21,6 +21,8 @@ const (
 	EnvKubeflowNamespace = "KUBEFLOW_NAMESPACE"
 	// DefaultRestartPolicy is default RestartPolicy for ReplicaSpec.
 	DefaultRestartPolicy = common.RestartPolicyNever
+	// DefaultLauncherRestartPolicy is default RestartPolicy for Launcher Job.
+	DefaultLauncherRestartPolicy = common.RestartPolicyOnFailure
 	// OperatorName is the name of the operator used as value to the label common.OperatorLabelName
 	OperatorName = "mpi-operator"
 )

@@ -85,7 +85,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
 						MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: DefaultRestartPolicy,
+							RestartPolicy: DefaultLauncherRestartPolicy,
 						},
 					},
 				},
