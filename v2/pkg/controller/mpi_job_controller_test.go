@@ -1001,7 +1001,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						Spec: corev1.PodSpec{
 							Hostname:      "foo-launcher",
 							Subdomain:     "foo-worker",
-							RestartPolicy: corev1.RestartPolicyNever,
+							RestartPolicy: corev1.RestartPolicyOnFailure,
 							Containers: []corev1.Container{
 								{
 									Env: joinEnvVars(
