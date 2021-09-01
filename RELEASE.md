@@ -1,5 +1,20 @@
 # MPI Operator Releases
 
+## Release v0.3.0
+
+* Scalability improvements
+  * Worker start up no longer issues requests to kube-apiserver.
+  * Dropped kubectl-delivery init container, reducing stress on kube-apiserver.
+* Support for Intel MPI.
+* Support for `runPolicy` (`ttlSecondsAfterFinish`, `activeDeadlineSeconds`, `backoffLimit`)
+  by using a k8s Job for the launcher.
+* Samples for plain MPI applications.
+* Production readiness improvements:
+  * Increased coverage throughout unit, integration and E2E tests.
+  * More robust API validation.
+  * Revisited v2beta1 MPIJob API.
+  * Using fully-qualified label names, in consistency with other kubeflow operators.
+
 ## Release v0.2.3
 
 ### Enhancements

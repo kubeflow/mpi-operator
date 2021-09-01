@@ -1,10 +1,11 @@
-apiVersion: kubeflow.org/v1
+apiVersion: kubeflow.org/v2beta1
 kind: MPIJob
 metadata:
   name: tensorflow-mnist
 spec:
   slotsPerWorker: 1
-  cleanPodPolicy: Running
+  runPolicy:
+    cleanPodPolicy: Running
   mpiReplicaSpecs:
     Launcher:
       replicas: 1

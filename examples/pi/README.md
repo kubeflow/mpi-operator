@@ -7,13 +7,22 @@ Then, it calculates an approximate value for pi.
 
 ## How to build Image
 
+For OpenMPI:
+
 ```bash
 docker build -t mpi-pi .
 ```
 
+For Intel MPI:
+
+```bash
+docker build -t mpi-pi . -f intel.Dockerfile
+```
+
 ## Create MPIJob
 
-Modify `pi.yaml` to set up the image name from your own registry.
+Modify `pi.yaml` (for OpenMPI) or `pi-intel.yaml` (for Intel MPI) to set up the
+image name from your own registry.
 
 Then, run:
 
