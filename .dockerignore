@@ -6,6 +6,8 @@ bin/
 profile.cov
 
 # Additional
+.dockerignore
+Dockerfile
 .gitignore
 .github/
 deploy/

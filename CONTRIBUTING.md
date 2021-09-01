@@ -74,17 +74,13 @@ make images dev_manifest
 kubectl apply -k manifests/overlays/dev
 ```
 
-You can build an image using a legacy controller by setting `CONTROLLER_VERSION`
-
-```bash
-make CONTROLLER_VERSION=v1 images dev_manifest
-kubectl apply -k manifests/overlays/dev
-```
+The image comes bundled with all the controller versions. For example, you can
+find the v1 controller binary at `/opt/mpi-operator.v1`.
 
 If you need to use a different registry, or a different tag, you can do:
 
 ```bash
-make IMAGE_NAME=example.com/mpi-operator CONTROLLER_VERSION=v1 RELEASE_VERSION=dev make images dev_manifest
+make IMAGE_NAME=example.com/mpi-operator RELEASE_VERSION=dev make images dev_manifest
 ```
 
 To look at the controller's logs, you can do:

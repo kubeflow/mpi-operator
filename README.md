@@ -236,10 +236,10 @@ You can use the following Dockerfile to build the image yourself:
 Alternative, you can build the image using make:
 
 ```bash
-make RELEASE_VERSION=dev images
+make RELEASE_VERSION=dev IMAGE_NAME=registry.example.com/mpi-operator images
 ```
 
-This will produce an image with the tag `kubeflow/mpi-operator:dev`.
+This will produce an image with the tag `registry.example.com/mpi-operator:dev`.
 
 ## Contributing
 
