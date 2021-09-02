@@ -197,6 +197,7 @@ spec:
       containers:
       - name: mpi-operator
         image: mpioperator/mpi-operator:latest
+        command: ["/opt/mpi-operator.v1alpha2"]
         args: [
           "-alsologtostderr",
           "--kubectl-delivery-image",
