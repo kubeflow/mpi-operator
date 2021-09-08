@@ -47,6 +47,10 @@ spec:
             - -De
             - -f
             - /home/mpiuser/.sshd_config
+            readinessProbe:
+              tcpSocket:
+                port: 22
+              initialDelaySeconds: 2
             resources:
               limits:
                 cpu: 1
