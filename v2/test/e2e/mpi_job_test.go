@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -65,9 +66,6 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				Namespace: namespace,
 			},
 			Spec: kubeflow.MPIJobSpec{
-				RunPolicy: common.RunPolicy{
-					BackoffLimit: newInt32(10),
-				},
 				MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 					kubeflow.MPIReplicaTypeLauncher: {
 						RestartPolicy: common.RestartPolicyOnFailure,
@@ -161,12 +159,11 @@ var _ = ginkgo.Describe("MPIJob", func() {
 						Args: []string{
 							"mpirun",
 							"-n",
-							"1",
+							"2",
 							"/home/mpiuser/pi",
 						},
 					},
 				}
-				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = newInt32(1)
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
 					{
 						Name:    "worker",
@@ -175,6 +172,14 @@ var _ = ginkgo.Describe("MPIJob", func() {
 						Args: []string{
 							"/usr/sbin/sshd",
 							"-De",
+						},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Port: intstr.FromInt(22),
+								},
+							},
+							InitialDelaySeconds: 3,
 						},
 					},
 				}
