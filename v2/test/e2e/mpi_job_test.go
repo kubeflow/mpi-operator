@@ -120,6 +120,22 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
 				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
 			})
+
+			ginkgo.When("running with host network", func() {
+				ginkgo.BeforeEach(func() {
+					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.HostNetwork = true
+					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.HostNetwork = true
+					// The test cluster has only one node.
+					// More than one pod cannot use the same host port for sshd.
+					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].Args = []string{"/home/mpiuser/pi"}
+					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = newInt32(1)
+				})
+
+				ginkgo.It("should succeed", func() {
+					mpiJob := createJobAndWaitForCompletion(mpiJob)
+					expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+				})
+			})
 		})
 
 		ginkgo.When("running as non-root", func() {

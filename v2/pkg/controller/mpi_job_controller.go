@@ -1261,6 +1261,11 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	podTemplate.Labels[common.ReplicaIndexLabel] = strconv.Itoa(index)
 	podTemplate.Spec.Hostname = name
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
+	if podTemplate.Spec.HostNetwork {
+		// Allows resolution of worker hostnames without needing to include the
+		// namespace or cluster domain.
+		podTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
 	setRestartPolicy(podTemplate, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker])
 
 	container := &podTemplate.Spec.Containers[0]
@@ -1348,6 +1353,11 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 	}
 	podTemplate.Spec.Hostname = launcherName
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
+	if podTemplate.Spec.HostNetwork {
+		// Allows resolution of worker hostnames without needing to include the
+		// namespace or cluster domain.
+		podTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
 	container := &podTemplate.Spec.Containers[0]
 	container.Env = append(container.Env, launcherEnvVars...)
 	slotsStr := strconv.Itoa(int(*mpiJob.Spec.SlotsPerWorker))
