@@ -176,7 +176,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								TCPSocket: &corev1.TCPSocketAction{
-									Port: intstr.FromInt(22),
+									Port: intstr.FromInt(2222),
 								},
 							},
 							InitialDelaySeconds: 3,
