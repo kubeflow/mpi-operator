@@ -5,6 +5,7 @@ GitSHA=`git rev-parse HEAD`
 Date=`date "+%Y-%m-%d %H:%M:%S"`
 RELEASE_VERSION?=v0.3.0
 CONTROLLER_VERSION?=v2
+BASE_IMAGE_SSH_PORT?=2222
 IMG_BUILDER=docker
 LD_FLAGS=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
@@ -99,7 +100,7 @@ images:
 
 .PHONY: test_images
 test_images:
-	${IMG_BUILDER} build -t mpioperator/base examples/base
+	${IMG_BUILDER} build --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base examples/base
 	${IMG_BUILDER} build -t mpioperator/openmpi examples/base -f examples/base/openmpi.Dockerfile
 	${IMG_BUILDER} build -t mpioperator/openmpi-builder examples/base -f examples/base/openmpi-builder.Dockerfile
 	${IMG_BUILDER} build -t mpioperator/mpi-pi:openmpi examples/pi

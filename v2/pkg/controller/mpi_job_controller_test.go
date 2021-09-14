@@ -1104,6 +1104,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 									Labels: map[string]string{"foo": "bar"},
 								},
 								Spec: corev1.PodSpec{
+									HostNetwork: true,
 									Containers: []corev1.Container{
 										{
 											Env: []corev1.EnvVar{
@@ -1127,6 +1128,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						kubeflow.MPIReplicaTypeWorker: {
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
+									HostNetwork: true,
 									Containers: []corev1.Container{
 										{
 											Command: []string{"/entrypoint.sh"},
@@ -1164,6 +1166,8 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							},
 						},
 						Spec: corev1.PodSpec{
+							HostNetwork:   true,
+							DNSPolicy:     corev1.DNSClusterFirstWithHostNet,
 							Hostname:      "bar-launcher",
 							Subdomain:     "bar-worker",
 							RestartPolicy: corev1.RestartPolicyOnFailure,
@@ -1225,6 +1229,8 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: corev1.PodSpec{
+					HostNetwork:   true,
+					DNSPolicy:     corev1.DNSClusterFirstWithHostNet,
 					Hostname:      "bar-worker-12",
 					Subdomain:     "bar-worker",
 					RestartPolicy: corev1.RestartPolicyNever,
