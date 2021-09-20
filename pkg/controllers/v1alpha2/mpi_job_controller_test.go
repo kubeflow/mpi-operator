@@ -177,6 +177,7 @@ func (f *fixture) newController(gangSchedulerName string) (*MPIJobController, in
 		i.Kubeflow().V1alpha2().MPIJobs(),
 		"kubectl-delivery",
 		gangSchedulerName,
+		false,
 	)
 
 	c.configMapSynced = alwaysReady

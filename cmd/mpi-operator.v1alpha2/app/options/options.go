@@ -23,15 +23,16 @@ import (
 
 // ServerOption is the main context object for the controller manager.
 type ServerOption struct {
-	Kubeconfig           string
-	MasterURL            string
-	KubectlDeliveryImage string
-	Threadiness          int
-	MonitoringPort       int
-	PrintVersion         bool
-	GangSchedulingName   string
-	Namespace            string
-	LockNamespace        string
+	Kubeconfig                       string
+	MasterURL                        string
+	KubectlDeliveryImage             string
+	Threadiness                      int
+	MonitoringPort                   int
+	PrintVersion                     bool
+	GangSchedulingName               string
+	Namespace                        string
+	LockNamespace                    string
+	UseLauncherPodSpecServiceAccount bool
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -67,4 +68,6 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")
 
 	fs.StringVar(&s.LockNamespace, "lock-namespace", "mpi-operator", "Set locked namespace name while enabling leader election.")
+
+	fs.BoolVar(&s.UseLauncherPodSpecServiceAccount, "use-launcher-pod-spec-serviceaccount", false, "Set Launcher ServiceAccount based on the Launcher pod spec. When enabled, role and rolebinding won't be created")
 }

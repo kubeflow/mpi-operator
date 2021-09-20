@@ -161,6 +161,12 @@ type MPIJobController struct {
 	kubectlDeliveryImage string
 	// Gang scheduler name to use
 	gangSchedulerName string
+	// When set to true, Launcher ServiceAccount, Role and RoleBinding won't be generated and created.
+	// Instead, Launcher pods will use the ServiceAccount from the MpiJob definition
+	// e.g spec.mpiReplicaSpecs.Launcher.template.spec.serviceAccountName
+	// Note, if useLauncherPodSpecServiceAccount is true, Mpi admin is responsible
+	// for creating serviceAccount, Role and RoleBinding prior the MpiOperator deployment.
+	useLauncherPodSpecServiceAccount bool
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -180,7 +186,8 @@ func NewMPIJobController(
 	podgroupsInformer podgroupsinformer.PodGroupInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	kubectlDeliveryImage string,
-	gangSchedulerName string) *MPIJobController {
+	gangSchedulerName string,
+	useLauncherPodSpecServiceAccount bool) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -197,29 +204,30 @@ func NewMPIJobController(
 	}
 
 	controller := &MPIJobController{
-		kubeClient:           kubeClient,
-		kubeflowClient:       kubeflowClient,
-		kubebatchClient:      kubeBatchClientSet,
-		configMapLister:      configMapInformer.Lister(),
-		configMapSynced:      configMapInformer.Informer().HasSynced,
-		serviceAccountLister: serviceAccountInformer.Lister(),
-		serviceAccountSynced: serviceAccountInformer.Informer().HasSynced,
-		roleLister:           roleInformer.Lister(),
-		roleSynced:           roleInformer.Informer().HasSynced,
-		roleBindingLister:    roleBindingInformer.Lister(),
-		roleBindingSynced:    roleBindingInformer.Informer().HasSynced,
-		statefulSetLister:    statefulSetInformer.Lister(),
-		statefulSetSynced:    statefulSetInformer.Informer().HasSynced,
-		jobLister:            jobInformer.Lister(),
-		jobSynced:            jobInformer.Informer().HasSynced,
-		podgroupsLister:      podgroupsLister,
-		podgroupsSynced:      podgroupsSynced,
-		mpiJobLister:         mpiJobInformer.Lister(),
-		mpiJobSynced:         mpiJobInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
-		recorder:             recorder,
-		kubectlDeliveryImage: kubectlDeliveryImage,
-		gangSchedulerName:    gangSchedulerName,
+		kubeClient:                       kubeClient,
+		kubeflowClient:                   kubeflowClient,
+		kubebatchClient:                  kubeBatchClientSet,
+		configMapLister:                  configMapInformer.Lister(),
+		configMapSynced:                  configMapInformer.Informer().HasSynced,
+		serviceAccountLister:             serviceAccountInformer.Lister(),
+		serviceAccountSynced:             serviceAccountInformer.Informer().HasSynced,
+		roleLister:                       roleInformer.Lister(),
+		roleSynced:                       roleInformer.Informer().HasSynced,
+		roleBindingLister:                roleBindingInformer.Lister(),
+		roleBindingSynced:                roleBindingInformer.Informer().HasSynced,
+		statefulSetLister:                statefulSetInformer.Lister(),
+		statefulSetSynced:                statefulSetInformer.Informer().HasSynced,
+		jobLister:                        jobInformer.Lister(),
+		jobSynced:                        jobInformer.Informer().HasSynced,
+		podgroupsLister:                  podgroupsLister,
+		podgroupsSynced:                  podgroupsSynced,
+		mpiJobLister:                     mpiJobInformer.Lister(),
+		mpiJobSynced:                     mpiJobInformer.Informer().HasSynced,
+		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
+		recorder:                         recorder,
+		kubectlDeliveryImage:             kubectlDeliveryImage,
+		gangSchedulerName:                gangSchedulerName,
+		useLauncherPodSpecServiceAccount: useLauncherPodSpecServiceAccount,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -532,19 +540,32 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return err
 		}
 
-		// Get the launcher ServiceAccount for this MPIJob.
-		if sa, err := c.getOrCreateLauncherServiceAccount(mpiJob); sa == nil || err != nil {
-			return err
+		// if useLauncherPodSpecServiceAccount is true, make sure SA exists
+		if c.useLauncherPodSpecServiceAccount {
+			if _, err := c.getLauncherPodSpecServiceAccount(mpiJob); err != nil {
+				return err
+			}
 		}
 
-		// Get the launcher Role for this MPIJob.
-		if r, err := c.getOrCreateLauncherRole(mpiJob, workerReplicas); r == nil || err != nil {
-			return err
-		}
+		// if Launcher should use SA from Launcher Pod Spec
+		// skip SA, Role and RoleBinding creation
+		if !c.useLauncherPodSpecServiceAccount {
 
-		// Get the launcher RoleBinding for this MPIJob.
-		if rb, err := c.getLauncherRoleBinding(mpiJob); rb == nil || err != nil {
-			return err
+			// Get the launcher ServiceAccount for this MPIJob.
+			if sa, err := c.getOrCreateLauncherServiceAccount(mpiJob); sa == nil || err != nil {
+				return err
+			}
+
+			// Get the launcher Role for this MPIJob.
+			if r, err := c.getOrCreateLauncherRole(mpiJob, workerReplicas); r == nil || err != nil {
+				return err
+			}
+
+			// Get the launcher RoleBinding for this MPIJob.
+			if rb, err := c.getLauncherRoleBinding(mpiJob); rb == nil || err != nil {
+				return err
+			}
+
 		}
 
 		// Get the PodGroup for this MPIJob
@@ -598,6 +619,19 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 	}
 
 	return launcher, nil
+}
+
+func (c *MPIJobController) getLauncherPodSpecServiceAccount(mpiJob *kubeflow.MPIJob) (*corev1.ServiceAccount, error) {
+	launcherSpecSa := "default"
+	if mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.ServiceAccountName != "" {
+		launcherSpecSa = mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.ServiceAccountName
+	}
+
+	sa, err := c.serviceAccountLister.ServiceAccounts(mpiJob.Namespace).Get(launcherSpecSa)
+	if err != nil {
+		return nil, err
+	}
+	return sa, nil
 }
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by kube-batch.
@@ -1253,7 +1287,9 @@ func (c *MPIJobController) newLauncher(mpiJob *kubeflow.MPIJob, kubectlDeliveryI
 		// we create the podGroup with the same name as the mpijob
 		podSpec.Annotations[podgroupv1alpha1.GroupNameAnnotationKey] = mpiJob.Name
 	}
-	podSpec.Spec.ServiceAccountName = launcherName
+	if !c.useLauncherPodSpecServiceAccount {
+		podSpec.Spec.ServiceAccountName = launcherName
+	}
 	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, corev1.Container{
 		Name:            kubectlDeliveryName,
 		Image:           kubectlDeliveryImage,
