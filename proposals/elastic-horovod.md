@@ -21,7 +21,7 @@ We introduce multiple modifications to the mpi-controller to offer an mpi-job-sp
 1. The MPIJob Controller listens for pods, listing all worker pods with running phase
 2. Add a new entry of `discover_hosts.sh` to the ConfigMap, which converts the list of running worker pods into a script following the format defined in Elastic Horovod [Doc](https://horovod.readthedocs.io/en/stable/elastic_include.html)
 3. The `discover_hosts.sh` is mapped under `/etc/mpi/`, where the ConfigMap is mounted on the launcher pod
-4. Command `horovodrun` in the launcher pod uses `/etc/mpi/discover_hosts.sh` to spot available hosts and use `kubectl` to launch work process on fnewly created worker pods
+4. Command `horovodrun` in the launcher pod uses `/etc/mpi/discover_hosts.sh` to spot available hosts and use `kubectl` to launch work process on newly created worker pods
 5. The MPIJob Controller updates the rule in RBAC resources as well, enabling launcher pod to launch new worker process on newly created worker pods
   
 ![Elastic Training](diagrams/elastic-horovod-overall.png)
