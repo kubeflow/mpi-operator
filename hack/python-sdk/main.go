@@ -26,15 +26,22 @@ import (
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 
-	mpijob "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
+	mpijobv1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
+	mpijobv2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 )
 
 // Generate OpenAPI spec definitions for MPIJob Resource
 func main() {
-	if len(os.Args) <= 1 {
-		klog.Fatal("Supply a version")
+	if len(os.Args) <= 2 {
+		klog.Fatal("Supply the MPIJob version and the swagger spec version")
 	}
-	version := os.Args[1]
+
+	sdkVersion := os.Args[1]
+	if sdkVersion != "V1" && sdkVersion != "V2" {
+		fmt.Println("Only `V1` or `V2` for MPIJob is supported now")
+	}
+
+	version := os.Args[2]
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
@@ -43,8 +50,12 @@ func main() {
 		return spec.MustCreateRef(
 			"#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
 	}
-
-	oAPIDefs := mpijob.GetOpenAPIDefinitions(filter)
+	var oAPIDefs map[string]common.OpenAPIDefinition
+	if sdkVersion == "V1" {
+		oAPIDefs = mpijobv1.GetOpenAPIDefinitions(filter)
+	} else if sdkVersion == "V2" {
+		oAPIDefs = mpijobv2.GetOpenAPIDefinitions(filter)
+	}
 	defs := spec.Definitions{}
 	for defName, val := range oAPIDefs {
 		defs[swaggify(defName)] = val.Schema
@@ -72,10 +83,12 @@ func main() {
 
 func swaggify(name string) string {
 	name = strings.Replace(name, "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/", "", -1)
+	name = strings.Replace(name, "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/", "", -1)
 	name = strings.Replace(name, "github.com/kubeflow/common/pkg/apis/common/", "", -1)
 	name = strings.Replace(name, "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/", "", -1)
 	name = strings.Replace(name, "k8s.io/api/core/", "", -1)
 	name = strings.Replace(name, "k8s.io/apimachinery/pkg/apis/meta/", "", -1)
+	name = strings.Replace(name, "k8s.io/apimachinery/pkg/runtime/", "", -1)
 	name = strings.Replace(name, "k8s.io/apimachinery/pkg/api/", "", -1)
 	name = strings.Replace(name, "k8s.io/kubernetes/pkg/controller/", "", -1)
 	name = strings.Replace(name, "k8s.io/client-go/listers/core/", "", -1)
