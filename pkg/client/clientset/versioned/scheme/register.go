@@ -1,4 +1,4 @@
-// Copyright 2020 The Kubeflow Authors.
+// Copyright 2021 The Kubeflow Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ package scheme
 
 import (
 	kubeflowv1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
-	kubeflowv1alpha1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha1"
-	kubeflowv1alpha2 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,8 +29,6 @@ var Scheme = runtime.NewScheme()
 var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
-	kubeflowv1alpha1.AddToScheme,
-	kubeflowv1alpha2.AddToScheme,
 	kubeflowv1.AddToScheme,
 }
 

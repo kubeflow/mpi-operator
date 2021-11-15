@@ -19,7 +19,7 @@ We use Go v1.15+ for development and use [Go Modules](https://blog.golang.org/us
 ## Controller versions
 
 The main module `github.com/kubeflow/mpi-operator` contains the code of the legacy
-controllers `v1alpha1`, `v1alpha2` and `v1`.
+controller `v1`.
 
 The newest iteration of the controller is in the module `github.com/kubeflow/mpi-operator/v2`.
 

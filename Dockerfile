@@ -3,7 +3,7 @@ ARG version=v2
 
 ADD . /go/src/github.com/kubeflow/mpi-operator
 WORKDIR /go/src/github.com/kubeflow/mpi-operator
-RUN make mpi-operator.v1alpha2 mpi-operator.v1 mpi-operator.v2
+RUN make mpi-operator.v1 mpi-operator.v2
 RUN ln -s mpi-operator.$version _output/cmd/bin/mpi-operator
 
 FROM gcr.io/distroless/base-debian10:latest

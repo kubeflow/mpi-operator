@@ -6,10 +6,13 @@ require (
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
 	github.com/go-openapi/spec v0.19.2
 	github.com/kubeflow/common v0.3.3
-	github.com/kubernetes-sigs/kube-batch v0.5.0
+	github.com/onsi/ginkgo v1.7.0 // indirect
+	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/prometheus/client_golang v1.5.1
-	github.com/stretchr/testify v1.4.0
+	github.com/spf13/pflag v1.0.3 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
+	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.16.15
 	k8s.io/apimachinery v0.16.15
 	k8s.io/apiserver v0.16.15
