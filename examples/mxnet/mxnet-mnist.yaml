@@ -1,4 +1,4 @@
-apiVersion: kubeflow.org/v1alpha1
+apiVersion: kubeflow.org/v1
 kind: MPIJob
 metadata:
   labels:

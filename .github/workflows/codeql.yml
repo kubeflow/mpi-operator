@@ -44,7 +44,7 @@ jobs:
       #    project uses a compiled language
 
       - run: |
-         make mpi-operator.v1alpha1 mpi-operator.v1alpha2 mpi-operator.v1 mpi-operator.v2 kubectl-delivery
+         make mpi-operator.v1 mpi-operator.v2 kubectl-delivery
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v1
