@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	kubeflowv1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -37,7 +39,7 @@ var mpijobsResource = schema.GroupVersionResource{Group: "kubeflow.org", Version
 var mpijobsKind = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MPIJob"}
 
 // Get takes name of the mPIJob, and returns the corresponding mPIJob object, and an error if there is any.
-func (c *FakeMPIJobs) Get(name string, options v1.GetOptions) (result *kubeflowv1.MPIJob, err error) {
+func (c *FakeMPIJobs) Get(ctx context.Context, name string, options v1.GetOptions) (result *kubeflowv1.MPIJob, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(mpijobsResource, c.ns, name), &kubeflowv1.MPIJob{})
 
@@ -48,7 +50,7 @@ func (c *FakeMPIJobs) Get(name string, options v1.GetOptions) (result *kubeflowv
 }
 
 // List takes label and field selectors, and returns the list of MPIJobs that match those selectors.
-func (c *FakeMPIJobs) List(opts v1.ListOptions) (result *kubeflowv1.MPIJobList, err error) {
+func (c *FakeMPIJobs) List(ctx context.Context, opts v1.ListOptions) (result *kubeflowv1.MPIJobList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(mpijobsResource, mpijobsKind, c.ns, opts), &kubeflowv1.MPIJobList{})
 
@@ -70,14 +72,14 @@ func (c *FakeMPIJobs) List(opts v1.ListOptions) (result *kubeflowv1.MPIJobList, 
 }
 
 // Watch returns a watch.Interface that watches the requested mPIJobs.
-func (c *FakeMPIJobs) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeMPIJobs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(mpijobsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a mPIJob and creates it.  Returns the server's representation of the mPIJob, and an error, if there is any.
-func (c *FakeMPIJobs) Create(mPIJob *kubeflowv1.MPIJob) (result *kubeflowv1.MPIJob, err error) {
+func (c *FakeMPIJobs) Create(ctx context.Context, mPIJob *kubeflowv1.MPIJob, opts v1.CreateOptions) (result *kubeflowv1.MPIJob, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(mpijobsResource, c.ns, mPIJob), &kubeflowv1.MPIJob{})
 
@@ -88,7 +90,7 @@ func (c *FakeMPIJobs) Create(mPIJob *kubeflowv1.MPIJob) (result *kubeflowv1.MPIJ
 }
 
 // Update takes the representation of a mPIJob and updates it. Returns the server's representation of the mPIJob, and an error, if there is any.
-func (c *FakeMPIJobs) Update(mPIJob *kubeflowv1.MPIJob) (result *kubeflowv1.MPIJob, err error) {
+func (c *FakeMPIJobs) Update(ctx context.Context, mPIJob *kubeflowv1.MPIJob, opts v1.UpdateOptions) (result *kubeflowv1.MPIJob, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(mpijobsResource, c.ns, mPIJob), &kubeflowv1.MPIJob{})
 
@@ -100,7 +102,7 @@ func (c *FakeMPIJobs) Update(mPIJob *kubeflowv1.MPIJob) (result *kubeflowv1.MPIJ
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeMPIJobs) UpdateStatus(mPIJob *kubeflowv1.MPIJob) (*kubeflowv1.MPIJob, error) {
+func (c *FakeMPIJobs) UpdateStatus(ctx context.Context, mPIJob *kubeflowv1.MPIJob, opts v1.UpdateOptions) (*kubeflowv1.MPIJob, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(mpijobsResource, "status", c.ns, mPIJob), &kubeflowv1.MPIJob{})
 
@@ -111,7 +113,7 @@ func (c *FakeMPIJobs) UpdateStatus(mPIJob *kubeflowv1.MPIJob) (*kubeflowv1.MPIJo
 }
 
 // Delete takes name of the mPIJob and deletes it. Returns an error if one occurs.
-func (c *FakeMPIJobs) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeMPIJobs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(mpijobsResource, c.ns, name), &kubeflowv1.MPIJob{})
 
@@ -119,15 +121,15 @@ func (c *FakeMPIJobs) Delete(name string, options *v1.DeleteOptions) error {
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeMPIJobs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(mpijobsResource, c.ns, listOptions)
+func (c *FakeMPIJobs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(mpijobsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &kubeflowv1.MPIJobList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched mPIJob.
-func (c *FakeMPIJobs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *kubeflowv1.MPIJob, err error) {
+func (c *FakeMPIJobs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kubeflowv1.MPIJob, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(mpijobsResource, c.ns, name, pt, data, subresources...), &kubeflowv1.MPIJob{})
 

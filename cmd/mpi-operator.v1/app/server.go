@@ -191,11 +191,9 @@ func Run(opt *options.ServerOption) error {
 	recorder := eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, corev1.EventSource{Component: controllerName})
 
 	var electionChecker *election.HealthzAdaptor = election.NewLeaderHealthzAdaptor(leaderHealthzAdaptorTimeout)
-	var checks []healthz.HealthzChecker = nil
-	checks = append(checks, electionChecker)
 
 	mux := http.NewServeMux()
-	healthz.InstallPathHandler(mux, "/healthz", checks...)
+	healthz.InstallPathHandler(mux, "/healthz", electionChecker)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", healthCheckPort),
@@ -288,7 +286,7 @@ func createClientSets(config *restclientset.Config) (kubeclientset.Interface, ku
 }
 
 func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool {
-	_, err := clientset.KubeflowV1().MPIJobs(namespace).List(metav1.ListOptions{})
+	_, err := clientset.KubeflowV1().MPIJobs(namespace).List(context.TODO(), metav1.ListOptions{})
 
 	if err != nil {
 		klog.Error(err)
