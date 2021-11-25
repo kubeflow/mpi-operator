@@ -32,18 +32,13 @@ import (
 
 // Generate OpenAPI spec definitions for MPIJob Resource
 func main() {
-	if len(os.Args) <= 2 {
-		klog.Fatal("Supply the MPIJob version and the swagger spec version")
+	if len(os.Args) <= 1 {
+		klog.Fatal("Supply the MPIJob version")
 	}
 
-	sdkVersion := os.Args[1]
-	if sdkVersion != "V1" && sdkVersion != "V2" {
-		fmt.Println("Only `V1` or `V2` for MPIJob is supported now")
-	}
-
-	version := os.Args[2]
-	if !strings.HasPrefix(version, "v") {
-		version = "v" + version
+	version := os.Args[1]
+	if version != "v1" && version != "v2beta1" {
+		fmt.Println("Only `v1` or `v2beta1` for MPIJob is supported now")
 	}
 
 	filter := func(name string) spec.Ref {
@@ -51,9 +46,9 @@ func main() {
 			"#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
 	}
 	var oAPIDefs map[string]common.OpenAPIDefinition
-	if sdkVersion == "V1" {
+	if version == "v1" {
 		oAPIDefs = mpijobv1.GetOpenAPIDefinitions(filter)
-	} else if sdkVersion == "V2" {
+	} else if version == "v2beta1" {
 		oAPIDefs = mpijobv2.GetOpenAPIDefinitions(filter)
 	}
 	defs := spec.Definitions{}
