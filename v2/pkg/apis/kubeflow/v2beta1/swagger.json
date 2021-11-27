@@ -219,7 +219,6 @@
     "v2beta1.MPIJobSpec": {
       "type": "object",
       "required": [
-        "runPolicy",
         "mpiReplicaSpecs"
       ],
       "properties": {

@@ -1,6 +1,5 @@
 .gitignore
 .gitlab-ci.yml
-.openapi-generator-ignore
 .travis.yml
 README.md
 docs/V1JobCondition.md
@@ -34,13 +33,4 @@ setup.cfg
 setup.py
 test-requirements.txt
 test/__init__.py
-test/test_v1_job_condition.py
-test/test_v1_job_status.py
-test/test_v1_replica_spec.py
-test/test_v1_replica_status.py
-test/test_v1_run_policy.py
-test/test_v1_scheduling_policy.py
-test/test_v2beta1_mpi_job.py
-test/test_v2beta1_mpi_job_list.py
-test/test_v2beta1_mpi_job_spec.py
 tox.ini

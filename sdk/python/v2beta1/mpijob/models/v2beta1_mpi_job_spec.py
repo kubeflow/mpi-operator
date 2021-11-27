@@ -64,7 +64,8 @@ class V2beta1MPIJobSpec(object):
         if mpi_implementation is not None:
             self.mpi_implementation = mpi_implementation
         self.mpi_replica_specs = mpi_replica_specs
-        self.run_policy = run_policy
+        if run_policy is not None:
+            self.run_policy = run_policy
         if slots_per_worker is not None:
             self.slots_per_worker = slots_per_worker
         if ssh_auth_mount_path is not None:
@@ -136,8 +137,6 @@ class V2beta1MPIJobSpec(object):
         :param run_policy: The run_policy of this V2beta1MPIJobSpec.  # noqa: E501
         :type run_policy: V1RunPolicy
         """
-        if self.local_vars_configuration.client_side_validation and run_policy is None:  # noqa: E501
-            raise ValueError("Invalid value for `run_policy`, must not be `None`")  # noqa: E501
 
         self._run_policy = run_policy
 
