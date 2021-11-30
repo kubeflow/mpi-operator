@@ -3,7 +3,7 @@
   "info": {
     "description": "Python SDK for MPI-Operator",
     "title": "mpijob",
-    "version": "v0.1"
+    "version": "v2beta1"
   },
   "paths": {},
   "definitions": {
@@ -74,86 +74,6 @@
         "startTime": {
           "description": "Represents time when the job was acknowledged by the job controller. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.",
           "$ref": "#/definitions/v1.Time"
-        }
-      }
-    },
-    "v1.MPIJob": {
-      "type": "object",
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-          "type": "string"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/definitions/v1.ObjectMeta"
-        },
-        "spec": {
-          "$ref": "#/definitions/v1.MPIJobSpec"
-        },
-        "status": {
-          "$ref": "#/definitions/v1.JobStatus"
-        }
-      }
-    },
-    "v1.MPIJobList": {
-      "type": "object",
-      "required": [
-        "metadata",
-        "items"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/v1.MPIJob"
-          }
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/definitions/v1.ListMeta"
-        }
-      }
-    },
-    "v1.MPIJobSpec": {
-      "type": "object",
-      "required": [
-        "mpiReplicaSpecs"
-      ],
-      "properties": {
-        "cleanPodPolicy": {
-          "description": "CleanPodPolicy defines the policy that whether to kill pods after the job completes. Defaults to None.",
-          "type": "string"
-        },
-        "mainContainer": {
-          "description": "MainContainer specifies name of the main container which executes the MPI code.",
-          "type": "string"
-        },
-        "mpiReplicaSpecs": {
-          "description": "`MPIReplicaSpecs` contains maps from `MPIReplicaType` to `ReplicaSpec` that specify the MPI replicas to run.",
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/definitions/v1.ReplicaSpec"
-          }
-        },
-        "runPolicy": {
-          "description": "`RunPolicy` encapsulates various runtime policies of the distributed training job, for example how to clean up resources and how long the job can stay active.",
-          "$ref": "#/definitions/v1.RunPolicy"
-        },
-        "slotsPerWorker": {
-          "description": "Specifies the number of slots per worker used in hostfile. Defaults to 1.",
-          "type": "integer",
-          "format": "int32"
         }
       }
     },
@@ -244,6 +164,86 @@
           "type": "string"
         },
         "queue": {
+          "type": "string"
+        }
+      }
+    },
+    "v2beta1.MPIJob": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "$ref": "#/definitions/v2beta1.MPIJobSpec"
+        },
+        "status": {
+          "$ref": "#/definitions/v1.JobStatus"
+        }
+      }
+    },
+    "v2beta1.MPIJobList": {
+      "type": "object",
+      "required": [
+        "metadata",
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v2beta1.MPIJob"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v2beta1.MPIJobSpec": {
+      "type": "object",
+      "required": [
+        "mpiReplicaSpecs"
+      ],
+      "properties": {
+        "mpiImplementation": {
+          "description": "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) and \"Intel\".",
+          "type": "string"
+        },
+        "mpiReplicaSpecs": {
+          "description": "MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that specify the MPI replicas to run.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v1.ReplicaSpec"
+          }
+        },
+        "runPolicy": {
+          "description": "RunPolicy encapsulates various runtime policies of the job.",
+          "$ref": "#/definitions/v1.RunPolicy"
+        },
+        "slotsPerWorker": {
+          "description": "Specifies the number of slots per worker used in hostfile. Defaults to 1.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "sshAuthMountPath": {
+          "description": "SSHAuthMountPath is the directory where SSH keys are mounted. Defaults to \"/root/.ssh\".",
           "type": "string"
         }
       }

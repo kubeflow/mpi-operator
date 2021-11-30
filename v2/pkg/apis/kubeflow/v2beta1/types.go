@@ -45,7 +45,7 @@ type MPIJobSpec struct {
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
 	// RunPolicy encapsulates various runtime policies of the job.
-	RunPolicy common.RunPolicy `json:"runPolicy"`
+	RunPolicy common.RunPolicy `json:"runPolicy,omitempty"`
 
 	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
