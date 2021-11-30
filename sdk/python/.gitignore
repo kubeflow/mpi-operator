@@ -1,0 +1,7 @@
+.travis.yml
+.gitlab-ci.yml
+.openapi-generator
+.openapi-generator-ignore
+git_push.sh
+setup.cfg
+tox.ini
