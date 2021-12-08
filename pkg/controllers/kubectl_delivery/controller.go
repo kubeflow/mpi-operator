@@ -85,6 +85,9 @@ func NewKubectlDeliveryController(
 			if !ok {
 				return false
 			}
+
+			controller.lock.Lock()
+			defer controller.lock.Unlock()
 			if _, ok := controller.watchedPods[pod.Name]; ok {
 				return true
 			}
