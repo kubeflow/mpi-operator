@@ -30,12 +30,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args: [
           "-alsologtostderr",
-          "--gpus-per-node",
-          "{{ .Values.deployment.gpusPerNode }}",
-          "--kubectl-delivery-image",
-          "{{ .Values.image.kubectlDelivery.repository }}:{{ .Values.image.kubectlDelivery.tag }}",
-          "--namespace",
-          "{{ .Release.Namespace }}"
+          "--lock-namespace",
+          {{ template "mpi-operator.lockNamespace" . }}
         ]
         env:
         - name: KUBEFLOW_NAMESPACE

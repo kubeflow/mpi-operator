@@ -41,3 +41,7 @@ Allow overriding of service account and clusterrole names.
 {{- define "mpi-operator.clusterRoleName" -}}
 {{- default .Chart.Name .Values.rbac.clusterRoleName -}}
 {{- end -}}
+
+{{- define "mpi-operator.lockNamespace" -}}
+{{- default .Release.Namespace .Values.deployment.locknamespace -}}
+{{- end -}}

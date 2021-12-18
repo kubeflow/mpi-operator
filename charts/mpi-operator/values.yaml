@@ -11,17 +11,14 @@ rbac:
 
 deployment:
   create: true
-  gpusPerNode: 1  # for mpioperator 0.2.0
+  lockNamespace: mpi-operator  # for mpioperator 0.2.0
 
 image:
   deployment:
     replicas: 1
     repository: mpioperator/mpi-operator
-    tag: 0.2.0
+    tag: latest
     pullPolicy: IfNotPresent
-  kubectlDelivery:
-    repository: mpioperator/kubectl-delivery
-    tag: 0.2.0
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
