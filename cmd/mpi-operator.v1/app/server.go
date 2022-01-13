@@ -145,7 +145,20 @@ func Run(opt *options.ServerOption) error {
 			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(namespace))
 			volcanoInformerFactory = volcanoinformers.NewSharedInformerFactoryWithOptions(volcanoClientSet, 0, volcanoinformers.WithNamespace(namespace))
 		}
-
+		var kcfgForWrite *restclientset.Config
+		// create client for write(create/delete) permission.
+		if len(opt.KubeconfigRorWrite) > 0 {
+			kcfgForWrite, err = clientcmd.BuildConfigFromFlags("", opt.KubeconfigRorWrite)
+			if err != nil {
+				klog.Fatalf("unable to load kubeconfigRorWrite: %v", err.Error())
+			}
+			kcfgForWrite.QPS = float32(opt.QPS)
+			kcfgForWrite.Burst = opt.Burst
+			kubeClient, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, err = createClientSets(kcfgForWrite)
+			if err != nil {
+				klog.Fatalf("craate clinet err: %v", err.Error())
+			}
+		}
 		var podgroupsInformer podgroupsinformer.PodGroupInformer
 		if opt.GangSchedulingName != "" {
 			podgroupsInformer = volcanoInformerFactory.Scheduling().V1beta1().PodGroups()

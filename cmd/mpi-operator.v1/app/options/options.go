@@ -24,6 +24,7 @@ import (
 // ServerOption is the main context object for the controller manager.
 type ServerOption struct {
 	Kubeconfig           string
+	KubeconfigRorWrite   string
 	MasterURL            string
 	KubectlDeliveryImage string
 	Threadiness          int
@@ -50,6 +51,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&s.Kubeconfig, "kubeConfig", "",
 		"Path to a kubeConfig. Only required if out-of-cluster.")
+	fs.StringVar(&s.KubeconfigRorWrite, "kubeconfig-for-write", "", "kubeconfig for write(create/delete) permission.")
 
 	fs.StringVar(&s.KubectlDeliveryImage, "kubectl-delivery-image", "",
 		"The container image used to deliver the kubectl binary.")
