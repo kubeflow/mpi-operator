@@ -1,0 +1,50 @@
+apiVersion: kubeflow.org/v1
+kind: MPIJob
+metadata:
+  labels:
+    ksonnet.io/component: mxnet-mnist-horovod-job
+  name: mxnet-mnist-horovod-job
+  namespace: default
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - command:
+        - mpirun
+        - -mca
+        - btl_tcp_if_exclude
+        - lo
+        - -mca
+        - pml
+        - ob1
+        - -mca
+        - btl
+        - ^openib
+        - --bind-to
+        - none
+        - -map-by
+        - slot
+        - -x
+        - LD_LIBRARY_PATH
+        - -x
+        - PATH
+        - -x
+        - NCCL_SOCKET_IFNAME=eth0
+        - -x
+        - NCCL_DEBUG=INFO
+        - -x
+        - MXNET_CUDNN_AUTOTUNE_DEFAULT=0
+        - python
+        - /examples/mxnet_mnist.py
+        - --save-frequency
+        - "1"
+        - --batch-size
+        - "64"
+        - --epochs
+        - "5"
+        image: mpioperator/mxnet-horovod:latest
+        name: mxnet-mnist-horovod-job
+        resources:
+          limits:
+            nvidia.com/gpu: 4
