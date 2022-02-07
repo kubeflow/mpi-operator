@@ -90,13 +90,13 @@ images:
 
 .PHONY: test_images
 test_images:
-	${IMG_BUILDER} build --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base examples/base
-	${IMG_BUILDER} build -t mpioperator/openmpi examples/base -f examples/base/openmpi.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/openmpi-builder examples/base -f examples/base/openmpi-builder.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/mpi-pi:openmpi examples/pi
-	${IMG_BUILDER} build -t mpioperator/intel examples/base -f examples/base/intel.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/intel-builder examples/base -f examples/base/intel-builder.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/mpi-pi:intel examples/pi -f examples/pi/intel.Dockerfile
+	${IMG_BUILDER} build --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base build/base
+	${IMG_BUILDER} build -t mpioperator/openmpi build/base -f build/base/openmpi.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/openmpi-builder build/base -f build/base/openmpi-builder.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/mpi-pi:openmpi examples/v2beta1/pi
+	${IMG_BUILDER} build -t mpioperator/intel build/base -f build/base/intel.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/intel-builder build/base -f build/base/intel-builder.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/mpi-pi:intel examples/v2beta1/pi -f examples/pi/intel.Dockerfile
 
 .PHONY: tidy
 tidy:
