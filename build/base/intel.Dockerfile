@@ -2,7 +2,6 @@ FROM bash AS downloader
 
 RUN wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB -O key.PUB
 
-
 FROM mpioperator/base
 
 COPY --from=downloader key.PUB /tmp/key.PUB
