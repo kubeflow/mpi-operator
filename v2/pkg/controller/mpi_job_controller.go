@@ -1107,7 +1107,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 	var buffer bytes.Buffer
 	workersService := mpiJob.Name + workerSuffix
 	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d.%s\n", mpiJob.Name, workerSuffix, i, workersService))
+        buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace))
 	}
 
 	return &corev1.ConfigMap{
@@ -1138,7 +1138,7 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	buffer.WriteString("#!/bin/sh\n")
 	workersService := mpiJob.Name + workerSuffix
 	for _, p := range runningPods {
-		buffer.WriteString(fmt.Sprintf("echo %s.%s\n", p.Name, workersService))
+        buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", p.Name, workersService, p.Namespace))
 	}
 
 	configMap.Data[discoverHostsScriptName] = buffer.String()
