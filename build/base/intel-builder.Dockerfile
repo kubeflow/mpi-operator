@@ -16,7 +16,7 @@ RUN apt update \
     && apt autoremove -y \
     && apt update \
     && apt install -y --no-install-recommends \
-        libstdc++-8-dev binutils \
+        libstdc++-8-dev binutils procps clang \
         intel-oneapi-compiler-dpcpp-cpp \
         intel-oneapi-mpi-devel \
     && rm -rf /var/lib/apt/lists/*
