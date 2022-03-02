@@ -40,8 +40,8 @@ type MPIJobList struct {
 type MPIJobSpec struct {
 
 	// Specifies the number of slots per worker used in hostfile.
-	// Defaults to 1.
 	// +optional
+	// +kubebuilder:default:=1
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
 	// RunPolicy encapsulates various runtime policies of the job.
@@ -52,11 +52,13 @@ type MPIJobSpec struct {
 	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
 
 	// SSHAuthMountPath is the directory where SSH keys are mounted.
-	// Defaults to "/root/.ssh".
+	// +kubebuilder:default:="/root/.ssh"
 	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
 
 	// MPIImplementation is the MPI implementation.
 	// Options are "OpenMPI" (default) and "Intel".
+	// +kubebuilder:validation:Enum:=OpenMPI;Intel
+	// +kubebuilder:default:=OpenMPI
 	MPIImplementation MPIImplementation `json:"mpiImplementation,omitempty"`
 }
 

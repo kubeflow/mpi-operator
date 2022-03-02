@@ -21,6 +21,10 @@ KIND_VERSION=v0.11.1
 # This kubectl version supports -k for kustomization.
 KUBECTL_VERSION=v1.21.4
 
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+
+CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+
 build: all
 
 all: ${BIN_DIR} fmt tidy lint test mpi-operator.v1 mpi-operator.v2 kubectl-delivery
@@ -129,3 +133,25 @@ lint: bin/golangci-lint ## Run golangci-lint linter
 .PHONY: kind
 kind:
 	go install sigs.k8s.io/kind@${KIND_VERSION}
+
+# Generate CRD
+crd: controller-gen
+	cd v2 && $(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=crd
+
+# Download controller-gen locally if necessary
+CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
+controller-gen:
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
