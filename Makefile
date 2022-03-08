@@ -89,8 +89,8 @@ clean:
 
 .PHONY: images
 images:
-	@echo "version: ${RELEASE_VERSION}"
-	${IMG_BUILDER} build --build-arg version=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
+	@echo "VERSION: ${RELEASE_VERSION}"
+	${IMG_BUILDER} build --build-arg VERSION=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
 
 .PHONY: test_images
 test_images:
