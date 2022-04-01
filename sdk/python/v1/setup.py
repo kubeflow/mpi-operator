@@ -12,5 +12,24 @@
 
 from setuptools import setup, find_packages  # noqa: H301
 
-NAME = "kubeflow"
-VERSION = "0.1"
+with open('requirements.txt') as f:
+    REQUIRES = f.readlines()
+
+with open('test-requirements.txt') as f:
+    TEST_REQUIRES = f.readlines()
+
+setup(
+	name='kubeflow-mpijob',
+  	version='0.1.0',
+	author="Kubeflow Authors",
+	url="https://github.com/kubeflow/mpi-operator/sdk/python/v1",
+	description="MPI Operator Python SDK V1",
+	long_description="MPI Operator Python SDK V1",
+	packages=find_packages(include=("mpijob*")),
+	package_data={},
+	include_package_data=False,
+	zip_safe=False,
+	install_requires=REQUIRES,
+	tests_require=TEST_REQUIRES,
+	extras_require={'test': TEST_REQUIRES}
+)
