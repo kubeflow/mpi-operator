@@ -540,10 +540,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 			return fmt.Errorf("getting or creating Service to front workers: %w", err)
 		}
 
-		if config, err := c.getOrCreateConfigMap(mpiJob); config == nil || err != nil {
-			return fmt.Errorf("getting or creating ConfigMap: %w", err)
-		}
-
 		_, err = c.getOrCreateSSHAuthSecret(mpiJob)
 		if err != nil {
 			return fmt.Errorf("creating SSH auth secret: %w", err)
@@ -560,6 +556,23 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if err != nil {
 			return err
 		}
+
+		// Return without error until all workers are running, avoiding taking any specific further action
+		// in the controller. Specifically, the config map for the hostfile and and launcher pod will be
+		// created only after all workers are running.
+		for _, p := range worker {
+			if !isPodRunning(p) {
+				klog.Info("Return, " + p.Name + " is not running yet")
+				return nil
+			}
+		}
+
+		klog.Info("All worker pods are running, getOrCreate config map and launcher pod")
+
+		if config, err := c.getOrCreateConfigMap(mpiJob); config == nil || err != nil {
+			return fmt.Errorf("getting or creating ConfigMap: %w", err)
+		}
+
 		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel {
 			// The Intel implementation requires workers to communicate with the
 			// launcher through its hostname. For that, we create a Service which
@@ -690,11 +703,12 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev1.ConfigMap, error) {
-	newCM := newConfigMap(mpiJob, workerReplicas(mpiJob))
 	podList, err := c.getRunningWorkerPods(mpiJob)
 	if err != nil {
 		return nil, err
 	}
+	// Use the podList when creating the ConfigMap to get IP addresses of worker pods.
+	newCM := newConfigMap(mpiJob, podList)
 	updateDiscoverHostsInConfigMap(newCM, mpiJob, podList)
 
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
@@ -1102,12 +1116,17 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
-// handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
+// handleObject can discover the MPIJob resource that 'owns' it. Creates the
+// /etc/mpi/hostfile using pod IP addresses to bypass DNS and avoid scaling issues.
+func newConfigMap(mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod) *corev1.ConfigMap {
+	// Sort the slice of Pods to make sure the order of entries in `discover_hosts.sh` is maintained.
+	sort.Slice(runningPods, func(i, j int) bool {
+		return runningPods[i].Name < runningPods[j].Name
+	})
+
 	var buffer bytes.Buffer
-	workersService := mpiJob.Name + workerSuffix
-	for i := 0; i < int(workerReplicas); i++ {
-		buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace))
+	for _, p := range runningPods {
+		buffer.WriteString(fmt.Sprintf("%s\n", p.Status.PodIP))
 	}
 
 	return &corev1.ConfigMap{

@@ -18,12 +18,7 @@ spec:
             name: mpi-launcher
             securityContext:
               runAsUser: 1000
-            command:
-            - mpirun
-            args:
-            - -n
-            - "2"
-            - /home/mpiuser/pi
+            command: [ "/bin/bash", "-cx", "mpirun -n 128 --oversubscribe /home/mpiuser/pi"]
             resources:
               limits:
                 cpu: 1
@@ -35,6 +30,12 @@ spec:
           containers:
           - image: mpioperator/mpi-pi
             name: mpi-worker
+            lifecycle:
+              postStart:
+            # exec command below makes sure ssh service on port 22 is up and running -- checking localhost but should be
+            # sufficient to make sure ssh works on external IPs too.
+                exec:
+                  command: ["/bin/bash", "-c", "while ! bash -c \"</dev/tcp/localhost/22\" >/dev/null 2>&1; do sleep 0.1; done"]
             securityContext:
               runAsUser: 1000
             command:
