@@ -166,7 +166,7 @@ status:
 Training should run for 100 steps and takes a few minutes on a GPU cluster. You can inspect the logs to see the training progress. When the job starts, access the logs from the `launcher` pod:
 
 ```
-PODNAME=$(kubectl get pods -l mpi_job_name=tensorflow-benchmarks,mpi_role_type=launcher -o name)
+PODNAME=$(kubectl get pods -l training.kubeflow.org/job-name=tensorflow-benchmarks,training.kubeflow.org/job-role=launcher -o name)
 kubectl logs -f ${PODNAME}
 ```
 
