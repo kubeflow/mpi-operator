@@ -451,7 +451,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 					},
 					"mpiImplementation": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) and \"Intel\".",
+							Description: "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default), \"Intel\" and \"MPICH\".",
 							Type:        []string{"string"},
 							Format:      "",
 						},

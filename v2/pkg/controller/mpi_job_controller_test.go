@@ -457,7 +457,7 @@ func TestDoNothingWithInvalidMPIJob(t *testing.T) {
 }
 
 func TestAllResourcesCreated(t *testing.T) {
-	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t)
@@ -481,7 +481,8 @@ func TestAllResourcesCreated(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
 			}
-			if implementation == kubeflow.MPIImplementationIntel {
+			if implementation == kubeflow.MPIImplementationIntel ||
+			   implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
 			}
 			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
