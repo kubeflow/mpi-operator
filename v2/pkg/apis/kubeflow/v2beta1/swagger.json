@@ -223,7 +223,7 @@
       ],
       "properties": {
         "mpiImplementation": {
-          "description": "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) and \"Intel\".",
+          "description": "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) \"Intel\" and \"MPICH\".",
           "type": "string"
         },
         "mpiReplicaSpecs": {

@@ -121,6 +121,7 @@ spec:
                 enum:
                 - OpenMPI
                 - Intel
+                - MPICH
                 type: string
               mpiReplicaSpecs:
                 properties:

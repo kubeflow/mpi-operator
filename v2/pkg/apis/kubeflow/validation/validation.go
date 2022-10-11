@@ -35,7 +35,8 @@ var (
 
 	validMPIImplementations = sets.NewString(
 		string(kubeflow.MPIImplementationOpenMPI),
-		string(kubeflow.MPIImplementationIntel))
+		string(kubeflow.MPIImplementationIntel),
+		string(kubeflow.MPIImplementationMPICH))
 
 	validRestartPolicies = sets.NewString(
 		string(common.RestartPolicyNever),

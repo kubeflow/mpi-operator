@@ -115,6 +115,7 @@ const (
 
 	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
 	intelMPISlotsEnv = "I_MPI_PERHOST"
+	mpichSlotsEnv    = "TODO"
 )
 
 var (
@@ -196,6 +197,16 @@ var (
 		},
 		{
 			Name:  "I_MPI_HYDRA_BOOTSTRAP_EXEC_EXTRA_ARGS",
+			Value: "-o ConnectionAttempts=10",
+		},
+	}
+	mpichEnvVars = []corev1.EnvVar{
+		{
+			Name:  "HYDRA_HOST_FILE",
+			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
+		},
+		{
+			Name:  "HYDRA_LAUNCH_EXTRA_ARGS",
 			Value: "-o ConnectionAttempts=10",
 		},
 	}
@@ -560,8 +571,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if err != nil {
 			return err
 		}
-		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel {
-			// The Intel implementation requires workers to communicate with the
+		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
+		   mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
+			// The Intel and MPICH implementations require workers to communicate with the
 			// launcher through its hostname. For that, we create a Service which
 			// has the same name as the launcher's hostname.
 			_, err := c.getOrCreateService(mpiJob, newLauncherService(mpiJob))
@@ -1372,6 +1384,12 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 		container.Env = append(container.Env, intelEnvVars...)
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  intelMPISlotsEnv,
+			Value: slotsStr,
+		})
+	case kubeflow.MPIImplementationMPICH:
+		container.Env = append(container.Env, mpichEnvVars...)
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  mpichSlotsEnv,
 			Value: slotsStr,
 		})
 	}
