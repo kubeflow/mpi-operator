@@ -45,6 +45,7 @@ const (
 	defaultKindImage        = "kindest/node:v1.21.2"
 	openMPIImage            = "mpioperator/mpi-pi:openmpi"
 	intelMPIImage           = "mpioperator/mpi-pi:intel"
+	mpichMPIImage           = "mpioperator/mpi-pi:mpich"
 	rootPath                = "../../.."
 	kubectlPath             = rootPath + "/bin/kubectl"
 	operatorManifestsPath   = rootPath + "/manifests/overlays/dev"
