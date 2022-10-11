@@ -101,6 +101,9 @@ test_images:
 	${IMG_BUILDER} build -t mpioperator/intel build/base -f build/base/intel.Dockerfile
 	${IMG_BUILDER} build -t mpioperator/intel-builder build/base -f build/base/intel-builder.Dockerfile
 	${IMG_BUILDER} build -t mpioperator/mpi-pi:intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/mpich build/base -f build/base/mpich.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/mpich-builder build/base -f build/base/mpich-builder.Dockerfile
+	${IMG_BUILDER} build -t mpioperator/mpi-pi:mpich examples/v2beta1/pi -f examples/v2beta1/pi/mpich.Dockerfile
 
 .PHONY: tidy
 tidy:
