@@ -26,7 +26,6 @@ import (
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 
-	mpijobv1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1"
 	mpijobv2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
 )
 
@@ -37,20 +36,15 @@ func main() {
 	}
 
 	version := os.Args[1]
-	if version != "v1" && version != "v2beta1" {
-		fmt.Println("Only `v1` or `v2beta1` for MPIJob is supported now")
+	if version != "v2beta1" {
+		fmt.Println("`v2beta1` for MPIJob is supported now")
 	}
 
 	filter := func(name string) spec.Ref {
 		return spec.MustCreateRef(
 			"#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
 	}
-	var oAPIDefs map[string]common.OpenAPIDefinition
-	if version == "v1" {
-		oAPIDefs = mpijobv1.GetOpenAPIDefinitions(filter)
-	} else if version == "v2beta1" {
-		oAPIDefs = mpijobv2.GetOpenAPIDefinitions(filter)
-	}
+	oAPIDefs := mpijobv2.GetOpenAPIDefinitions(filter)
 	defs := spec.Definitions{}
 	for defName, val := range oAPIDefs {
 		defs[swaggify(defName)] = val.Schema
@@ -77,7 +71,6 @@ func main() {
 }
 
 func swaggify(name string) string {
-	name = strings.Replace(name, "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/", "", -1)
 	name = strings.Replace(name, "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/", "", -1)
 	name = strings.Replace(name, "github.com/kubeflow/common/pkg/apis/common/", "", -1)
 	name = strings.Replace(name, "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/", "", -1)

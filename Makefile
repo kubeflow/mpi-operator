@@ -27,11 +27,7 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
 build: all
 
-all: ${BIN_DIR} fmt tidy lint test mpi-operator.v1 mpi-operator.v2 kubectl-delivery
-
-.PHONY: mpi-operator.v1
-mpi-operator.v1:
-	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/mpi-operator.v1 ./cmd/mpi-operator.v1/
+all: ${BIN_DIR} fmt tidy lint test mpi-operator.v2 kubectl-delivery
 
 .PHONY: mpi-operator.v2
 mpi-operator.v2:
@@ -71,12 +67,6 @@ dev_manifest:
 	# Use `~` instead of `/` because image name might contain `/`.
 	sed -e "s~%IMAGE_NAME%~${IMAGE_NAME}~g" -e "s~%IMAGE_TAG%~${RELEASE_VERSION}~g" manifests/overlays/dev/kustomization.yaml.template > manifests/overlays/dev/kustomization.yaml
 
-.PHONY: generate
-generate:
-	go generate ./pkg/... ./cmd/...
-	@echo "Generating OpenAPI specification for v1..."
-	openapi-gen --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/version,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1 --go-header-file hack/boilerplate/boilerplate.go.txt
-
 .PHONY: generate_v2
 generate_v2:
 	cd v2 && \
@@ -104,12 +94,12 @@ test_images:
 
 .PHONY: tidy
 tidy:
-	go mod tidy
-	cd v2 && go mod tidy
+	go mod tidy -compat 1.17
+	cd v2 && go mod tidy -compat 1.17
 
 GOLANGCI_LINT = ./bin/golangci-lint
 bin/golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) v1.29.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) v1.50.1
 
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)

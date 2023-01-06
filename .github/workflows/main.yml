@@ -18,7 +18,7 @@ jobs:
       - name: go mod tidy
         run: make tidy
       - name: Build
-        run: make mpi-operator.v1 mpi-operator.v2 kubectl-delivery
+        run: make mpi-operator.v2 kubectl-delivery
       - name: Run tests
         run: make test
   e2e:
