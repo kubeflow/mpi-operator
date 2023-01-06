@@ -18,4 +18,8 @@ jobs:
         with:
           version: v1.50.1
           args: --timeout=5m
-          only-new-issues: true
+# To avoid the following errors, we comment out.
+# Error: options working-directory and only-new-issues aren't compatible, Error: options working-directory and only-new-issues aren't compatible
+# TODO: Once we move the v2 directory to the top of the repository, we need to uncomment the following.
+#          only-new-issues: true
+          working-directory: v2

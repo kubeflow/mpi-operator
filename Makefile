@@ -27,33 +27,23 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
 build: all
 
-all: ${BIN_DIR} fmt tidy lint test mpi-operator.v2 kubectl-delivery
+all: ${BIN_DIR} fmt tidy lint test mpi-operator.v2
 
 .PHONY: mpi-operator.v2
 mpi-operator.v2:
 	cd v2 && \
 	go build -ldflags ${LD_FLAGS_V2} -o ../${BIN_DIR}/mpi-operator.v2 ./cmd/mpi-operator/
 
-.PHONY: kubectl-delivery
-kubectl-delivery:
-	go build -ldflags ${LD_FLAGS} -o ${BIN_DIR}/kubectl-delivery ./cmd/kubectl-delivery/
-
 ${BIN_DIR}:
 	mkdir -p ${BIN_DIR}
 
 .PHONY: fmt
 fmt:
-	go fmt ./...
 	cd v2 && go fmt ./...
 
 .PHONY: test
-test:
-	go test -covermode atomic -coverprofile=profile.cov ./...
-	@make test_v2
-
-.PHONY: test_v2
-test_v2: export KUBEBUILDER_ASSETS = ${KUBEBUILDER_ASSETS_PATH}
-test_v2: bin/kubebuilder
+test: export KUBEBUILDER_ASSETS = ${KUBEBUILDER_ASSETS_PATH}
+test: bin/kubebuilder
 	cd v2 && go test -covermode atomic -coverprofile=profile.cov ./...
 
 # Only works with CONTROLLER_VERSION=v2
@@ -94,7 +84,6 @@ test_images:
 
 .PHONY: tidy
 tidy:
-	go mod tidy -compat 1.17
 	cd v2 && go mod tidy -compat 1.17
 
 GOLANGCI_LINT = ./bin/golangci-lint
@@ -117,7 +106,6 @@ bin/kubectl:
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run --new-from-rev=origin/master
 	cd v2 && ../$(GOLANGCI_LINT) run --new-from-rev=origin/master
 
 .PHONY: kind
