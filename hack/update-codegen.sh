@@ -31,24 +31,5 @@ CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERS
 chmod +x ${CODEGEN_PKG}/generate-groups.sh
 
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \
-  kubeflow:v1 \
-  --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
-
-# Notice: The code in code-generator does not generate defaulter by default.
-echo "Generating defaulters for mpi-operator/v1"
-${GOPATH}/bin/defaulter-gen  --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v1 \
-  -O zz_generated.defaults --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt "$@"
-
-# v2 is in a different module
-pushd v2
-
-CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
-CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}")
-chmod +x ${CODEGEN_PKG}/generate-groups.sh
-
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   github.com/kubeflow/mpi-operator/v2/pkg/client github.com/kubeflow/mpi-operator/v2/pkg/apis \
   kubeflow:v2beta1 --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
-
-popd
