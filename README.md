@@ -59,13 +59,13 @@ kubectl kustomize base | kubectl apply -f -
 You can create an MPI job by defining an `MPIJob` config file. See [TensorFlow benchmark example](https://github.com/kubeflow/mpi-operator/blob/master/examples/v2beta1/tensorflow-benchmarks.yaml) config file for launching a multi-node TensorFlow benchmark training job. You may change the config file based on your requirements.
 
 ```
-cat examples/v2beta1/tensorflow-benchmarks.yaml
+cat examples/v2beta1/tensorflow-benchmarks/tensorflow-benchmarks.yaml
 ```
 
 Deploy the `MPIJob` resource to start training:
 
 ```
-kubectl apply -f examples/v2beta1/tensorflow-benchmarks.yaml
+kubectl apply -f examples/v2beta1/tensorflow-benchmarks/tensorflow-benchmarks.yaml
 ```
 
 ## Monitoring an MPI Job
