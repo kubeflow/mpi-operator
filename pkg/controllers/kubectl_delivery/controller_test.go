@@ -15,7 +15,6 @@
 package kubectl_delivery
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -94,7 +93,7 @@ func TestGeneratingHostsFile(t *testing.T) {
 		t.Errorf("Error, cannot generating hosts of worker pods, errs: %v", err)
 	}
 	// get the output file content
-	outputContent, err := ioutil.ReadFile(tmpof)
+	outputContent, err := os.ReadFile(tmpof)
 	if err != nil {
 		t.Fatal(err)
 	}

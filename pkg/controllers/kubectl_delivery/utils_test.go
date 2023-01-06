@@ -17,7 +17,6 @@ package kubectl_delivery
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -143,12 +142,12 @@ func (f *fixture) getResolvedHosts(contentBytes []byte) map[string]string {
 // setUpTmpDir will create a temp directory and create a temp hosts file
 // with provided file content, and return the path of the directory.
 func (f *fixture) setUpTmpDir(dirName string, content []byte) (string, string) {
-	p, err := ioutil.TempDir(os.TempDir(), "hosts")
+	p, err := os.MkdirTemp(os.TempDir(), "hosts")
 	if err != nil {
 		f.t.Fatal(err)
 	}
 	tmphf := filepath.Join(p, "hosts")
-	if err := ioutil.WriteFile(tmphf, content, 0644); err != nil {
+	if err := os.WriteFile(tmphf, content, 0644); err != nil {
 		f.t.Fatal(err)
 	}
 	return p, tmphf
