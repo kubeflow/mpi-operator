@@ -312,7 +312,11 @@ func startController(ctx context.Context, kClient kubernetes.Interface, mpiClien
 	go kubeInformerFactory.Start(ctx.Done())
 	go mpiInformerFactory.Start(ctx.Done())
 
-	go ctrl.Run(1, ctx.Done())
+	go func () {
+		if err := ctrl.Run(1, ctx.Done()); err != nil {
+			panic(err)
+		}
+	}()
 }
 
 func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient kubernetes.Interface, job *kubeflow.MPIJob, workers int) ([]corev1.Pod, *batchv1.Job) {
