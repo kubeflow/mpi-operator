@@ -26,24 +26,15 @@ git clone https://github.com/${GITHUB_USER}/mpi-operator.git
 
 We use Go v1.15+ for development and use [Go Modules](https://blog.golang.org/using-go-modules) to download and install the dependencies.
 
-## Controller versions
-
-The main module `github.com/kubeflow/mpi-operator` contains the code of the legacy
-controller `v1`.
-
-The newest iteration of the controller is in the module `github.com/kubeflow/mpi-operator/v2`.
-
 ## Run tests
 
 ### Unit and integration tests
 
 You can execute all the unit and integration tests via `make test`.
 
-If you only which to run the tests for the v2 controller, you can run `make test_v2`.
-
 You can find the unit tests in the same folders as the functional code.
 
-You can find the integration tests in a separate directory, `v2/test/integration`.
+You can find the integration tests in a separate directory, `test/integration`.
 Integration tests make use of a real kube-apiserver to test the interaction of
 the controller with a real Kubernetes API. In these tests, other components
 are not running, including `kubelet` or `kube-controller-manager`.
@@ -84,8 +75,7 @@ make images dev_manifest
 kubectl apply -k manifests/overlays/dev
 ```
 
-The image comes bundled with all the controller versions. For example, you can
-find the v1 controller binary at `/opt/mpi-operator.v1`.
+The controller handles MPIJobs with API version v2beta1 or newer.
 
 If you need to use a different registry, or a different tag, you can do:
 

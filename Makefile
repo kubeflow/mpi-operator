@@ -7,10 +7,6 @@ RELEASE_VERSION?=v0.3.0
 CONTROLLER_VERSION?=v2
 BASE_IMAGE_SSH_PORT?=2222
 IMG_BUILDER=docker
-LD_FLAGS=" \
-    -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
-    -X '${REPO_PATH}/pkg/version.Built=${Date}'   \
-    -X '${REPO_PATH}/pkg/version.Version=${RELEASE_VERSION}'"
 LD_FLAGS_V2=" \
     -X '${REPO_PATH}/v2/pkg/version.GitSHA=${GitSHA}' \
     -X '${REPO_PATH}/v2/pkg/version.Built=${Date}'   \
@@ -31,37 +27,35 @@ all: ${BIN_DIR} fmt tidy lint test mpi-operator.v2
 
 .PHONY: mpi-operator.v2
 mpi-operator.v2:
-	cd v2 && \
-	go build -ldflags ${LD_FLAGS_V2} -o ../${BIN_DIR}/mpi-operator.v2 ./cmd/mpi-operator/
+	go build -ldflags ${LD_FLAGS_V2} -o ${BIN_DIR}/mpi-operator.v2 ./cmd/mpi-operator/
 
 ${BIN_DIR}:
 	mkdir -p ${BIN_DIR}
 
 .PHONY: fmt
 fmt:
-	cd v2 && go fmt ./...
+	go fmt ./...
 
 .PHONY: test
 test: export KUBEBUILDER_ASSETS = ${KUBEBUILDER_ASSETS_PATH}
 test: bin/kubebuilder
-	cd v2 && go test -covermode atomic -coverprofile=profile.cov ./...
+	go test -covermode atomic -coverprofile=profile.cov ./...
 
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
 test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: bin/kubectl kind images test_images dev_manifest
-	cd v2 && go test -tags e2e ./test/e2e/...
+	go test -tags e2e ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
 	# Use `~` instead of `/` because image name might contain `/`.
 	sed -e "s~%IMAGE_NAME%~${IMAGE_NAME}~g" -e "s~%IMAGE_TAG%~${RELEASE_VERSION}~g" manifests/overlays/dev/kustomization.yaml.template > manifests/overlays/dev/kustomization.yaml
 
-.PHONY: generate_v2
-generate_v2:
-	cd v2 && \
+.PHONY: generate
+generate:
 	go generate ./pkg/... ./cmd/... && \
-	openapi-gen --input-dirs github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/version,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2 --go-header-file ../hack/boilerplate/boilerplate.go.txt
+	openapi-gen --input-dirs github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/version,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1 --go-header-file hack/boilerplate/boilerplate.go.txt
 
 .PHONY: clean
 clean:
@@ -84,7 +78,7 @@ test_images:
 
 .PHONY: tidy
 tidy:
-	cd v2 && go mod tidy -compat 1.17
+	go mod tidy -compat 1.17
 
 GOLANGCI_LINT = ./bin/golangci-lint
 bin/golangci-lint:
@@ -106,7 +100,7 @@ bin/kubectl:
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	cd v2 && ../$(GOLANGCI_LINT) run --new-from-rev=origin/master
+	$(GOLANGCI_LINT) run --new-from-rev=origin/master
 
 .PHONY: kind
 kind:
@@ -114,7 +108,7 @@ kind:
 
 # Generate CRD
 crd: controller-gen
-	cd v2 && $(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=crd
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=crd
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
