@@ -21,7 +21,7 @@ set -o pipefail
 SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/5.1.0/openapi-generator-cli-5.1.0.jar"
 SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli.jar"
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
-SWAGGER_V2_CODEGEN_FILE="v2/pkg/apis/kubeflow/v2beta1/swagger.json"
+SWAGGER_V2_CODEGEN_FILE="pkg/apis/kubeflow/v2beta1/swagger.json"
 SDK_OUTPUT_PATH="sdk/python"
 
 if [ -z "${GOPATH:-}" ]; then
@@ -29,10 +29,10 @@ if [ -z "${GOPATH:-}" ]; then
 fi
 
 # Backup existing v2 openapi_generated.go
-mv v2/pkg/apis/kubeflow/v2beta1/openapi_generated.go v2/pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup
+mv pkg/apis/kubeflow/v2beta1/openapi_generated.go pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup
 
 echo "Generating V2 OpenAPI specification ..."
-openapi-gen --input-dirs github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1 --go-header-file hack/boilerplate/boilerplate.go.txt
+openapi-gen --input-dirs github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/version,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1 --go-header-file hack/boilerplate/boilerplate.go.txt
 
 echo "Generating V2 swagger file ..."
 go run hack/python-sdk/main.go v2beta1 > ${SWAGGER_V2_CODEGEN_FILE}
@@ -46,6 +46,6 @@ echo "Generating V2 Python SDK for Kubeflow MPI-Operator ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_V2_CODEGEN_FILE} -g python-legacy -o ${SDK_OUTPUT_PATH}/v2beta1 -c ${SWAGGER_CODEGEN_CONF}
 
 # Rollback the current V2 openapi_generated.go
-mv v2/pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup v2/pkg/apis/kubeflow/v2beta1/openapi_generated.go
+mv pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup pkg/apis/kubeflow/v2beta1/openapi_generated.go
 
 echo "Kubeflow MPI-Operator Python SDK is generated successfully to folder ${SDK_OUTPUT_PATH}/."
