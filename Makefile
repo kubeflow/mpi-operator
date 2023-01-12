@@ -78,7 +78,7 @@ test_images:
 
 .PHONY: tidy
 tidy:
-	go mod tidy -compat 1.17
+	go mod tidy -go 1.19
 
 GOLANGCI_LINT = ./bin/golangci-lint
 bin/golangci-lint:
@@ -100,7 +100,7 @@ bin/kubectl:
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run --new-from-rev=origin/master
+	$(GOLANGCI_LINT) run --new-from-rev=origin/master --go 1.19
 
 .PHONY: kind
 kind:

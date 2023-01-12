@@ -1,6 +1,6 @@
 module github.com/kubeflow/mpi-operator/v2
 
-go 1.17
+go 1.19
 
 require (
 	github.com/go-openapi/spec v0.20.3
