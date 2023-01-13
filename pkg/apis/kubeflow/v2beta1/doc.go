@@ -16,6 +16,6 @@
 // +k8s:defaulter-gen=TypeMeta
 // +k8s:openapi-gen=true
 
-// Package v1 is the v1 version of the API.
+// Package v2beta1 is the v2beta1 version of the API.
 // +groupName=kubeflow.org
 package v2beta1

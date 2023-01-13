@@ -53,7 +53,8 @@ class TestV2beta1MPIJobSpec(unittest.TestCase):
                             'key' : None
                             }, 
                         priority_class = '', 
-                        queue = '', ), 
+                        queue = '', 
+                        schedule_timeout_seconds = 56, ), 
                     ttl_seconds_after_finished = 56, ), 
                 slots_per_worker = 56, 
                 ssh_auth_mount_path = ''
@@ -66,18 +67,6 @@ class TestV2beta1MPIJobSpec(unittest.TestCase):
                         restart_policy = '', 
                         template = None, )
                     },
-                run_policy = mpijob.models.v1/run_policy.v1.RunPolicy(
-                    active_deadline_seconds = 56, 
-                    backoff_limit = 56, 
-                    clean_pod_policy = '', 
-                    scheduling_policy = mpijob.models.v1/scheduling_policy.v1.SchedulingPolicy(
-                        min_available = 56, 
-                        min_resources = {
-                            'key' : None
-                            }, 
-                        priority_class = '', 
-                        queue = '', ), 
-                    ttl_seconds_after_finished = 56, ),
         )
 
     def testV2beta1MPIJobSpec(self):

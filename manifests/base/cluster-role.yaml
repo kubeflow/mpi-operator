@@ -84,6 +84,12 @@ rules:
   verbs:
   - "*"
 - apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - "*"
+- apiGroups:
   - scheduling.incubator.k8s.io
   - scheduling.sigs.dev
   resources:

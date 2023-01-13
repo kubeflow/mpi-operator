@@ -207,12 +207,12 @@ func Run(opt *options.ServerOption) error {
 		}
 	}()
 
-	rl := &resourcelock.EndpointsLock{
-		EndpointsMeta: metav1.ObjectMeta{
+	rl := &resourcelock.LeaseLock{
+		LeaseMeta: metav1.ObjectMeta{
 			Namespace: opt.LockNamespace,
 			Name:      controllerName,
 		},
-		Client: leaderElectionClientSet.CoreV1(),
+		Client: leaderElectionClientSet.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorder,

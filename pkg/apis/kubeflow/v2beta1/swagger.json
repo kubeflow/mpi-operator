@@ -17,10 +17,12 @@
       "properties": {
         "lastTransitionTime": {
           "description": "Last time the condition transitioned from one status to another.",
+          "default": {},
           "$ref": "#/definitions/v1.Time"
         },
         "lastUpdateTime": {
           "description": "The last time this condition was updated.",
+          "default": {},
           "$ref": "#/definitions/v1.Time"
         },
         "message": {
@@ -33,11 +35,13 @@
         },
         "status": {
           "description": "Status of the condition, one of True, False, Unknown.",
-          "type": "string"
+          "type": "string",
+          "default": ""
         },
         "type": {
           "description": "Type of job condition.",
-          "type": "string"
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -57,6 +61,7 @@
           "description": "Conditions is an array of current observed job conditions.",
           "type": "array",
           "items": {
+            "default": {},
             "$ref": "#/definitions/v1.JobCondition"
           }
         },
@@ -92,6 +97,7 @@
         },
         "template": {
           "description": "Template is the object that describes the pod that will be created for this replica. RestartPolicy in PodTemplateSpec will be overide by RestartPolicy in ReplicaSpec",
+          "default": {},
           "$ref": "#/definitions/v1.PodTemplateSpec"
         }
       }
@@ -109,6 +115,14 @@
           "description": "The number of pods which reached phase Failed.",
           "type": "integer",
           "format": "int32"
+        },
+        "labelSelector": {
+          "description": "Deprecated: Use Selector instead",
+          "$ref": "#/definitions/v1.LabelSelector"
+        },
+        "selector": {
+          "description": "A Selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty Selector matches all objects. A null Selector matches no objects.",
+          "type": "string"
         },
         "succeeded": {
           "description": "The number of pods which reached phase Succeeded.",
@@ -157,6 +171,7 @@
         "minResources": {
           "type": "object",
           "additionalProperties": {
+            "default": {},
             "$ref": "#/definitions/resource.Quantity"
           }
         },
@@ -165,6 +180,10 @@
         },
         "queue": {
           "type": "string"
+        },
+        "scheduleTimeoutSeconds": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
@@ -180,12 +199,15 @@
           "type": "string"
         },
         "metadata": {
+          "default": {},
           "$ref": "#/definitions/v1.ObjectMeta"
         },
         "spec": {
+          "default": {},
           "$ref": "#/definitions/v2beta1.MPIJobSpec"
         },
         "status": {
+          "default": {},
           "$ref": "#/definitions/v1.JobStatus"
         }
       }
@@ -204,6 +226,7 @@
         "items": {
           "type": "array",
           "items": {
+            "default": {},
             "$ref": "#/definitions/v2beta1.MPIJob"
           }
         },
@@ -212,6 +235,7 @@
           "type": "string"
         },
         "metadata": {
+          "default": {},
           "$ref": "#/definitions/v1.ListMeta"
         }
       }
@@ -235,6 +259,7 @@
         },
         "runPolicy": {
           "description": "RunPolicy encapsulates various runtime policies of the job.",
+          "default": {},
           "$ref": "#/definitions/v1.RunPolicy"
         },
         "slotsPerWorker": {
