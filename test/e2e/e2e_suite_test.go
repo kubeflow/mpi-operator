@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
+	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"

@@ -17,8 +17,8 @@
 package v2beta1
 
 import (
-	v2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
-	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
+	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

@@ -32,11 +32,11 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
-	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
-	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
-	"github.com/kubeflow/mpi-operator/v2/pkg/controller"
+	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
+	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
+	"github.com/kubeflow/mpi-operator/pkg/controller"
 )
 
 const (

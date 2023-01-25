@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	kubeflowScheme "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
+	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
@@ -44,11 +44,11 @@ import (
 	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
 	podgroupsinformer "volcano.sh/apis/pkg/client/informers/externalversions/scheduling/v1beta1"
 
-	"github.com/kubeflow/mpi-operator/v2/cmd/mpi-operator/app/options"
-	mpijobclientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
-	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions"
-	controllersv1 "github.com/kubeflow/mpi-operator/v2/pkg/controller"
-	"github.com/kubeflow/mpi-operator/v2/pkg/version"
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
+	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
+	controllersv1 "github.com/kubeflow/mpi-operator/pkg/controller"
+	"github.com/kubeflow/mpi-operator/pkg/version"
 )
 
 const (

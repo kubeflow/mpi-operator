@@ -17,7 +17,7 @@
 package v2beta1
 
 import (
-	internalinterfaces "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

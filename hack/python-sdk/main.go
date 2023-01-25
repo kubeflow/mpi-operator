@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
 
-	mpijobv2 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
+	mpijobv2 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
 // Generate OpenAPI spec definitions for MPIJob Resource
@@ -71,7 +71,7 @@ func main() {
 }
 
 func swaggify(name string) string {
-	name = strings.Replace(name, "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/", "", -1)
+	name = strings.Replace(name, "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/", "", -1)
 	name = strings.Replace(name, "github.com/kubeflow/common/pkg/apis/common/", "", -1)
 	name = strings.Replace(name, "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/", "", -1)
 	name = strings.Replace(name, "k8s.io/api/core/", "", -1)
