@@ -34,9 +34,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaStatus":              schema_pkg_apis_common_v1_ReplicaStatus(ref),
 		"github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy":                  schema_pkg_apis_common_v1_RunPolicy(ref),
 		"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy":           schema_pkg_apis_common_v1_SchedulingPolicy(ref),
-		"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJob":     schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref),
-		"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJobList": schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref),
-		"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJobSpec": schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob":     schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobList": schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec": schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref),
 	}
 }
 
@@ -348,7 +348,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref common.ReferenceCallback) commo
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJobSpec"),
+							Ref: ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec"),
 						},
 					},
 					"status": {
@@ -360,7 +360,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus", "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJobSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -395,7 +395,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref common.ReferenceCallback) c
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJob"),
+										Ref: ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob"),
 									},
 								},
 							},
@@ -406,7 +406,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1.MPIJob", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 

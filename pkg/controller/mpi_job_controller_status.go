@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
+	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
 const (

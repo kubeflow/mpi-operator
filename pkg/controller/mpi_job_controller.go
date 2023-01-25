@@ -56,12 +56,12 @@ import (
 	podgroupslists "volcano.sh/apis/pkg/client/listers/scheduling/v1beta1"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	kubeflow "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
-	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/validation"
-	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
-	"github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/v2/pkg/client/informers/externalversions/kubeflow/v2beta1"
-	listers "github.com/kubeflow/mpi-operator/v2/pkg/client/listers/kubeflow/v2beta1"
+	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/validation"
+	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
+	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/kubeflow/v2beta1"
+	listers "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v2beta1"
 )
 
 const (

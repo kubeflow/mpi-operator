@@ -17,7 +17,7 @@
 package fake
 
 import (
-	v2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
+	v2beta1 "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

@@ -17,9 +17,9 @@
 package fake
 
 import (
-	clientset "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned"
-	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
-	fakekubeflowv2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/typed/kubeflow/v2beta1/fake"
+	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
+	fakekubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v2beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

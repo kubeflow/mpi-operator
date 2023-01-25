@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
-	v2beta1 "github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
-	scheme "github.com/kubeflow/mpi-operator/v2/pkg/client/clientset/versioned/scheme"
+	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	scheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

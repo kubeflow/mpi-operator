@@ -21,8 +21,8 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/kubeflow/mpi-operator/v2/cmd/mpi-operator/app"
-	"github.com/kubeflow/mpi-operator/v2/cmd/mpi-operator/app/options"
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app"
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

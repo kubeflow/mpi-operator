@@ -18,7 +18,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kubeflow/mpi-operator/v2/pkg/apis/kubeflow/v2beta1"
+	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
 // ServerOption is the main context object for the controller manager.
