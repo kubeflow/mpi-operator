@@ -37,80 +37,6 @@ spec:
     singular: mpijob
   scope: Namespaced
   versions:
-  - name: v1alpha2
-    schema:
-      openAPIV3Schema:
-        properties:
-          spec:
-            properties:
-              mpiReplicaSpecs:
-                properties:
-                  Launcher:
-                    properties:
-                      replicas:
-                        maximum: 1
-                        minimum: 1
-                        type: integer
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  Worker:
-                    properties:
-                      replicas:
-                        minimum: 1
-                        type: integer
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                type: object
-              slotsPerWorker:
-                minimum: 1
-                type: integer
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-          status:
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-        type: object
-    served: true
-    storage: false
-    subresources:
-      status: {}
-  - name: v1
-    schema:
-      openAPIV3Schema:
-        properties:
-          spec:
-            properties:
-              mpiReplicaSpecs:
-                properties:
-                  Launcher:
-                    properties:
-                      replicas:
-                        maximum: 1
-                        minimum: 1
-                        type: integer
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  Worker:
-                    properties:
-                      replicas:
-                        minimum: 1
-                        type: integer
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                type: object
-              slotsPerWorker:
-                minimum: 1
-                type: integer
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-          status:
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
-        type: object
-    served: true
-    storage: false
-    subresources:
-      status: {}
   - name: v2beta1
     schema:
       openAPIV3Schema:
@@ -421,6 +347,12 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - '*'
+- apiGroups:
   - scheduling.incubator.k8s.io
   - scheduling.sigs.dev
   resources:
@@ -445,6 +377,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: mpi-operator
+  namespace: mpi-operator
+---
+apiVersion: v1
+data:
+  lock-namespace: mpi-operator
+kind: ConfigMap
+metadata:
+  labels:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
+  name: mpi-operator-config
   namespace: mpi-operator
 ---
 apiVersion: apps/v1
