@@ -22,9 +22,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-openapi/spec"
 	"k8s.io/klog"
 	"k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	mpijobv2 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
@@ -44,6 +44,7 @@ func main() {
 		return spec.MustCreateRef(
 			"#/definitions/" + common.EscapeJsonPointer(swaggify(name)))
 	}
+
 	oAPIDefs := mpijobv2.GetOpenAPIDefinitions(filter)
 	defs := spec.Definitions{}
 	for defName, val := range oAPIDefs {

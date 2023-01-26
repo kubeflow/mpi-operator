@@ -51,6 +51,8 @@ class TestV1JobStatus(unittest.TestCase):
                     'key' : mpijob.models.v1/replica_status.v1.ReplicaStatus(
                         active = 56, 
                         failed = 56, 
+                        label_selector = None, 
+                        selector = '', 
                         succeeded = 56, )
                     }, 
                 start_time = None
@@ -70,6 +72,8 @@ class TestV1JobStatus(unittest.TestCase):
                     'key' : mpijob.models.v1/replica_status.v1.ReplicaStatus(
                         active = 56, 
                         failed = 56, 
+                        label_selector = None, 
+                        selector = '', 
                         succeeded = 56, )
                     },
         )

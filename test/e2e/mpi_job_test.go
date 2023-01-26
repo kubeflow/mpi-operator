@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build e2e
 // +build e2e
 
 package e2e
@@ -190,7 +191,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 							"-De",
 						},
 						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
+							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{
 									Port: intstr.FromInt(2222),
 								},

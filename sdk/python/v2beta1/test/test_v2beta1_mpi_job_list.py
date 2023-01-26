@@ -60,7 +60,8 @@ class TestV2beta1MPIJobList(unittest.TestCase):
                                         'key' : None
                                         }, 
                                     priority_class = '', 
-                                    queue = '', ), 
+                                    queue = '', 
+                                    schedule_timeout_seconds = 56, ), 
                                 ttl_seconds_after_finished = 56, ), 
                             slots_per_worker = 56, 
                             ssh_auth_mount_path = '', ), 
@@ -80,6 +81,8 @@ class TestV2beta1MPIJobList(unittest.TestCase):
                                 'key' : mpijob.models.v1/replica_status.v1.ReplicaStatus(
                                     active = 56, 
                                     failed = 56, 
+                                    label_selector = None, 
+                                    selector = '', 
                                     succeeded = 56, )
                                 }, 
                             start_time = None, ), )
@@ -112,7 +115,8 @@ class TestV2beta1MPIJobList(unittest.TestCase):
                                         'key' : None
                                         }, 
                                     priority_class = '', 
-                                    queue = '', ), 
+                                    queue = '', 
+                                    schedule_timeout_seconds = 56, ), 
                                 ttl_seconds_after_finished = 56, ), 
                             slots_per_worker = 56, 
                             ssh_auth_mount_path = '', ), 
@@ -132,6 +136,8 @@ class TestV2beta1MPIJobList(unittest.TestCase):
                                 'key' : mpijob.models.v1/replica_status.v1.ReplicaStatus(
                                     active = 56, 
                                     failed = 56, 
+                                    label_selector = None, 
+                                    selector = '', 
                                     succeeded = 56, )
                                 }, 
                             start_time = None, ), )

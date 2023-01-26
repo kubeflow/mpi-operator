@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build e2e
 // +build e2e
 
 package e2e
@@ -21,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"testing"
 	"time"
 
@@ -42,11 +42,12 @@ const (
 	envTestKindImage        = "TEST_KIND_IMAGE"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.21.2"
+	defaultKindImage        = "kindest/node:v1.25.3"
 	openMPIImage            = "mpioperator/mpi-pi:openmpi"
 	intelMPIImage           = "mpioperator/mpi-pi:intel"
 	rootPath                = "../.."
 	kubectlPath             = rootPath + "/bin/kubectl"
+	kindPath                = rootPath + "/bin/kind"
 	operatorManifestsPath   = rootPath + "/manifests/overlays/dev"
 
 	mpiOperator = "mpi-operator"
@@ -58,7 +59,6 @@ const (
 var (
 	useExistingCluster  bool
 	useExistingOperator bool
-	kindPath            string
 	mpiOperatorImage    string
 	kindImage           string
 
@@ -71,10 +71,6 @@ func init() {
 	useExistingOperator = getEnvDefault(envUseExistingOperator, "false") == "true"
 	mpiOperatorImage = getEnvDefault(envTestMPIOperatorImage, defaultMPIOperatorImage)
 	kindImage = getEnvDefault(envTestKindImage, defaultKindImage)
-	kindPath = "kind"
-	if goPath := os.Getenv("GOPATH"); goPath != "" {
-		kindPath = path.Join(goPath, "bin", "kind")
-	}
 }
 
 func TestE2E(t *testing.T) {

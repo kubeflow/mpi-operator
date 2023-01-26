@@ -18,8 +18,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-pushd $SCRIPT_ROOT
+SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+pushd "${SCRIPT_ROOT}"
 SCRIPT_ROOT=$(pwd)
 popd
 
@@ -28,8 +28,8 @@ popd
 # Reference: https://github.com/kubernetes/code-generator/issues/57
 CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
 CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}")
-chmod +x ${CODEGEN_PKG}/generate-groups.sh
+chmod +x "${CODEGEN_PKG}/generate-groups.sh"
 
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
+"${CODEGEN_PKG}/generate-groups.sh" "deepcopy,client,informer,lister" \
   github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \
-  kubeflow:v2beta1 --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+  kubeflow:v2beta1 --go-header-file "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt"

@@ -41,7 +41,8 @@ class TestV1SchedulingPolicy(unittest.TestCase):
                     'key' : None
                     }, 
                 priority_class = '', 
-                queue = ''
+                queue = '', 
+                schedule_timeout_seconds = 56
             )
         else :
             return V1SchedulingPolicy(
