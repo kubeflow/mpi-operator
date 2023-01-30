@@ -37,6 +37,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob":     schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobList": schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec": schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy":  schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref),
 	}
 }
 
@@ -460,7 +461,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "RunPolicy encapsulates various runtime policies of the job.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy"),
+							Ref:         ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy"),
 						},
 					},
 					"mpiReplicaSpecs": {
@@ -496,6 +497,55 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec", "github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy"},
+			"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy"},
+	}
+}
+
+func schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RunPolicy encapsulates various runtime policies of the distributed training job, for example how to clean up resources and how long the job can stay active.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cleanPodPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CleanPodPolicy defines the policy to kill pods after the job completes. Default to Running.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ttlSecondsAfterFinished": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TTLSecondsAfterFinished is the TTL to clean up jobs. It may take extra ReconcilePeriod seconds for the cleanup, since reconcile gets called periodically. Default to infinite.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"activeDeadlineSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies the duration in seconds relative to the startTime that the job may be active before the system tries to terminate it; value must be positive integer.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"backoffLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional number of retries before marking this job failed.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"schedulingPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling",
+							Ref:         ref("github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy"},
 	}
 }

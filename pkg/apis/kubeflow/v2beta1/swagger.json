@@ -260,7 +260,7 @@
         "runPolicy": {
           "description": "RunPolicy encapsulates various runtime policies of the job.",
           "default": {},
-          "$ref": "#/definitions/v1.RunPolicy"
+          "$ref": "#/definitions/v2beta1.RunPolicy"
         },
         "slotsPerWorker": {
           "description": "Specifies the number of slots per worker used in hostfile. Defaults to 1.",
@@ -270,6 +270,35 @@
         "sshAuthMountPath": {
           "description": "SSHAuthMountPath is the directory where SSH keys are mounted. Defaults to \"/root/.ssh\".",
           "type": "string"
+        }
+      }
+    },
+    "v2beta1.RunPolicy": {
+      "description": "RunPolicy encapsulates various runtime policies of the distributed training job, for example how to clean up resources and how long the job can stay active.",
+      "type": "object",
+      "properties": {
+        "activeDeadlineSeconds": {
+          "description": "Specifies the duration in seconds relative to the startTime that the job may be active before the system tries to terminate it; value must be positive integer.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "backoffLimit": {
+          "description": "Optional number of retries before marking this job failed.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "cleanPodPolicy": {
+          "description": "CleanPodPolicy defines the policy to kill pods after the job completes. Default to Running.",
+          "type": "string"
+        },
+        "schedulingPolicy": {
+          "description": "SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling",
+          "$ref": "#/definitions/v1.SchedulingPolicy"
+        },
+        "ttlSecondsAfterFinished": {
+          "description": "TTLSecondsAfterFinished is the TTL to clean up jobs. It may take extra ReconcilePeriod seconds for the cleanup, since reconcile gets called periodically. Default to infinite.",
+          "type": "integer",
+          "format": "int32"
         }
       }
     }

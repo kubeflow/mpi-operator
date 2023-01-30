@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -38,7 +39,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
@@ -64,7 +65,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
@@ -127,7 +128,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy:          newCleanPodPolicy("unknown"),
 						TTLSecondsAfterFinished: newInt32(-1),
 						ActiveDeadlineSeconds:   newInt64(-1),
@@ -191,7 +192,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
@@ -213,7 +214,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
@@ -258,7 +259,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 				Spec: v2beta1.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",

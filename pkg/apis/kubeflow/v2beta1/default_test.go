@@ -30,7 +30,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
@@ -42,7 +42,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			job: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: RunPolicy{
 						CleanPodPolicy:          newCleanPodPolicy(common.CleanPodPolicyRunning),
 						TTLSecondsAfterFinished: newInt32(2),
 						ActiveDeadlineSeconds:   newInt64(3),
@@ -55,7 +55,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: RunPolicy{
 						CleanPodPolicy:          newCleanPodPolicy(common.CleanPodPolicyRunning),
 						TTLSecondsAfterFinished: newInt32(2),
 						ActiveDeadlineSeconds:   newInt64(3),
@@ -77,7 +77,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
@@ -102,7 +102,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
-					RunPolicy: common.RunPolicy{
+					RunPolicy: RunPolicy{
 						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",

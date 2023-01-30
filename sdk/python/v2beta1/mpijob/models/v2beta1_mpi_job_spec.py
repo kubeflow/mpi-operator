@@ -35,7 +35,7 @@ class V2beta1MPIJobSpec(object):
     openapi_types = {
         'mpi_implementation': 'str',
         'mpi_replica_specs': 'dict(str, V1ReplicaSpec)',
-        'run_policy': 'V1RunPolicy',
+        'run_policy': 'V2beta1RunPolicy',
         'slots_per_worker': 'int',
         'ssh_auth_mount_path': 'str'
     }
@@ -125,7 +125,7 @@ class V2beta1MPIJobSpec(object):
 
 
         :return: The run_policy of this V2beta1MPIJobSpec.  # noqa: E501
-        :rtype: V1RunPolicy
+        :rtype: V2beta1RunPolicy
         """
         return self._run_policy
 
@@ -135,7 +135,7 @@ class V2beta1MPIJobSpec(object):
 
 
         :param run_policy: The run_policy of this V2beta1MPIJobSpec.  # noqa: E501
-        :type run_policy: V1RunPolicy
+        :type run_policy: V2beta1RunPolicy
         """
 
         self._run_policy = run_policy

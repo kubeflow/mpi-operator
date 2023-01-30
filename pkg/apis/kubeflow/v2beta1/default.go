@@ -49,7 +49,7 @@ func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
 	}
 }
 
-func setDefaultsRunPolicy(policy *common.RunPolicy) {
+func setDefaultsRunPolicy(policy *RunPolicy) {
 	if policy.CleanPodPolicy == nil {
 		policy.CleanPodPolicy = newCleanPodPolicy(common.CleanPodPolicyNone)
 	}

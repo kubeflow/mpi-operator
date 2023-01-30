@@ -81,7 +81,7 @@ func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.Error
 	return errs
 }
 
-func validateRunPolicy(policy *common.RunPolicy, path *field.Path) field.ErrorList {
+func validateRunPolicy(policy *kubeflow.RunPolicy, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if policy.CleanPodPolicy == nil {
 		errs = append(errs, field.Required(path.Child("cleanPodPolicy"), "must have clean Pod policy"))

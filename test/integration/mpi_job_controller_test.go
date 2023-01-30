@@ -56,7 +56,7 @@ func TestMPIJobSuccess(t *testing.T) {
 		},
 		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
-			RunPolicy: common.RunPolicy{
+			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
@@ -182,7 +182,7 @@ func TestMPIJobFailure(t *testing.T) {
 		},
 		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
-			RunPolicy: common.RunPolicy{
+			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
