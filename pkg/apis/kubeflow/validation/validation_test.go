@@ -20,7 +20,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
-	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,23 +28,23 @@ import (
 
 func TestValidateMPIJob(t *testing.T) {
 	cases := map[string]struct {
-		job      v2beta1.MPIJob
+		job      kubeflow.MPIJob
 		wantErrs field.ErrorList
 	}{
 		"valid": {
-			job: v2beta1.MPIJob{
+			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
-				Spec: v2beta1.MPIJobSpec{
+				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: v2beta1.MPIImplementationIntel,
-					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
-						v2beta1.MPIReplicaTypeLauncher: {
+					MPIImplementation: kubeflow.MPIImplementationIntel,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
 							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
@@ -59,19 +58,19 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"valid with worker": {
-			job: v2beta1.MPIJob{
+			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
-				Spec: v2beta1.MPIJobSpec{
+				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: v2beta1.MPIImplementationIntel,
-					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
-						v2beta1.MPIReplicaTypeLauncher: {
+					MPIImplementation: kubeflow.MPIImplementationIntel,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
 							RestartPolicy: common.RestartPolicyOnFailure,
 							Template: corev1.PodTemplateSpec{
@@ -80,7 +79,7 @@ func TestValidateMPIJob(t *testing.T) {
 								},
 							},
 						},
-						v2beta1.MPIReplicaTypeWorker: {
+						kubeflow.MPIReplicaTypeWorker: {
 							Replicas:      newInt32(3),
 							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
@@ -122,11 +121,11 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"invalid fields": {
-			job: v2beta1.MPIJob{
+			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "this-name-is-waaaaaaaay-too-long-for-a-worker-hostname",
 				},
-				Spec: v2beta1.MPIJobSpec{
+				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
 						CleanPodPolicy:          newCleanPodPolicy("unknown"),
@@ -135,9 +134,9 @@ func TestValidateMPIJob(t *testing.T) {
 						BackoffLimit:            newInt32(-1),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: v2beta1.MPIImplementation("Unknown"),
-					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
-						v2beta1.MPIReplicaTypeLauncher: {
+					MPIImplementation: kubeflow.MPIImplementation("Unknown"),
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
 							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
@@ -146,7 +145,7 @@ func TestValidateMPIJob(t *testing.T) {
 								},
 							},
 						},
-						v2beta1.MPIReplicaTypeWorker: {
+						kubeflow.MPIReplicaTypeWorker: {
 							Replicas:      newInt32(1000),
 							RestartPolicy: common.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
@@ -186,18 +185,18 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"empty replica specs": {
-			job: v2beta1.MPIJob{
+			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
-				Spec: v2beta1.MPIJobSpec{
+				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
-					MPIReplicaSpecs:   map[v2beta1.MPIReplicaType]*common.ReplicaSpec{},
+					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
+					MPIReplicaSpecs:   map[kubeflow.MPIReplicaType]*common.ReplicaSpec{},
 				},
 			},
 			wantErrs: field.ErrorList{
@@ -208,20 +207,20 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"missing replica spec fields": {
-			job: v2beta1.MPIJob{
+			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
-				Spec: v2beta1.MPIJobSpec{
+				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
-					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
-						v2beta1.MPIReplicaTypeLauncher: {},
-						v2beta1.MPIReplicaTypeWorker:   {},
+					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {},
+						kubeflow.MPIReplicaTypeWorker:   {},
 					},
 				},
 			},
@@ -253,19 +252,19 @@ func TestValidateMPIJob(t *testing.T) {
 			},
 		},
 		"invalid replica fields": {
-			job: v2beta1.MPIJob{
+			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
 				},
-				Spec: v2beta1.MPIJobSpec{
+				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyRunning),
+						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: v2beta1.MPIImplementationOpenMPI,
-					MPIReplicaSpecs: map[v2beta1.MPIReplicaType]*common.ReplicaSpec{
-						v2beta1.MPIReplicaTypeLauncher: {
+					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(2),
 							RestartPolicy: common.RestartPolicyAlways,
 							Template: corev1.PodTemplateSpec{
@@ -274,7 +273,7 @@ func TestValidateMPIJob(t *testing.T) {
 								},
 							},
 						},
-						v2beta1.MPIReplicaTypeWorker: {
+						kubeflow.MPIReplicaTypeWorker: {
 							Replicas:      newInt32(0),
 							RestartPolicy: "Invalid",
 							Template: corev1.PodTemplateSpec{
@@ -324,6 +323,6 @@ func newInt64(v int64) *int64 {
 	return &v
 }
 
-func newCleanPodPolicy(v common.CleanPodPolicy) *common.CleanPodPolicy {
+func newCleanPodPolicy(v kubeflow.CleanPodPolicy) *kubeflow.CleanPodPolicy {
 	return &v
 }

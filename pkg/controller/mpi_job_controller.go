@@ -886,7 +886,7 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 		// set to CleanPodPolicyRunning, keep the pod.
 		// Note that pending pod should still be removed under this
 		// situation, since it may turn to running in the future.
-		if *mpiJob.Spec.RunPolicy.CleanPodPolicy == common.CleanPodPolicyRunning && !isPodRunning(pod) && !isPodPending(pod) {
+		if *mpiJob.Spec.RunPolicy.CleanPodPolicy == kubeflow.CleanPodPolicyRunning && !isPodRunning(pod) && !isPodPending(pod) {
 			// Keep the worker pod
 			continue
 		}
@@ -1492,8 +1492,8 @@ func isPodFailed(p *corev1.Pod) bool {
 	return p.Status.Phase == corev1.PodFailed
 }
 
-func isCleanUpPods(cleanPodPolicy *common.CleanPodPolicy) bool {
-	if *cleanPodPolicy == common.CleanPodPolicyAll || *cleanPodPolicy == common.CleanPodPolicyRunning {
+func isCleanUpPods(cleanPodPolicy *kubeflow.CleanPodPolicy) bool {
+	if *cleanPodPolicy == kubeflow.CleanPodPolicyAll || *cleanPodPolicy == kubeflow.CleanPodPolicyRunning {
 		return true
 	}
 	return false

@@ -293,10 +293,37 @@
         },
         "schedulingPolicy": {
           "description": "SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling",
-          "$ref": "#/definitions/v1.SchedulingPolicy"
+          "$ref": "#/definitions/v2beta1.SchedulingPolicy"
         },
         "ttlSecondsAfterFinished": {
           "description": "TTLSecondsAfterFinished is the TTL to clean up jobs. It may take extra ReconcilePeriod seconds for the cleanup, since reconcile gets called periodically. Default to infinite.",
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v2beta1.SchedulingPolicy": {
+      "description": "SchedulingPolicy encapsulates various scheduling policies of the distributed training job, for example `minAvailable` for gang-scheduling.",
+      "type": "object",
+      "properties": {
+        "minAvailable": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "minResources": {
+          "type": "object",
+          "additionalProperties": {
+            "default": {},
+            "$ref": "#/definitions/resource.Quantity"
+          }
+        },
+        "priorityClass": {
+          "type": "string"
+        },
+        "queue": {
+          "type": "string"
+        },
+        "scheduleTimeoutSeconds": {
           "type": "integer",
           "format": "int32"
         }

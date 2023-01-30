@@ -28,16 +28,17 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubeflow/common/pkg/apis/common/v1.JobCondition":            schema_pkg_apis_common_v1_JobCondition(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus":               schema_pkg_apis_common_v1_JobStatus(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec":             schema_pkg_apis_common_v1_ReplicaSpec(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaStatus":           schema_pkg_apis_common_v1_ReplicaStatus(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy":               schema_pkg_apis_common_v1_RunPolicy(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy":        schema_pkg_apis_common_v1_SchedulingPolicy(ref),
-		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob":     schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref),
-		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobList": schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref),
-		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec": schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref),
-		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy":  schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref),
+		"github.com/kubeflow/common/pkg/apis/common/v1.JobCondition":                  schema_pkg_apis_common_v1_JobCondition(ref),
+		"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus":                     schema_pkg_apis_common_v1_JobStatus(ref),
+		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec":                   schema_pkg_apis_common_v1_ReplicaSpec(ref),
+		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaStatus":                 schema_pkg_apis_common_v1_ReplicaStatus(ref),
+		"github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy":                     schema_pkg_apis_common_v1_RunPolicy(ref),
+		"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy":              schema_pkg_apis_common_v1_SchedulingPolicy(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob":           schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobList":       schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec":       schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy":        schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.SchedulingPolicy": schema_pkg_apis_kubeflow_v2beta1_SchedulingPolicy(ref),
 	}
 }
 
@@ -539,13 +540,66 @@ func schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref common.ReferenceCallback) co
 					"schedulingPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling",
-							Ref:         ref("github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy"),
+							Ref:         ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.SchedulingPolicy"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy"},
+			"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.SchedulingPolicy"},
+	}
+}
+
+func schema_pkg_apis_kubeflow_v2beta1_SchedulingPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SchedulingPolicy encapsulates various scheduling policies of the distributed training job, for example `minAvailable` for gang-scheduling.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"minAvailable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"queue": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"minResources": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"priorityClass": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scheduleTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }

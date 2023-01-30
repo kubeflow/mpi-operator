@@ -16,6 +16,7 @@ package v2beta1
 
 import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,13 +38,33 @@ type MPIJobList struct {
 	Items           []MPIJob `json:"items"`
 }
 
+// CleanPodPolicy describes how to deal with pods when the job is finished.
+type CleanPodPolicy string
+
+const (
+	CleanPodPolicyUndefined CleanPodPolicy = ""
+	CleanPodPolicyAll       CleanPodPolicy = "All"
+	CleanPodPolicyRunning   CleanPodPolicy = "Running"
+	CleanPodPolicyNone      CleanPodPolicy = "None"
+)
+
+// SchedulingPolicy encapsulates various scheduling policies of the distributed training
+// job, for example `minAvailable` for gang-scheduling.
+type SchedulingPolicy struct {
+	MinAvailable           *int32           `json:"minAvailable,omitempty"`
+	Queue                  string           `json:"queue,omitempty"`
+	MinResources           *v1.ResourceList `json:"minResources,omitempty"`
+	PriorityClass          string           `json:"priorityClass,omitempty"`
+	ScheduleTimeoutSeconds *int32           `json:"scheduleTimeoutSeconds,omitempty"`
+}
+
 // RunPolicy encapsulates various runtime policies of the distributed training
 // job, for example how to clean up resources and how long the job can stay
 // active.
 type RunPolicy struct {
 	// CleanPodPolicy defines the policy to kill pods after the job completes.
 	// Default to Running.
-	CleanPodPolicy *common.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
+	CleanPodPolicy *CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
 
 	// TTLSecondsAfterFinished is the TTL to clean up jobs.
 	// It may take extra ReconcilePeriod seconds for the cleanup, since
@@ -62,7 +83,7 @@ type RunPolicy struct {
 
 	// SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling
 	// +optional
-	SchedulingPolicy *common.SchedulingPolicy `json:"schedulingPolicy,omitempty"`
+	SchedulingPolicy *SchedulingPolicy `json:"schedulingPolicy,omitempty"`
 }
 
 type MPIJobSpec struct {

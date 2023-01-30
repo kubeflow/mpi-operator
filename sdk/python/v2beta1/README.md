@@ -74,6 +74,7 @@ Class | Method | HTTP request | Description
  - [V2beta1MPIJobList](docs/V2beta1MPIJobList.md)
  - [V2beta1MPIJobSpec](docs/V2beta1MPIJobSpec.md)
  - [V2beta1RunPolicy](docs/V2beta1RunPolicy.md)
+ - [V2beta1SchedulingPolicy](docs/V2beta1SchedulingPolicy.md)
 
 
 ## Documentation For Authorization

@@ -29,9 +29,9 @@ import (
 
 var (
 	validCleanPolicies = sets.NewString(
-		string(common.CleanPodPolicyNone),
-		string(common.CleanPodPolicyRunning),
-		string(common.CleanPodPolicyAll))
+		string(kubeflow.CleanPodPolicyNone),
+		string(kubeflow.CleanPodPolicyRunning),
+		string(kubeflow.CleanPodPolicyAll))
 
 	validMPIImplementations = sets.NewString(
 		string(kubeflow.MPIImplementationOpenMPI),

@@ -88,7 +88,7 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
-	cleanPodPolicyAll := common.CleanPodPolicyAll
+	cleanPodPolicyAll := kubeflow.CleanPodPolicyAll
 	mpiJob := &kubeflow.MPIJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{

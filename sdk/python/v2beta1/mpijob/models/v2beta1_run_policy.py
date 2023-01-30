@@ -36,7 +36,7 @@ class V2beta1RunPolicy(object):
         'active_deadline_seconds': 'int',
         'backoff_limit': 'int',
         'clean_pod_policy': 'str',
-        'scheduling_policy': 'V1SchedulingPolicy',
+        'scheduling_policy': 'V2beta1SchedulingPolicy',
         'ttl_seconds_after_finished': 'int'
     }
 
@@ -147,7 +147,7 @@ class V2beta1RunPolicy(object):
 
 
         :return: The scheduling_policy of this V2beta1RunPolicy.  # noqa: E501
-        :rtype: V1SchedulingPolicy
+        :rtype: V2beta1SchedulingPolicy
         """
         return self._scheduling_policy
 
@@ -157,7 +157,7 @@ class V2beta1RunPolicy(object):
 
 
         :param scheduling_policy: The scheduling_policy of this V2beta1RunPolicy.  # noqa: E501
-        :type scheduling_policy: V1SchedulingPolicy
+        :type scheduling_policy: V2beta1SchedulingPolicy
         """
 
         self._scheduling_policy = scheduling_policy
