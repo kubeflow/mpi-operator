@@ -30,8 +30,8 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
-					RunPolicy: common.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy: newCleanPodPolicy(CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: MPIImplementationOpenMPI,
@@ -42,8 +42,8 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			job: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
-					RunPolicy: common.RunPolicy{
-						CleanPodPolicy:          newCleanPodPolicy(common.CleanPodPolicyRunning),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy:          newCleanPodPolicy(CleanPodPolicyRunning),
 						TTLSecondsAfterFinished: newInt32(2),
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
@@ -55,8 +55,8 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
-					RunPolicy: common.RunPolicy{
-						CleanPodPolicy:          newCleanPodPolicy(common.CleanPodPolicyRunning),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy:          newCleanPodPolicy(CleanPodPolicyRunning),
 						TTLSecondsAfterFinished: newInt32(2),
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
@@ -77,8 +77,8 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
-					RunPolicy: common.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy: newCleanPodPolicy(CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: MPIImplementationOpenMPI,
@@ -102,8 +102,8 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 			want: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
-					RunPolicy: common.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(common.CleanPodPolicyNone),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy: newCleanPodPolicy(CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: MPIImplementationOpenMPI,

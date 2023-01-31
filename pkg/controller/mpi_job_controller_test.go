@@ -88,7 +88,7 @@ func newFixture(t *testing.T) *fixture {
 }
 
 func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
-	cleanPodPolicyAll := common.CleanPodPolicyAll
+	cleanPodPolicyAll := kubeflow.CleanPodPolicyAll
 	mpiJob := &kubeflow.MPIJob{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubeflow.SchemeGroupVersion.String()},
 		ObjectMeta: metav1.ObjectMeta{
@@ -96,7 +96,7 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 			Namespace: metav1.NamespaceDefault,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			RunPolicy: common.RunPolicy{
+			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: &cleanPodPolicyAll,
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
@@ -1091,7 +1091,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					SlotsPerWorker:    newInt32(5),
 					MPIImplementation: kubeflow.MPIImplementationIntel,
-					RunPolicy: common.RunPolicy{
+					RunPolicy: kubeflow.RunPolicy{
 						TTLSecondsAfterFinished: newInt32(1),
 						ActiveDeadlineSeconds:   newInt64(2),
 						BackoffLimit:            newInt32(3),

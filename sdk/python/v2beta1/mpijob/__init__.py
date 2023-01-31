@@ -37,4 +37,6 @@ from mpijob.models.v1_scheduling_policy import V1SchedulingPolicy
 from mpijob.models.v2beta1_mpi_job import V2beta1MPIJob
 from mpijob.models.v2beta1_mpi_job_list import V2beta1MPIJobList
 from mpijob.models.v2beta1_mpi_job_spec import V2beta1MPIJobSpec
+from mpijob.models.v2beta1_run_policy import V2beta1RunPolicy
+from mpijob.models.v2beta1_scheduling_policy import V2beta1SchedulingPolicy
 
