@@ -37,7 +37,7 @@ class V2beta1MPIJob(object):
         'kind': 'str',
         'metadata': 'V1ObjectMeta',
         'spec': 'V2beta1MPIJobSpec',
-        'status': 'V1JobStatus'
+        'status': 'V2beta1JobStatus'
     }
 
     attribute_map = {
@@ -166,7 +166,7 @@ class V2beta1MPIJob(object):
 
 
         :return: The status of this V2beta1MPIJob.  # noqa: E501
-        :rtype: V1JobStatus
+        :rtype: V2beta1JobStatus
         """
         return self._status
 
@@ -176,7 +176,7 @@ class V2beta1MPIJob(object):
 
 
         :param status: The status of this V2beta1MPIJob.  # noqa: E501
-        :type status: V1JobStatus
+        :type status: V2beta1JobStatus
         """
 
         self._status = status

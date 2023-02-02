@@ -70,9 +70,12 @@ Class | Method | HTTP request | Description
  - [V1ReplicaStatus](docs/V1ReplicaStatus.md)
  - [V1RunPolicy](docs/V1RunPolicy.md)
  - [V1SchedulingPolicy](docs/V1SchedulingPolicy.md)
+ - [V2beta1JobCondition](docs/V2beta1JobCondition.md)
+ - [V2beta1JobStatus](docs/V2beta1JobStatus.md)
  - [V2beta1MPIJob](docs/V2beta1MPIJob.md)
  - [V2beta1MPIJobList](docs/V2beta1MPIJobList.md)
  - [V2beta1MPIJobSpec](docs/V2beta1MPIJobSpec.md)
+ - [V2beta1ReplicaStatus](docs/V2beta1ReplicaStatus.md)
  - [V2beta1RunPolicy](docs/V2beta1RunPolicy.md)
  - [V2beta1SchedulingPolicy](docs/V2beta1SchedulingPolicy.md)
 

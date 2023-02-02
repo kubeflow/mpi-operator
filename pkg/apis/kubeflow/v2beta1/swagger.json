@@ -187,6 +187,71 @@
         }
       }
     },
+    "v2beta1.JobCondition": {
+      "description": "JobCondition describes the state of the job at a certain point.",
+      "type": "object",
+      "properties": {
+        "lastTransitionTime": {
+          "description": "Last time the condition transitioned from one status to another.",
+          "default": {},
+          "$ref": "#/definitions/v1.Time"
+        },
+        "lastUpdateTime": {
+          "description": "The last time this condition was updated.",
+          "default": {},
+          "$ref": "#/definitions/v1.Time"
+        },
+        "message": {
+          "description": "A human readable message indicating details about the transition.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The reason for the condition's last transition.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Status of the condition, one of True, False, Unknown.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type of job condition.",
+          "type": "string"
+        }
+      }
+    },
+    "v2beta1.JobStatus": {
+      "description": "JobStatus represents the current observed state of the training Job.",
+      "type": "object",
+      "properties": {
+        "completionTime": {
+          "description": "Represents time when the job was completed. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "conditions": {
+          "description": "Conditions is an array of current observed job conditions.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v2beta1.JobCondition"
+          }
+        },
+        "lastReconcileTime": {
+          "description": "Represents last time when the job was reconciled. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "replicaStatuses": {
+          "description": "ReplicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v2beta1.ReplicaStatus"
+          }
+        },
+        "startTime": {
+          "description": "Represents time when the job was acknowledged by the job controller. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.",
+          "$ref": "#/definitions/v1.Time"
+        }
+      }
+    },
     "v2beta1.MPIJob": {
       "type": "object",
       "properties": {
@@ -208,7 +273,7 @@
         },
         "status": {
           "default": {},
-          "$ref": "#/definitions/v1.JobStatus"
+          "$ref": "#/definitions/v2beta1.JobStatus"
         }
       }
     },
@@ -270,6 +335,35 @@
         "sshAuthMountPath": {
           "description": "SSHAuthMountPath is the directory where SSH keys are mounted. Defaults to \"/root/.ssh\".",
           "type": "string"
+        }
+      }
+    },
+    "v2beta1.ReplicaStatus": {
+      "description": "ReplicaStatus represents the current observed state of the replica.",
+      "type": "object",
+      "properties": {
+        "active": {
+          "description": "The number of actively running pods.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "failed": {
+          "description": "The number of pods which reached phase Failed.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "labelSelector": {
+          "description": "Deprecated: Use Selector instead",
+          "$ref": "#/definitions/v1.LabelSelector"
+        },
+        "selector": {
+          "description": "A Selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty Selector matches all objects. A null Selector matches no objects.",
+          "type": "string"
+        },
+        "succeeded": {
+          "description": "The number of pods which reached phase Succeeded.",
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
