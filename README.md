@@ -9,10 +9,16 @@ The MPI Operator makes it easy to run allreduce-style distributed training on Ku
 
 You can deploy the operator with default settings by running the following commands:
 
+- Latest Development Version
+
 ```shell
-git clone https://github.com/kubeflow/mpi-operator
-cd mpi-operator
-kubectl apply -f deploy/v2beta1/mpi-operator.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubeflow/mpi-operator/master/deploy/v2beta1/mpi-operator.yaml
+```
+
+- Release Version
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.3.0/deploy/v2beta1/mpi-operator.yaml
 ```
 
 Alternatively, follow the [getting started guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.

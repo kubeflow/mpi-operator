@@ -22,6 +22,8 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 type MPIJob struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -31,6 +33,7 @@ type MPIJob struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 type MPIJobList struct {
 	metav1.TypeMeta `json:",inline"`

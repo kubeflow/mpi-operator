@@ -76,8 +76,12 @@ dev_manifest:
 generate:
 	go generate ./pkg/... ./cmd/...
 	hack/update-codegen.sh
-	$(MAKE) crd
+	$(MAKE) manifest
 	hack/python-sdk/gen-sdk.sh
+
+.PHONY: verify-generate
+verify-generate: generate
+	git --no-pager diff --exit-code manifests/base deploy sdk pkg/apis pkg/client
 
 .PHONY: clean
 clean:
@@ -106,9 +110,13 @@ tidy:
 lint: bin/golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run --new-from-rev=origin/master --go 1.19
 
+# Generate deploy/v2beta1/mpi-operator.yaml
+manifest: kustomize crd
+	hack/generate-manifest.sh $(KUSTOMIZE)
+
 # Generate CRD
 crd: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=crd
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=manifests/base
 
 .PHONY: bin
 bin:
@@ -137,3 +145,8 @@ CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
 controller-gen: bin
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.1
+
+KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
+.PHONY: kustomize
+kustomize:
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
