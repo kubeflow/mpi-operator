@@ -50,7 +50,7 @@ class V2beta1JobCondition(object):
         'type': 'type'
     }
 
-    def __init__(self, last_transition_time=None, last_update_time=None, message=None, reason=None, status=None, type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, last_transition_time=None, last_update_time=None, message=None, reason=None, status='', type='', local_vars_configuration=None):  # noqa: E501
         """V2beta1JobCondition - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration.get_default_copy()
@@ -72,10 +72,8 @@ class V2beta1JobCondition(object):
             self.message = message
         if reason is not None:
             self.reason = reason
-        if status is not None:
-            self.status = status
-        if type is not None:
-            self.type = type
+        self.status = status
+        self.type = type
 
     @property
     def last_transition_time(self):
@@ -123,7 +121,7 @@ class V2beta1JobCondition(object):
     def message(self):
         """Gets the message of this V2beta1JobCondition.  # noqa: E501
 
-        A human readable message indicating details about the transition.  # noqa: E501
+        A human-readable message indicating details about the transition.  # noqa: E501
 
         :return: The message of this V2beta1JobCondition.  # noqa: E501
         :rtype: str
@@ -134,7 +132,7 @@ class V2beta1JobCondition(object):
     def message(self, message):
         """Sets the message of this V2beta1JobCondition.
 
-        A human readable message indicating details about the transition.  # noqa: E501
+        A human-readable message indicating details about the transition.  # noqa: E501
 
         :param message: The message of this V2beta1JobCondition.  # noqa: E501
         :type message: str
@@ -169,7 +167,7 @@ class V2beta1JobCondition(object):
     def status(self):
         """Gets the status of this V2beta1JobCondition.  # noqa: E501
 
-        Status of the condition, one of True, False, Unknown.  # noqa: E501
+        status of the condition, one of True, False, Unknown.  # noqa: E501
 
         :return: The status of this V2beta1JobCondition.  # noqa: E501
         :rtype: str
@@ -180,11 +178,13 @@ class V2beta1JobCondition(object):
     def status(self, status):
         """Sets the status of this V2beta1JobCondition.
 
-        Status of the condition, one of True, False, Unknown.  # noqa: E501
+        status of the condition, one of True, False, Unknown.  # noqa: E501
 
         :param status: The status of this V2beta1JobCondition.  # noqa: E501
         :type status: str
         """
+        if self.local_vars_configuration.client_side_validation and status is None:  # noqa: E501
+            raise ValueError("Invalid value for `status`, must not be `None`")  # noqa: E501
 
         self._status = status
 
@@ -192,7 +192,7 @@ class V2beta1JobCondition(object):
     def type(self):
         """Gets the type of this V2beta1JobCondition.  # noqa: E501
 
-        Type of job condition.  # noqa: E501
+        type of job condition.  # noqa: E501
 
         :return: The type of this V2beta1JobCondition.  # noqa: E501
         :rtype: str
@@ -203,11 +203,13 @@ class V2beta1JobCondition(object):
     def type(self, type):
         """Sets the type of this V2beta1JobCondition.
 
-        Type of job condition.  # noqa: E501
+        type of job condition.  # noqa: E501
 
         :param type: The type of this V2beta1JobCondition.  # noqa: E501
         :type type: str
         """
+        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
+            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
 
         self._type = type
 

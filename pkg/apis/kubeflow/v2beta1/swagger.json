@@ -190,6 +190,10 @@
     "v2beta1.JobCondition": {
       "description": "JobCondition describes the state of the job at a certain point.",
       "type": "object",
+      "required": [
+        "type",
+        "status"
+      ],
       "properties": {
         "lastTransitionTime": {
           "description": "Last time the condition transitioned from one status to another.",
@@ -202,7 +206,7 @@
           "$ref": "#/definitions/v1.Time"
         },
         "message": {
-          "description": "A human readable message indicating details about the transition.",
+          "description": "A human-readable message indicating details about the transition.",
           "type": "string"
         },
         "reason": {
@@ -210,12 +214,14 @@
           "type": "string"
         },
         "status": {
-          "description": "Status of the condition, one of True, False, Unknown.",
-          "type": "string"
+          "description": "status of the condition, one of True, False, Unknown.",
+          "type": "string",
+          "default": ""
         },
         "type": {
-          "description": "Type of job condition.",
-          "type": "string"
+          "description": "type of job condition.",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -228,19 +234,23 @@
           "$ref": "#/definitions/v1.Time"
         },
         "conditions": {
-          "description": "Conditions is an array of current observed job conditions.",
+          "description": "conditions is a list of current observed job conditions.",
           "type": "array",
           "items": {
             "default": {},
             "$ref": "#/definitions/v2beta1.JobCondition"
-          }
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map"
         },
         "lastReconcileTime": {
           "description": "Represents last time when the job was reconciled. It is not guaranteed to be set in happens-before order across separate operations. It is represented in RFC3339 form and is in UTC.",
           "$ref": "#/definitions/v1.Time"
         },
         "replicaStatuses": {
-          "description": "ReplicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.",
+          "description": "replicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.",
           "type": "object",
           "additionalProperties": {
             "$ref": "#/definitions/v2beta1.ReplicaStatus"
@@ -348,20 +358,20 @@
           "format": "int32"
         },
         "failed": {
-          "description": "The number of pods which reached phase Failed.",
+          "description": "The number of pods which reached phase failed.",
           "type": "integer",
           "format": "int32"
         },
         "labelSelector": {
-          "description": "Deprecated: Use Selector instead",
+          "description": "Deprecated: Use selector instead",
           "$ref": "#/definitions/v1.LabelSelector"
         },
         "selector": {
-          "description": "A Selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty Selector matches all objects. A null Selector matches no objects.",
+          "description": "A selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty selector matches all objects. A null selector matches no objects.",
           "type": "string"
         },
         "succeeded": {
-          "description": "The number of pods which reached phase Succeeded.",
+          "description": "The number of pods which reached phase succeeded.",
           "type": "integer",
           "format": "int32"
         }

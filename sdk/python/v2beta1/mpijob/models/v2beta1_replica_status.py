@@ -99,7 +99,7 @@ class V2beta1ReplicaStatus(object):
     def failed(self):
         """Gets the failed of this V2beta1ReplicaStatus.  # noqa: E501
 
-        The number of pods which reached phase Failed.  # noqa: E501
+        The number of pods which reached phase failed.  # noqa: E501
 
         :return: The failed of this V2beta1ReplicaStatus.  # noqa: E501
         :rtype: int
@@ -110,7 +110,7 @@ class V2beta1ReplicaStatus(object):
     def failed(self, failed):
         """Sets the failed of this V2beta1ReplicaStatus.
 
-        The number of pods which reached phase Failed.  # noqa: E501
+        The number of pods which reached phase failed.  # noqa: E501
 
         :param failed: The failed of this V2beta1ReplicaStatus.  # noqa: E501
         :type failed: int
@@ -143,7 +143,7 @@ class V2beta1ReplicaStatus(object):
     def selector(self):
         """Gets the selector of this V2beta1ReplicaStatus.  # noqa: E501
 
-        A Selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty Selector matches all objects. A null Selector matches no objects.  # noqa: E501
+        A selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty selector matches all objects. A null selector matches no objects.  # noqa: E501
 
         :return: The selector of this V2beta1ReplicaStatus.  # noqa: E501
         :rtype: str
@@ -154,7 +154,7 @@ class V2beta1ReplicaStatus(object):
     def selector(self, selector):
         """Sets the selector of this V2beta1ReplicaStatus.
 
-        A Selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty Selector matches all objects. A null Selector matches no objects.  # noqa: E501
+        A selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty selector matches all objects. A null selector matches no objects.  # noqa: E501
 
         :param selector: The selector of this V2beta1ReplicaStatus.  # noqa: E501
         :type selector: str
@@ -166,7 +166,7 @@ class V2beta1ReplicaStatus(object):
     def succeeded(self):
         """Gets the succeeded of this V2beta1ReplicaStatus.  # noqa: E501
 
-        The number of pods which reached phase Succeeded.  # noqa: E501
+        The number of pods which reached phase succeeded.  # noqa: E501
 
         :return: The succeeded of this V2beta1ReplicaStatus.  # noqa: E501
         :rtype: int
@@ -177,7 +177,7 @@ class V2beta1ReplicaStatus(object):
     def succeeded(self, succeeded):
         """Sets the succeeded of this V2beta1ReplicaStatus.
 
-        The number of pods which reached phase Succeeded.  # noqa: E501
+        The number of pods which reached phase succeeded.  # noqa: E501
 
         :param succeeded: The succeeded of this V2beta1ReplicaStatus.  # noqa: E501
         :type succeeded: int

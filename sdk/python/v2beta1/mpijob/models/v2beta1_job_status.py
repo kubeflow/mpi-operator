@@ -97,7 +97,7 @@ class V2beta1JobStatus(object):
     def conditions(self):
         """Gets the conditions of this V2beta1JobStatus.  # noqa: E501
 
-        Conditions is an array of current observed job conditions.  # noqa: E501
+        conditions is a list of current observed job conditions.  # noqa: E501
 
         :return: The conditions of this V2beta1JobStatus.  # noqa: E501
         :rtype: list[V2beta1JobCondition]
@@ -108,7 +108,7 @@ class V2beta1JobStatus(object):
     def conditions(self, conditions):
         """Sets the conditions of this V2beta1JobStatus.
 
-        Conditions is an array of current observed job conditions.  # noqa: E501
+        conditions is a list of current observed job conditions.  # noqa: E501
 
         :param conditions: The conditions of this V2beta1JobStatus.  # noqa: E501
         :type conditions: list[V2beta1JobCondition]
@@ -141,7 +141,7 @@ class V2beta1JobStatus(object):
     def replica_statuses(self):
         """Gets the replica_statuses of this V2beta1JobStatus.  # noqa: E501
 
-        ReplicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.  # noqa: E501
+        replicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.  # noqa: E501
 
         :return: The replica_statuses of this V2beta1JobStatus.  # noqa: E501
         :rtype: dict(str, V2beta1ReplicaStatus)
@@ -152,7 +152,7 @@ class V2beta1JobStatus(object):
     def replica_statuses(self, replica_statuses):
         """Sets the replica_statuses of this V2beta1JobStatus.
 
-        ReplicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.  # noqa: E501
+        replicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.  # noqa: E501
 
         :param replica_statuses: The replica_statuses of this V2beta1JobStatus.  # noqa: E501
         :type replica_statuses: dict(str, V2beta1ReplicaStatus)

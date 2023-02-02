@@ -133,83 +133,84 @@ const (
 
 // JobStatus represents the current observed state of the training Job.
 type JobStatus struct {
-	// Conditions is an array of current observed job conditions.
-	// +options
+	// conditions is a list of current observed job conditions.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
 	Conditions []JobCondition `json:"conditions,omitempty"`
 
-	// ReplicaStatuses is map of ReplicaType and ReplicaStatus,
+	// replicaStatuses is map of ReplicaType and ReplicaStatus,
 	// specifies the status of each replica.
-	// +options
+	// +optional
 	ReplicaStatuses map[MPIReplicaType]*ReplicaStatus `json:"replicaStatuses,omitempty"`
 
 	// Represents time when the job was acknowledged by the job controller.
 	// It is not guaranteed to be set in happens-before order across separate operations.
 	// It is represented in RFC3339 form and is in UTC.
-	// +options
+	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
 	// Represents time when the job was completed. It is not guaranteed to
 	// be set in happens-before order across separate operations.
 	// It is represented in RFC3339 form and is in UTC.
-	// +options
+	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 
 	// Represents last time when the job was reconciled. It is not guaranteed to
 	// be set in happens-before order across separate operations.
 	// It is represented in RFC3339 form and is in UTC.
-	// +options
+	// +optional
 	LastReconcileTime *metav1.Time `json:"lastReconcileTime,omitempty"`
 }
 
 // ReplicaStatus represents the current observed state of the replica.
 type ReplicaStatus struct {
 	// The number of actively running pods.
-	// +options
+	// +optional
 	Active int32 `json:"active,omitempty"`
 
-	// The number of pods which reached phase Succeeded.
-	// +options
+	// The number of pods which reached phase succeeded.
+	// +optional
 	Succeeded int32 `json:"succeeded,omitempty"`
 
-	// The number of pods which reached phase Failed.
-	// +options
+	// The number of pods which reached phase failed.
+	// +optional
 	Failed int32 `json:"failed,omitempty"`
 
-	// Deprecated: Use Selector instead
-	// +options
+	// Deprecated: Use selector instead
+	// +optional
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 
-	// A Selector is a label query over a set of resources. The result of matchLabels and
-	// matchExpressions are ANDed. An empty Selector matches all objects. A null
-	// Selector matches no objects.
-	// +options
+	// A selector is a label query over a set of resources. The result of matchLabels and
+	// matchExpressions are ANDed. An empty selector matches all objects. A null
+	// selector matches no objects.
+	// +optional
 	Selector string `json:"selector,omitempty"`
 }
 
 // JobCondition describes the state of the job at a certain point.
 type JobCondition struct {
-	// Type of job condition.
-	// +options
-	Type JobConditionType `json:"type,omitempty"`
+	// type of job condition.
+	Type JobConditionType `json:"type"`
 
-	// Status of the condition, one of True, False, Unknown.
-	// +options
-	Status v1.ConditionStatus `json:"status,omitempty"`
+	// status of the condition, one of True, False, Unknown.
+	// +kubebuilder:validation:Enum:=True;False;Unknown
+	Status v1.ConditionStatus `json:"status"`
 
 	// The reason for the condition's last transition.
-	// +options
+	// +optional
 	Reason string `json:"reason,omitempty"`
 
-	// A human readable message indicating details about the transition.
-	// +options
+	// A human-readable message indicating details about the transition.
+	// +optional
 	Message string `json:"message,omitempty"`
 
 	// The last time this condition was updated.
-	// +options
+	// +optional
 	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
 	// Last time the condition transitioned from one status to another.
-	// +options
+	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 }
 
