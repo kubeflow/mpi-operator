@@ -28,6 +28,8 @@ const (
 	mpiJobSucceededReason = "MPIJobSucceeded"
 	// mpiJobRunningReason is added in a mpijob when it is running.
 	mpiJobRunningReason = "MPIJobRunning"
+	// mpiJobSuspendedReason is added in a mpijob when it is suspended.
+	mpiJobSuspendedReason = "MPIJobSuspended"
 	// mpiJobFailedReason is added in a mpijob when it is failed.
 	mpiJobFailedReason = "MPIJobFailed"
 	// mpiJobEvict
@@ -45,16 +47,16 @@ func initializeMPIJobStatuses(mpiJob *kubeflow.MPIJob, mtype kubeflow.MPIReplica
 }
 
 // updateMPIJobConditions updates the conditions of the given mpiJob.
-func updateMPIJobConditions(mpiJob *kubeflow.MPIJob, conditionType kubeflow.JobConditionType, reason, message string) {
-	condition := newCondition(conditionType, reason, message)
-	setCondition(&mpiJob.Status, condition)
+func updateMPIJobConditions(mpiJob *kubeflow.MPIJob, conditionType kubeflow.JobConditionType, status v1.ConditionStatus, reason, message string) bool {
+	condition := newCondition(conditionType, status, reason, message)
+	return setCondition(&mpiJob.Status, condition)
 }
 
 // newCondition creates a new mpiJob condition.
-func newCondition(conditionType kubeflow.JobConditionType, reason, message string) kubeflow.JobCondition {
+func newCondition(conditionType kubeflow.JobConditionType, status v1.ConditionStatus, reason, message string) kubeflow.JobCondition {
 	return kubeflow.JobCondition{
 		Type:               conditionType,
-		Status:             v1.ConditionTrue,
+		Status:             status,
 		LastUpdateTime:     metav1.Now(),
 		LastTransitionTime: metav1.Now(),
 		Reason:             reason,
@@ -96,13 +98,12 @@ func isFailed(status kubeflow.JobStatus) bool {
 // setCondition updates the mpiJob to include the provided condition.
 // If the condition that we are about to add already exists
 // and has the same status and reason then we are not going to update.
-func setCondition(status *kubeflow.JobStatus, condition kubeflow.JobCondition) {
-
+func setCondition(status *kubeflow.JobStatus, condition kubeflow.JobCondition) bool {
 	currentCond := getCondition(*status, condition.Type)
 
 	// Do nothing if condition doesn't change
 	if currentCond != nil && currentCond.Status == condition.Status && currentCond.Reason == condition.Reason {
-		return
+		return false
 	}
 
 	// Do not update lastTransitionTime if the status of the condition doesn't change.
@@ -113,6 +114,7 @@ func setCondition(status *kubeflow.JobStatus, condition kubeflow.JobCondition) {
 	// Append the updated condition
 	newConditions := filterOutCondition(status.Conditions, condition.Type)
 	status.Conditions = append(newConditions, condition)
+	return true
 }
 
 // filterOutCondition returns a new slice of mpiJob conditions without conditions with the provided type.

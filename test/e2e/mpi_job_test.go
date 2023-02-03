@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
 )
 
 var _ = ginkgo.Describe("MPIJob", func() {
@@ -122,6 +123,25 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 
+			ginkgo.When("suspended on creation", func() {
+				ginkgo.BeforeEach(func() {
+					mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+				})
+				ginkgo.It("should not create pods when suspended and succeed when resumed", func() {
+					mpiJob := createJob(mpiJob)
+
+					ctx := context.Background()
+					ginkgo.By("verifying there are no pods (neither launcher nor pods) running for the suspended MPIJob")
+					pods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{})
+					gomega.Expect(err).ToNot(gomega.HaveOccurred())
+					gomega.Expect(pods.Items).To(gomega.HaveLen(0))
+
+					mpiJob = resumeJob(mpiJob)
+					mpiJob = waitForCompletion(mpiJob)
+					expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+				})
+			})
+
 			ginkgo.When("running with host network", func() {
 				ginkgo.BeforeEach(func() {
 					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.HostNetwork = true
@@ -211,12 +231,31 @@ var _ = ginkgo.Describe("MPIJob", func() {
 	})
 })
 
-func createJobAndWaitForCompletion(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
+func resumeJob(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
 	ctx := context.Background()
-	var err error
-	ginkgo.By("Creating MPIJob")
-	mpiJob, err = mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
+	ginkgo.By("Resuming MPIJob")
+	mpiJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return mpiJob
+}
+
+func createJobAndWaitForCompletion(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
+	mpiJob = createJob(mpiJob)
+	return waitForCompletion(mpiJob)
+}
+
+func createJob(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
+	ctx := context.Background()
+	ginkgo.By("Creating MPIJob")
+	mpiJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return mpiJob
+}
+
+func waitForCompletion(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
+	var err error
+	ctx := context.Background()
 
 	ginkgo.By("Waiting for MPIJob to finish")
 	err = wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {

@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -30,6 +31,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/pointer"
 
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
@@ -166,6 +168,170 @@ func TestMPIJobSuccess(t *testing.T) {
 	s.events.verify(t)
 	if !mpiJobHasCondition(mpiJob, kubeflow.JobSucceeded) {
 		t.Errorf("MPIJob doesn't have Succeeded condition after launcher Job succeeded")
+	}
+}
+
+func TestMPIJobResumingAndSuspending(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	s := newTestSetup(ctx, t)
+	startController(ctx, s.kClient, s.mpiClient)
+
+	mpiJob := &kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "job",
+			Namespace: s.namespace,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			SlotsPerWorker: newInt32(1),
+			RunPolicy: kubeflow.RunPolicy{
+				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				Suspend:        pointer.Bool(true),
+			},
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+				kubeflow.MPIReplicaTypeWorker: {
+					Replicas: newInt32(2),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// 1. Create suspended MPIJob
+	var err error
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending job to apiserver: %v", err)
+	}
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobCreated",
+	}, mpiJob))
+
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobSuspended",
+	}, mpiJob))
+
+	_, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	})
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
+		t.Errorf("MPIJob missing Created condition")
+	}
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobSuspended) {
+		t.Errorf("MPIJob missing Suspended condition")
+	}
+	if !isJobSuspended(launcherJob) {
+		t.Errorf("LauncherJob is suspended")
+	}
+	if mpiJob.Status.StartTime != nil {
+		t.Errorf("MPIJob has unexpected start time: %v", mpiJob.Status.StartTime)
+	}
+
+	s.events.verify(t)
+
+	// 2. Resume the MPIJob
+	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to resume the MPIJob: %v", err)
+	}
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobResumed",
+	}, mpiJob))
+
+	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2)
+
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	})
+	if mpiJob.Status.StartTime == nil {
+		t.Errorf("MPIJob is missing startTime")
+	}
+	if isJobSuspended(launcherJob) {
+		t.Errorf("LauncherJob is suspended")
+	}
+	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobSuspended, v1.ConditionFalse) {
+		t.Errorf("MPIJob has unexpected Suspended condition")
+	}
+
+	s.events.verify(t)
+
+	// 3. Set the pods to be running
+	err = updatePodsToPhase(ctx, s.kClient, workerPods, corev1.PodRunning)
+	if err != nil {
+		t.Fatalf("Updating worker Pods to Running phase: %v", err)
+	}
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobRunning",
+	}, mpiJob))
+	launcherPod, err := createPodForJob(ctx, s.kClient, launcherJob)
+	if err != nil {
+		t.Fatalf("Failed to create mock pod for launcher Job: %v", err)
+	}
+	err = updatePodsToPhase(ctx, s.kClient, []corev1.Pod{*launcherPod}, corev1.PodRunning)
+	if err != nil {
+		t.Fatalf("Updating launcher Pods to Running phase: %v", err)
+	}
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
+			Active: 1,
+		},
+		kubeflow.MPIReplicaTypeWorker: {
+			Active: 2,
+		},
+	})
+	s.events.verify(t)
+
+	// 4. Suspend the running MPIJob
+	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to suspend the MPIJob: %v", err)
+	}
+	err = s.kClient.CoreV1().Pods(launcherPod.Namespace).Delete(ctx, launcherPod.Name, metav1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Failed to delete mock pod for launcher Job: %v", err)
+	}
+	_, launcherJob = validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	})
+	if !isJobSuspended(launcherJob) {
+		t.Errorf("LauncherJob is not suspended")
+	}
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobSuspended) {
+		t.Errorf("MPIJob missing Suspended condition")
+	}
+	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobRunning, v1.ConditionFalse) {
+		t.Errorf("MPIJob has unexpected Running condition")
 	}
 }
 
@@ -533,12 +699,20 @@ func hasVolumeForConfigMap(podSpec *corev1.PodSpec, cm *corev1.ConfigMap) bool {
 }
 
 func mpiJobHasCondition(job *kubeflow.MPIJob, cond kubeflow.JobConditionType) bool {
+	return mpiJobHasConditionWithStatus(job, cond, v1.ConditionTrue)
+}
+
+func mpiJobHasConditionWithStatus(job *kubeflow.MPIJob, cond kubeflow.JobConditionType, status v1.ConditionStatus) bool {
 	for _, c := range job.Status.Conditions {
-		if c.Type == cond {
-			return c.Status == corev1.ConditionTrue
+		if c.Type == cond && c.Status == status {
+			return true
 		}
 	}
 	return false
+}
+
+func isJobSuspended(job *batchv1.Job) bool {
+	return pointer.BoolDeref(job.Spec.Suspend, false)
 }
 
 func newInt32(v int32) *int32 {

@@ -49,6 +49,8 @@ spec:
                     type: integer
                     minimum: 0
                     description: "Specifies the number of retries before marking the launcher Job as failed. Defaults to 6."
+                  suspend:
+                    type: boolean
               sshAuthMountPath:
                 type: string
               mpiImplementation:
@@ -94,7 +96,7 @@ spec:
                   properties:
                     type:
                       type: string
-                      enum: ["Created", "Running", "Restarting", "Succeeded", "Failed"]
+                      enum: ["Created", "Running", "Restarting", "Succeeded", "Suspended", "Failed"]
                     status:
                       type: string
                       enum: ["True", "False", "Unknown"]
