@@ -58,8 +58,8 @@ func validateMPIJobName(job *kubeflow.MPIJob) field.ErrorList {
 		}
 	}
 	maximumPodHostname := fmt.Sprintf("%s-worker-%d", job.Name, replicas-1)
-	if errs := apimachineryvalidation.IsDNS1123Label(maximumPodHostname); len(errs) > 0 {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("metadata").Child("name"), job.ObjectMeta.Name, fmt.Sprintf("will not able to create pod with invalid DNS label %q: %s", maximumPodHostname, strings.Join(errs, ", "))))
+	if errs := apimachineryvalidation.IsDNS1035Label(maximumPodHostname); len(errs) > 0 {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("metadata").Child("name"), job.ObjectMeta.Name, fmt.Sprintf("will not able to create pod and service with invalid DNS label %q: %s", maximumPodHostname, strings.Join(errs, ", "))))
 	}
 	return allErrs
 }

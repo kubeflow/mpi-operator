@@ -304,6 +304,36 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
+		"invalid mpiJob name": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "1-foo",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker: newInt32(2),
+					RunPolicy: kubeflow.RunPolicy{
+						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+					},
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: kubeflow.MPIImplementationIntel,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Replicas:      newInt32(1),
+							RestartPolicy: common.RestartPolicyNever,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrs: field.ErrorList{{
+				Type:  field.ErrorTypeInvalid,
+				Field: "metadata.name",
+			}},
+		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
