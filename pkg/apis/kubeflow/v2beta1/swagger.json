@@ -399,6 +399,10 @@
           "description": "SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling",
           "$ref": "#/definitions/v2beta1.SchedulingPolicy"
         },
+        "suspend": {
+          "description": "suspend specifies whether the MPIJob controller should create Pods or not. If a MPIJob is created with suspend set to true, no Pods are created by the MPIJob controller. If a MPIJob is suspended after creation (i.e. the flag goes from false to true), the MPIJob controller will delete all active Pods and PodGroups associated with this MPIJob. Also, it will suspend the Launcher Job. Users must design their workload to gracefully handle this. Suspending a Job will reset the StartTime field of the MPIJob.\n\nDefaults to false.",
+          "type": "boolean"
+        },
         "ttlSecondsAfterFinished": {
           "description": "TTLSecondsAfterFinished is the TTL to clean up jobs. It may take extra ReconcilePeriod seconds for the cleanup, since reconcile gets called periodically. Default to infinite.",
           "type": "integer",

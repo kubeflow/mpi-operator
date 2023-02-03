@@ -84,6 +84,18 @@ type RunPolicy struct {
 	// SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling
 	// +optional
 	SchedulingPolicy *SchedulingPolicy `json:"schedulingPolicy,omitempty"`
+
+	// suspend specifies whether the MPIJob controller should create Pods or not.
+	// If a MPIJob is created with suspend set to true, no Pods are created by
+	// the MPIJob controller. If a MPIJob is suspended after creation (i.e. the
+	// flag goes from false to true), the MPIJob controller will delete all
+	// active Pods and PodGroups associated with this MPIJob. Also, it will suspend the
+	// Launcher Job. Users must design their workload to gracefully handle this.
+	// Suspending a Job will reset the StartTime field of the MPIJob.
+	//
+	// Defaults to false.
+	// +kubebuilder:default:=false
+	Suspend *bool `json:"suspend,omitempty"`
 }
 
 type MPIJobSpec struct {
@@ -238,6 +250,9 @@ const (
 	// reached phase have terminated in success.
 	// The training is complete without error.
 	JobSucceeded JobConditionType = "Succeeded"
+
+	// JobSuspended means the job has been suspended.
+	JobSuspended JobConditionType = "Suspended"
 
 	// JobFailed means one or more sub-resources (e.g. services/pods) of this job
 	// reached phase failed with no restarting.
