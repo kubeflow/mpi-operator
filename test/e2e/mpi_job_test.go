@@ -107,7 +107,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			})
 			ginkgo.It("should fail", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
-				expectConditionToBeTrue(mpiJob, common.JobFailed)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobFailed)
 			})
 		})
 
@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 			ginkgo.It("should succeed", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
-				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 
 			ginkgo.When("running with host network", func() {
@@ -134,7 +134,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 				ginkgo.It("should succeed", func() {
 					mpiJob := createJobAndWaitForCompletion(mpiJob)
-					expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+					expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 				})
 			})
 		})
@@ -158,7 +158,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 			ginkgo.It("should succeed", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
-				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 		})
 
@@ -204,7 +204,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 			ginkgo.It("should succeed", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
-				expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 		})
 
@@ -297,8 +297,8 @@ func podLogs(ctx context.Context, p *corev1.Pod) error {
 	return nil
 }
 
-func expectConditionToBeTrue(mpiJob *kubeflow.MPIJob, condType common.JobConditionType) {
-	var condition *common.JobCondition
+func expectConditionToBeTrue(mpiJob *kubeflow.MPIJob, condType kubeflow.JobConditionType) {
+	var condition *kubeflow.JobCondition
 	for _, cond := range mpiJob.Status.Conditions {
 		if cond.Type == condType {
 			condition = &cond

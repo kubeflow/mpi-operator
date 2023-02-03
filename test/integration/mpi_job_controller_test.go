@@ -100,11 +100,11 @@ func TestMPIJobSuccess(t *testing.T) {
 	}, mpiJob))
 
 	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2)
-	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {},
-		common.ReplicaType(kubeflow.MPIReplicaTypeWorker):   {},
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
 	})
-	if !mpiJobHasCondition(mpiJob, common.JobCreated) {
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
 		t.Errorf("MPIJob missing Created condition")
 	}
 	s.events.verify(t)
@@ -113,9 +113,9 @@ func TestMPIJobSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Updating worker Pods to Running phase: %v", err)
 	}
-	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {},
-		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
+	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker: {
 			Active: 2,
 		},
 	})
@@ -132,11 +132,11 @@ func TestMPIJobSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Updating launcher Pods to Running phase: %v", err)
 	}
-	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
+	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
 			Active: 1,
 		},
-		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
+		kubeflow.MPIReplicaTypeWorker: {
 			Active: 2,
 		},
 	})
@@ -157,14 +157,14 @@ func TestMPIJobSuccess(t *testing.T) {
 		t.Fatalf("Updating launcher Job Complete condition: %v", err)
 	}
 	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
-	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
 			Succeeded: 1,
 		},
-		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {},
+		kubeflow.MPIReplicaTypeWorker: {},
 	})
 	s.events.verify(t)
-	if !mpiJobHasCondition(mpiJob, common.JobSucceeded) {
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobSucceeded) {
 		t.Errorf("MPIJob doesn't have Succeeded condition after launcher Job succeeded")
 	}
 }
@@ -255,15 +255,15 @@ func TestMPIJobFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to update launcher Job failed pods: %v", err)
 	}
-	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
 			Failed: 1,
 		},
-		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {
+		kubeflow.MPIReplicaTypeWorker: {
 			Active: 2,
 		},
 	})
-	if mpiJobHasCondition(mpiJob, common.JobFailed) {
+	if mpiJobHasCondition(mpiJob, kubeflow.JobFailed) {
 		t.Errorf("MPIJob has Failed condition when a launcher Pod fails")
 	}
 
@@ -281,14 +281,14 @@ func TestMPIJobFailure(t *testing.T) {
 		t.Fatalf("Updating launcher Job Failed condition: %v", err)
 	}
 	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
-	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[common.ReplicaType]*common.ReplicaStatus{
-		common.ReplicaType(kubeflow.MPIReplicaTypeLauncher): {
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
 			Failed: 2,
 		},
-		common.ReplicaType(kubeflow.MPIReplicaTypeWorker): {},
+		kubeflow.MPIReplicaTypeWorker: {},
 	})
 	s.events.verify(t)
-	if !mpiJobHasCondition(mpiJob, common.JobFailed) {
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobFailed) {
 		t.Errorf("MPIJob doesn't have Failed condition after launcher Job fails")
 	}
 }
@@ -399,12 +399,12 @@ func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient ku
 	return workerPods, launcherJob
 }
 
-func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.Interface, job *kubeflow.MPIJob, want map[common.ReplicaType]*common.ReplicaStatus) *kubeflow.MPIJob {
+func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.Interface, job *kubeflow.MPIJob, want map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus) *kubeflow.MPIJob {
 	t.Helper()
 	var (
 		newJob *kubeflow.MPIJob
 		err    error
-		got    map[common.ReplicaType]*common.ReplicaStatus
+		got    map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus
 	)
 	if err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
 		newJob, err = client.KubeflowV2beta1().MPIJobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
@@ -532,7 +532,7 @@ func hasVolumeForConfigMap(podSpec *corev1.PodSpec, cm *corev1.ConfigMap) bool {
 	return false
 }
 
-func mpiJobHasCondition(job *kubeflow.MPIJob, cond common.JobConditionType) bool {
+func mpiJobHasCondition(job *kubeflow.MPIJob, cond kubeflow.JobConditionType) bool {
 	for _, c := range job.Status.Conditions {
 		if c.Type == cond {
 			return c.Status == corev1.ConditionTrue

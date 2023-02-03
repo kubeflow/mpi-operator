@@ -493,7 +493,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	if len(mpiJob.Status.Conditions) == 0 {
 		msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-		updateMPIJobConditions(mpiJob, common.JobCreated, mpiJobCreatedReason, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobCreated, mpiJobCreatedReason, msg)
 		c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobCreated", msg)
 		mpiJobsCreatedCount.Inc()
 	}
@@ -513,7 +513,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 					return err
 				}
 			}
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active = 0
+			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Active = 0
 			return c.updateStatusHandler(mpiJob)
 		}
 		return nil
@@ -910,7 +910,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	launcherPodsCnt := countRunningPods(launcherPods)
 	if launcher != nil {
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
-		launcherStatus := mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)]
+		launcherStatus := mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher]
 		launcherStatus.Failed = launcher.Status.Failed
 		if isJobSucceeded(launcher) {
 			launcherStatus.Succeeded = 1
@@ -919,12 +919,12 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			if mpiJob.Status.CompletionTime == nil {
 				mpiJob.Status.CompletionTime = launcher.Status.CompletionTime
 			}
-			updateMPIJobConditions(mpiJob, common.JobSucceeded, mpiJobSucceededReason, msg)
+			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, mpiJobSucceededReason, msg)
 			mpiJobsSuccessCount.Inc()
 		} else if isJobFailed(launcher) {
 			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
 		} else {
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeLauncher)].Active = int32(launcherPodsCnt)
+			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher].Active = int32(launcherPodsCnt)
 		}
 		mpiJobInfoGauge.WithLabelValues(launcher.Name, mpiJob.Namespace).Set(1)
 	}
@@ -939,27 +939,27 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	for i := 0; i < len(worker); i++ {
 		switch worker[i].Status.Phase {
 		case corev1.PodFailed:
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Failed += 1
+			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Failed += 1
 			if worker[i].Status.Reason == "Evicted" {
 				evict += 1
 			}
 		case corev1.PodSucceeded:
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Succeeded += 1
+			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Succeeded += 1
 		case corev1.PodRunning:
 			running += 1
-			mpiJob.Status.ReplicaStatuses[common.ReplicaType(kubeflow.MPIReplicaTypeWorker)].Active += 1
+			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Active += 1
 		}
 	}
 	if evict > 0 {
 		msg := fmt.Sprintf("%d/%d workers are evicted", evict, len(worker))
 		klog.Infof("MPIJob <%s/%s>: %v", mpiJob.Namespace, mpiJob.Name, msg)
-		updateMPIJobConditions(mpiJob, common.JobFailed, mpiJobEvict, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobFailed, mpiJobEvict, msg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobEvict, msg)
 	}
 
 	if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-		updateMPIJobConditions(mpiJob, common.JobRunning, mpiJobRunningReason, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, mpiJobRunningReason, msg)
 		c.recorder.Eventf(mpiJob, corev1.EventTypeNormal, "MPIJobRunning", "MPIJob %s/%s is running", mpiJob.Namespace, mpiJob.Name)
 	}
 
@@ -999,7 +999,7 @@ func (c *MPIJobController) updateMPIJobFailedStatus(mpiJob *kubeflow.MPIJob, lau
 		now := metav1.Now()
 		mpiJob.Status.CompletionTime = &now
 	}
-	updateMPIJobConditions(mpiJob, common.JobFailed, reason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobFailed, reason, msg)
 	mpiJobsFailureCount.Inc()
 }
 
