@@ -30,6 +30,8 @@ const (
 	mpiJobRunningReason = "MPIJobRunning"
 	// mpiJobSuspendedReason is added in a mpijob when it is suspended.
 	mpiJobSuspendedReason = "MPIJobSuspended"
+	// mpiJobResumedReason is added in a mpijob when it is resumed.
+	mpiJobResumedReason = "MPIJobResumed"
 	// mpiJobFailedReason is added in a mpijob when it is failed.
 	mpiJobFailedReason = "MPIJobFailed"
 	// mpiJobEvict

@@ -138,7 +138,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 					mpiJob = resumeJob(mpiJob)
 					mpiJob = waitForCompletion(mpiJob)
-					expectConditionToBeTrue(mpiJob, common.JobSucceeded)
+					expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 				})
 			})
 
