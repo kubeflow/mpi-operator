@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"time"
 
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/ssh"
@@ -42,22 +43,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	batchlisters "k8s.io/client-go/listers/batch/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	schedulinglisters "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/pointer"
-	podgroupv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
-	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
-	podgroupsinformer "volcano.sh/apis/pkg/client/informers/externalversions/scheduling/v1beta1"
-	podgroupslists "volcano.sh/apis/pkg/client/listers/scheduling/v1beta1"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/validation"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
@@ -213,23 +211,24 @@ type MPIJobController struct {
 	kubeClient kubernetes.Interface
 	// kubeflowClient is a clientset for our own API group.
 	kubeflowClient clientset.Interface
-	// volcanoClient is a clientset for volcano.sh API.
-	volcanoClient volcanoclient.Interface
+	// podGroupCtrl is a client for PodGroups (volcano and scheduler-plugins).
+	podGroupCtrl PodGroupControl
 
-	configMapLister corelisters.ConfigMapLister
-	configMapSynced cache.InformerSynced
-	secretLister    corelisters.SecretLister
-	secretSynced    cache.InformerSynced
-	serviceLister   corelisters.ServiceLister
-	serviceSynced   cache.InformerSynced
-	jobLister       batchlisters.JobLister
-	jobSynced       cache.InformerSynced
-	podLister       corelisters.PodLister
-	podSynced       cache.InformerSynced
-	podgroupsLister podgroupslists.PodGroupLister
-	podgroupsSynced cache.InformerSynced
-	mpiJobLister    listers.MPIJobLister
-	mpiJobSynced    cache.InformerSynced
+	configMapLister     corelisters.ConfigMapLister
+	configMapSynced     cache.InformerSynced
+	secretLister        corelisters.SecretLister
+	secretSynced        cache.InformerSynced
+	serviceLister       corelisters.ServiceLister
+	serviceSynced       cache.InformerSynced
+	jobLister           batchlisters.JobLister
+	jobSynced           cache.InformerSynced
+	podLister           corelisters.PodLister
+	podSynced           cache.InformerSynced
+	podGroupSynced      cache.InformerSynced
+	priorityClassLister schedulinglisters.PriorityClassLister
+	priorityClassSynced cache.InformerSynced
+	mpiJobLister        listers.MPIJobLister
+	mpiJobSynced        cache.InformerSynced
 
 	// queue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -240,8 +239,6 @@ type MPIJobController struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
-	// Gang scheduler name to use
-	gangSchedulerName string
 
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
@@ -254,34 +251,31 @@ type MPIJobController struct {
 func NewMPIJobController(
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
-	volcanoClientSet volcanoclient.Interface,
+	podGroupCtrl PodGroupControl,
 	configMapInformer coreinformers.ConfigMapInformer,
 	secretInformer coreinformers.SecretInformer,
 	serviceInformer coreinformers.ServiceInformer,
 	jobInformer batchinformers.JobInformer,
 	podInformer coreinformers.PodInformer,
-	podgroupsInformer podgroupsinformer.PodGroupInformer,
-	mpiJobInformer informers.MPIJobInformer,
-	gangSchedulerName string) *MPIJobController {
-	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClientSet,
+	priorityClassInformer schedulinginformers.PriorityClassInformer,
+	mpiJobInformer informers.MPIJobInformer) *MPIJobController {
+	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, podGroupCtrl,
 		configMapInformer, secretInformer, serviceInformer, jobInformer,
-		podInformer, podgroupsInformer, mpiJobInformer,
-		gangSchedulerName, &clock.RealClock{})
+		podInformer, priorityClassInformer, mpiJobInformer, &clock.RealClock{})
 }
 
-// NewMPIJobController returns a new MPIJob controller.
+// NewMPIJobControllerWithClock returns a new MPIJob controller.
 func NewMPIJobControllerWithClock(
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
-	volcanoClientSet volcanoclient.Interface,
+	podGroupCtrl PodGroupControl,
 	configMapInformer coreinformers.ConfigMapInformer,
 	secretInformer coreinformers.SecretInformer,
 	serviceInformer coreinformers.ServiceInformer,
 	jobInformer batchinformers.JobInformer,
 	podInformer coreinformers.PodInformer,
-	podgroupsInformer podgroupsinformer.PodGroupInformer,
+	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	gangSchedulerName string,
 	clock clock.WithTicker) *MPIJobController {
 
 	// Create event broadcaster.
@@ -291,35 +285,39 @@ func NewMPIJobControllerWithClock(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
-	var podgroupsLister podgroupslists.PodGroupLister
-	var podgroupsSynced cache.InformerSynced
-	if gangSchedulerName != "" {
-		podgroupsLister = podgroupsInformer.Lister()
-		podgroupsSynced = podgroupsInformer.Informer().HasSynced
+	var (
+		podGroupSynced      cache.InformerSynced
+		priorityClassLister schedulinglisters.PriorityClassLister
+		priorityClassSynced cache.InformerSynced
+	)
+	if podGroupCtrl != nil {
+		podGroupSynced = podGroupCtrl.PodGroupSharedIndexInformer().HasSynced
+		priorityClassLister = priorityClassInformer.Lister()
+		priorityClassSynced = priorityClassInformer.Informer().HasSynced
 	}
 
 	controller := &MPIJobController{
-		kubeClient:        kubeClient,
-		kubeflowClient:    kubeflowClient,
-		volcanoClient:     volcanoClientSet,
-		configMapLister:   configMapInformer.Lister(),
-		configMapSynced:   configMapInformer.Informer().HasSynced,
-		secretLister:      secretInformer.Lister(),
-		secretSynced:      secretInformer.Informer().HasSynced,
-		serviceLister:     serviceInformer.Lister(),
-		serviceSynced:     serviceInformer.Informer().HasSynced,
-		jobLister:         jobInformer.Lister(),
-		jobSynced:         jobInformer.Informer().HasSynced,
-		podLister:         podInformer.Lister(),
-		podSynced:         podInformer.Informer().HasSynced,
-		podgroupsLister:   podgroupsLister,
-		podgroupsSynced:   podgroupsSynced,
-		mpiJobLister:      mpiJobInformer.Lister(),
-		mpiJobSynced:      mpiJobInformer.Informer().HasSynced,
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
-		recorder:          recorder,
-		gangSchedulerName: gangSchedulerName,
-		clock:             clock,
+		kubeClient:          kubeClient,
+		kubeflowClient:      kubeflowClient,
+		podGroupCtrl:        podGroupCtrl,
+		configMapLister:     configMapInformer.Lister(),
+		configMapSynced:     configMapInformer.Informer().HasSynced,
+		secretLister:        secretInformer.Lister(),
+		secretSynced:        secretInformer.Informer().HasSynced,
+		serviceLister:       serviceInformer.Lister(),
+		serviceSynced:       serviceInformer.Informer().HasSynced,
+		jobLister:           jobInformer.Lister(),
+		jobSynced:           jobInformer.Informer().HasSynced,
+		podLister:           podInformer.Lister(),
+		podSynced:           podInformer.Informer().HasSynced,
+		podGroupSynced:      podGroupSynced,
+		priorityClassLister: priorityClassLister,
+		priorityClassSynced: priorityClassSynced,
+		mpiJobLister:        mpiJobInformer.Lister(),
+		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
+		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
+		recorder:            recorder,
+		clock:               clock,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -364,8 +362,13 @@ func NewMPIJobControllerWithClock(
 		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
 	})
-	if podgroupsInformer != nil {
-		podgroupsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if podGroupCtrl != nil {
+		podGroupCtrl.PodGroupSharedIndexInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.handleObject,
+			UpdateFunc: controller.handleObjectUpdate,
+			DeleteFunc: controller.handleObject,
+		})
+		priorityClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    controller.handleObject,
 			UpdateFunc: controller.handleObjectUpdate,
 			DeleteFunc: controller.handleObject,
@@ -395,8 +398,8 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 		c.podSynced,
 		c.mpiJobSynced,
 	}
-	if c.gangSchedulerName != "" {
-		synced = append(synced, c.podgroupsSynced)
+	if c.podGroupCtrl != nil {
+		synced = append(synced, c.podGroupSynced, c.priorityClassSynced)
 	}
 	if ok := cache.WaitForCacheSync(stopCh, synced...); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
@@ -575,8 +578,8 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 		if !isMPIJobSuspended(mpiJob) {
 			// Get the PodGroup for this MPIJob
-			if c.gangSchedulerName != "" {
-				if podgroup, err := c.getOrCreatePodGroups(mpiJob); podgroup == nil || err != nil {
+			if c.podGroupCtrl != nil {
+				if podGroup, err := c.getOrCreatePodGroups(mpiJob); podGroup == nil || err != nil {
 					return err
 				}
 			}
@@ -631,12 +634,11 @@ func (c *MPIJobController) syncHandler(key string) error {
 }
 
 func cleanUpWorkerPods(mpiJob *kubeflow.MPIJob, c *MPIJobController) error {
-	// set worker StatefulSet Replicas to 0.
 	if err := c.deleteWorkerPods(mpiJob); err != nil {
 		return err
 	}
 	initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
-	if c.gangSchedulerName != "" {
+	if c.podGroupCtrl != nil {
 		if err := c.deletePodGroups(mpiJob); err != nil {
 			return err
 		}
@@ -670,11 +672,11 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 }
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by volcano.
-func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (*podgroupv1beta1.PodGroup, error) {
-	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
+func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1.Object, error) {
+	podGroup, err := c.podGroupCtrl.getPodGroup(mpiJob.Namespace, mpiJob.Name)
 	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		podgroup, err = c.volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Create(context.TODO(), newPodGroup(mpiJob), metav1.CreateOptions{})
+		podGroup, err = c.podGroupCtrl.createPodGroup(context.TODO(), mpiJob.Namespace, c.podGroupCtrl.newPodGroup(mpiJob))
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -684,18 +686,17 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (*podgr
 	}
 	// If the PodGroup is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(podgroup, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, podgroup.Name, podgroup.Kind)
+	if !metav1.IsControlledBy(podGroup, mpiJob) {
+		msg := fmt.Sprintf(MessageResourceExists, podGroup.GetName(), "PodGroup")
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
 	}
-
-	return podgroup, nil
+	return podGroup, nil
 }
 
 // deletePodGroups will delete a PodGroup when MPIJob have done.
 func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
-	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
+	podGroup, err := c.podGroupCtrl.getPodGroup(mpiJob.Namespace, mpiJob.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -705,14 +706,14 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 
 	// If the PodGroup is not controlled by this MPIJob resource, we
 	// should log a warning to the event recorder and return.
-	if !metav1.IsControlledBy(podgroup, mpiJob) {
-		msg := fmt.Sprintf(MessageResourceExists, podgroup.Name, podgroup.Kind)
+	if !metav1.IsControlledBy(podGroup, mpiJob) {
+		msg := fmt.Sprintf(MessageResourceExists, podGroup.GetName(), "PodGroup")
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return fmt.Errorf(msg)
 	}
 
 	// If the PodGroup exist, we'll delete it.
-	err = c.volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Delete(context.TODO(), mpiJob.Name, metav1.DeleteOptions{})
+	err = c.podGroupCtrl.deletePodGroup(context.TODO(), mpiJob.Namespace, mpiJob.Name)
 	// If an error occurs during Delete, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
 	// temporary network failure, or any other transient reason.
@@ -1339,17 +1340,8 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// add SchedulerName to podSpec
-	if c.gangSchedulerName != "" {
-		if podTemplate.Spec.SchedulerName != "" && podTemplate.Spec.SchedulerName != c.gangSchedulerName {
-			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podTemplate.Spec.SchedulerName)
-		}
-		podTemplate.Spec.SchedulerName = c.gangSchedulerName
-
-		if podTemplate.Annotations == nil {
-			podTemplate.Annotations = map[string]string{}
-		}
-		// we create the podGroup with the same name as the mpijob
-		podTemplate.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
+	if c.podGroupCtrl != nil {
+		c.podGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
 	}
 
 	return &corev1.Pod{
@@ -1406,17 +1398,8 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 		podTemplate.Labels[key] = value
 	}
 	// add SchedulerName to podSpec
-	if c.gangSchedulerName != "" {
-		if podTemplate.Spec.SchedulerName != "" && podTemplate.Spec.SchedulerName != c.gangSchedulerName {
-			klog.Warningf("%s scheduler is specified when gang-scheduling is enabled and it will be overwritten", podTemplate.Spec.SchedulerName)
-		}
-		podTemplate.Spec.SchedulerName = c.gangSchedulerName
-
-		if podTemplate.Annotations == nil {
-			podTemplate.Annotations = map[string]string{}
-		}
-		// we create the podGroup with the same name as the mpijob
-		podTemplate.Annotations[podgroupv1beta1.KubeGroupNameAnnotationKey] = mpiJob.Name
+	if c.podGroupCtrl != nil {
+		c.podGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
 	}
 	podTemplate.Spec.Hostname = launcherName
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.

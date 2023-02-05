@@ -89,6 +89,20 @@ rules:
   - podgroups
   verbs:
   - "*"
+- apiGroups:
+  - scheduling.x-k8s.io
+  resources:
+  - podgroups
+  verbs:
+    - "*"
+- apiGroups:
+  - scheduling.k8s.io
+  resources:
+  - priorityclasses
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
 
 ---
 

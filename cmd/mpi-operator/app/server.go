@@ -30,6 +30,7 @@ import (
 	kubeapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	kubeinformers "k8s.io/client-go/informers"
+	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -39,9 +40,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
+	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
-	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
-	podgroupsinformer "volcano.sh/apis/pkg/client/informers/externalversions/scheduling/v1beta1"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
@@ -115,7 +115,7 @@ func Run(opt *options.ServerOption) error {
 	cfg.Burst = opt.Burst
 
 	// Create clients.
-	kubeClient, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, err := createClientSets(cfg)
+	kubeClient, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, schedClientSet, err := createClientSets(cfg, opt.GangSchedulingName)
 	if err != nil {
 		return err
 	}
@@ -133,40 +133,45 @@ func Run(opt *options.ServerOption) error {
 
 	// Set leader election start function.
 	run := func(ctx context.Context) {
-		var kubeInformerFactory kubeinformers.SharedInformerFactory
-		var kubeflowInformerFactory informers.SharedInformerFactory
-		var volcanoInformerFactory volcanoinformers.SharedInformerFactory
-		if namespace == metav1.NamespaceAll {
-			kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-			kubeflowInformerFactory = informers.NewSharedInformerFactory(mpiJobClientSet, 0)
-			volcanoInformerFactory = volcanoinformers.NewSharedInformerFactory(volcanoClientSet, 0)
-		} else {
-			kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
-			kubeflowInformerFactory = informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, informers.WithNamespace(namespace))
-			volcanoInformerFactory = volcanoinformers.NewSharedInformerFactoryWithOptions(volcanoClientSet, 0, volcanoinformers.WithNamespace(namespace))
+		var kubeInformerFactoryOpts []kubeinformers.SharedInformerOption
+		var kubeflowInformerFactoryOpts []informers.SharedInformerOption
+		if namespace != metav1.NamespaceAll {
+			kubeInformerFactoryOpts = append(kubeInformerFactoryOpts, kubeinformers.WithNamespace(namespace))
+			kubeflowInformerFactoryOpts = append(kubeflowInformerFactoryOpts, informers.WithNamespace(namespace))
+		}
+		kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeInformerFactoryOpts...)
+		kubeflowInformerFactory := informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, kubeflowInformerFactoryOpts...)
+
+		// For the gang scheduling
+		var podGroupCtrl controllersv1.PodGroupControl
+		if opt.GangSchedulingName == options.GangSchedulerVolcano {
+			podGroupCtrl = controllersv1.NewVolcanoCtrl(volcanoClientSet, namespace)
+		} else if len(opt.GangSchedulingName) != 0 {
+			// Use scheduler-plugins as a default gang-scheduler.
+
+			podGroupCtrl = controllersv1.NewSchedulerPluginsCtrl(schedClientSet, namespace, opt.GangSchedulingName)
+		}
+		var priorityClassInformer schedulinginformers.PriorityClassInformer
+		if podGroupCtrl != nil {
+			priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
 		}
 
-		var podgroupsInformer podgroupsinformer.PodGroupInformer
-		if opt.GangSchedulingName != "" {
-			podgroupsInformer = volcanoInformerFactory.Scheduling().V1beta1().PodGroups()
-		}
 		controller := controllersv1.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
-			volcanoClientSet,
+			podGroupCtrl,
 			kubeInformerFactory.Core().V1().ConfigMaps(),
 			kubeInformerFactory.Core().V1().Secrets(),
 			kubeInformerFactory.Core().V1().Services(),
 			kubeInformerFactory.Batch().V1().Jobs(),
 			kubeInformerFactory.Core().V1().Pods(),
-			podgroupsInformer,
-			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-			opt.GangSchedulingName)
+			priorityClassInformer,
+			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs())
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
-		if opt.GangSchedulingName != "" {
-			go volcanoInformerFactory.Start(ctx.Done())
+		if podGroupCtrl != nil {
+			podGroupCtrl.StartInformerFactory(ctx.Done())
 		}
 
 		// Set leader election start function.
@@ -259,29 +264,48 @@ func Run(opt *options.ServerOption) error {
 	return fmt.Errorf("finished without leader elect")
 }
 
-func createClientSets(config *restclientset.Config) (kubeclientset.Interface, kubeclientset.Interface, mpijobclientset.Interface, volcanoclient.Interface, error) {
+func createClientSets(
+	config *restclientset.Config,
+	gangSchedulingName string,
+) (
+	kubeclientset.Interface,
+	kubeclientset.Interface,
+	mpijobclientset.Interface,
+	volcanoclient.Interface,
+	schedclientset.Interface,
+	error,
+) {
 
 	kubeClientSet, err := kubeclientset.NewForConfig(restclientset.AddUserAgent(config, "mpi-operator"))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	leaderElectionClientSet, err := kubeclientset.NewForConfig(restclientset.AddUserAgent(config, "leader-election"))
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	mpiJobClientSet, err := mpijobclientset.NewForConfig(config)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
-	volcanoClientSet, err := volcanoclient.NewForConfig(restclientset.AddUserAgent(config, "volcano"))
-	if err != nil {
-		return nil, nil, nil, nil, err
+	var (
+		volcanoClientSet volcanoclient.Interface
+		schedClientSet   schedclientset.Interface
+	)
+	if gangSchedulingName == options.GangSchedulerVolcano {
+		if volcanoClientSet, err = volcanoclient.NewForConfig(restclientset.AddUserAgent(config, "volcano")); err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
+	} else if len(gangSchedulingName) != 0 {
+		if schedClientSet, err = schedclientset.NewForConfig(restclientset.AddUserAgent(config, "scheduler-plugins")); err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
 	}
 
-	return kubeClientSet, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, nil
+	return kubeClientSet, leaderElectionClientSet, mpiJobClientSet, volcanoClientSet, schedClientSet, nil
 }
 
 func checkCRDExists(clientset mpijobclientset.Interface, namespace string) bool {

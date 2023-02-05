@@ -21,6 +21,11 @@ import (
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
+const (
+	GangSchedulerVolcano          = "volcano"
+	GangSchedulerSchedulerPlugins = "scheduler-plugins"
+)
+
 // ServerOption is the main context object for the controller manager.
 type ServerOption struct {
 	Kubeconfig         string
@@ -62,7 +67,9 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.IntVar(&s.MonitoringPort, "monitoring-port", 0,
 		`Endpoint port for displaying monitoring metrics. It can be set to "0" to disable the metrics serving.`)
 
-	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "", "Set gang scheduler name if enable gang scheduling.")
+	fs.StringVar(&s.GangSchedulingName, "gang-scheduling", "",
+		`Set gang scheduler name if enable gang scheduling. Now Supporting volcano and scheduler-plugins.
+                Note: If you set another scheduler name, the mpi-operator assumes it's the scheduler-plugins`)
 
 	fs.StringVar(&s.LockNamespace, "lock-namespace", "mpi-operator", "Set locked namespace name while enabling leader election.")
 
