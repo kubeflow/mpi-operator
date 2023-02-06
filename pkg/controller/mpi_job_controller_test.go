@@ -37,7 +37,6 @@ import (
 	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/pointer"
-
 	podgroupv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	volcanofake "volcano.sh/apis/pkg/client/clientset/versioned/fake"
 	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"

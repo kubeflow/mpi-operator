@@ -415,10 +415,12 @@
       "type": "object",
       "properties": {
         "minAvailable": {
+          "description": "MinAvailable defines the minimal number of member to run the PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.mimMember` in PodGroup for the volcano. When using this field, you need to make sure the application supports resizing (e.g., Elastic Horovod).\n\nIf not set, it defaults to the number of workers.",
           "type": "integer",
           "format": "int32"
         },
         "minResources": {
+          "description": "MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.mimResources` in PodGroup for volcano.",
           "type": "object",
           "additionalProperties": {
             "default": {},
@@ -426,12 +428,15 @@
           }
         },
         "priorityClass": {
+          "description": "PriorityClass defines the PodGroup's PriorityClass. If the gang-scheduling is set to the volcano, input is passed to `.spec.priorityClassName` in PodGroup for volcano.",
           "type": "string"
         },
         "queue": {
+          "description": "Queue defines the queue name to allocate resource for PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.queue` in PodGroup for the volcano.",
           "type": "string"
         },
         "scheduleTimeoutSeconds": {
+          "description": "SchedulerTimeoutSeconds defines the maximal time of members to wait before run the PodGroup. Currently, this parameter isn't respected in any case.",
           "type": "integer",
           "format": "int32"
         }

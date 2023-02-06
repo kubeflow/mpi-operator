@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	kubeflowScheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +45,7 @@ import (
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	kubeflowscheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	controllersv1 "github.com/kubeflow/mpi-operator/pkg/controller"
 	"github.com/kubeflow/mpi-operator/pkg/version"
@@ -126,7 +126,7 @@ func Run(opt *options.ServerOption) error {
 
 	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
 	// can be logged for mpi-job-controller types.
-	err = kubeflowScheme.AddToScheme(clientgokubescheme.Scheme)
+	err = kubeflowscheme.AddToScheme(clientgokubescheme.Scheme)
 	if err != nil {
 		return fmt.Errorf("CoreV1 Add Scheme failed: %v", err)
 	}
