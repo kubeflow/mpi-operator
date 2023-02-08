@@ -4,7 +4,7 @@ namespace: kubeflow
 resources:
 - cluster-role-binding.yaml
 - cluster-role.yaml
-- crd.yaml
+- kubeflow.org_mpijobs.yaml
 - deployment.yaml
 - service-account.yaml
 commonLabels:

@@ -40,12 +40,11 @@ const (
 
 // initializeMPIJobStatuses initializes the ReplicaStatuses for MPIJob.
 func initializeMPIJobStatuses(mpiJob *kubeflow.MPIJob, mtype kubeflow.MPIReplicaType) {
-	replicaType := kubeflow.MPIReplicaType(mtype)
 	if mpiJob.Status.ReplicaStatuses == nil {
 		mpiJob.Status.ReplicaStatuses = make(map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus)
 	}
 
-	mpiJob.Status.ReplicaStatuses[replicaType] = &kubeflow.ReplicaStatus{}
+	mpiJob.Status.ReplicaStatuses[mtype] = &kubeflow.ReplicaStatus{}
 }
 
 // updateMPIJobConditions updates the conditions of the given mpiJob.

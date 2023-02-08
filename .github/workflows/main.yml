@@ -2,23 +2,32 @@ name: build
 on: [push, pull_request]
 jobs:
   validate:
-    name: Validate 
+    name: Validate
     runs-on: ubuntu-latest
+    env:
+      GOPATH: ${{ github.workspace }}/go
+    defaults:
+      run:
+        working-directory: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator
     # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Clone the code
         uses: actions/checkout@v3
+        with:
+          path: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version-file: 'go.mod'
+          go-version-file: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator/go.mod
       - name: fmt check
         run: make fmt
       - name: go mod tidy
         run: make tidy
       - name: Build
         run: make mpi-operator.v2
+      - name: generate codes
+        run: make verify-generate
       - name: Run tests
         run: make test
   e2e:

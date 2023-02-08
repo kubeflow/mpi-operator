@@ -31,15 +31,17 @@ fi
 # Backup existing v2 openapi_generated.go
 mv pkg/apis/kubeflow/v2beta1/openapi_generated.go pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup
 
+CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
+GOBIN="${PWD}/bin" go install "k8s.io/code-generator/cmd/openapi-gen@${CODEGEN_VERSION}"
 echo "Generating V2 OpenAPI specification ..."
-openapi-gen --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1 --go-header-file hack/boilerplate/boilerplate.go.txt
+"${PWD}/bin/openapi-gen" --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1,github.com/kubeflow/common/pkg/apis/common/v1 --output-package github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1 --go-header-file hack/boilerplate/boilerplate.go.txt
 
 echo "Generating V2 swagger file ..."
 go run hack/python-sdk/main.go v2beta1 > ${SWAGGER_V2_CODEGEN_FILE}
 
 echo "Downloading the swagger-codegen JAR package ..."
 if ! [ -f ${SWAGGER_CODEGEN_JAR} ]; then
-    wget -O ${SWAGGER_CODEGEN_JAR} ${SWAGGER_JAR_URL}
+    wget -qO ${SWAGGER_CODEGEN_JAR} ${SWAGGER_JAR_URL}
 fi
 
 echo "Generating V2 Python SDK for Kubeflow MPI-Operator ..."
