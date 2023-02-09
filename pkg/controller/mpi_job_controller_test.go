@@ -1206,6 +1206,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Labels: map[string]string{
 						"app": "foo",
 					},
+					Annotations: map[string]string{
+						KueueIgnoreAnnotation: "true",
+					},
 				},
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
@@ -1368,6 +1371,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Namespace: "foo",
 					Labels: map[string]string{
 						"app": "bar",
+					},
+					Annotations: map[string]string{
+						KueueIgnoreAnnotation: "true",
 					},
 				},
 				Spec: batchv1.JobSpec{

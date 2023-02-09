@@ -118,6 +118,9 @@ const (
 
 	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
 	intelMPISlotsEnv = "I_MPI_PERHOST"
+
+	// Annotation instructing Kueue to ignore a workload for scheduling.
+	KueueIgnoreAnnotation = "kueue.x-k8s.io/ignore"
 )
 
 var (
@@ -1386,6 +1389,9 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob) *batchv1.Job 
 			Namespace: mpiJob.Namespace,
 			Labels: map[string]string{
 				"app": mpiJob.Name,
+			},
+			Annotations: map[string]string{
+				KueueIgnoreAnnotation: "true",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
