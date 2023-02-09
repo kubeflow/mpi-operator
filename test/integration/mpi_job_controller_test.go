@@ -23,7 +23,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -276,7 +275,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	if isJobSuspended(launcherJob) {
 		t.Errorf("LauncherJob is suspended")
 	}
-	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobSuspended, v1.ConditionFalse) {
+	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobSuspended, corev1.ConditionFalse) {
 		t.Errorf("MPIJob has unexpected Suspended condition")
 	}
 
@@ -330,7 +329,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	if !mpiJobHasCondition(mpiJob, kubeflow.JobSuspended) {
 		t.Errorf("MPIJob missing Suspended condition")
 	}
-	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobRunning, v1.ConditionFalse) {
+	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse) {
 		t.Errorf("MPIJob has unexpected Running condition")
 	}
 }
@@ -699,10 +698,10 @@ func hasVolumeForConfigMap(podSpec *corev1.PodSpec, cm *corev1.ConfigMap) bool {
 }
 
 func mpiJobHasCondition(job *kubeflow.MPIJob, cond kubeflow.JobConditionType) bool {
-	return mpiJobHasConditionWithStatus(job, cond, v1.ConditionTrue)
+	return mpiJobHasConditionWithStatus(job, cond, corev1.ConditionTrue)
 }
 
-func mpiJobHasConditionWithStatus(job *kubeflow.MPIJob, cond kubeflow.JobConditionType, status v1.ConditionStatus) bool {
+func mpiJobHasConditionWithStatus(job *kubeflow.MPIJob, cond kubeflow.JobConditionType, status corev1.ConditionStatus) bool {
 	for _, c := range job.Status.Conditions {
 		if c.Type == cond && c.Status == status {
 			return true

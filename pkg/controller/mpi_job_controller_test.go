@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -500,7 +499,7 @@ func TestAllResourcesCreated(t *testing.T) {
 			}
 			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
 
-			mpiJobCopy.Status.Conditions = []kubeflow.JobCondition{newCondition(kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, "MPIJob default/foo is created.")}
+			mpiJobCopy.Status.Conditions = []kubeflow.JobCondition{newCondition(kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, "MPIJob default/foo is created.")}
 			mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 				kubeflow.MPIReplicaTypeLauncher: {},
 				kubeflow.MPIReplicaTypeWorker:   {},
@@ -561,9 +560,9 @@ func TestLauncherSucceeded(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSucceeded, v1.ConditionTrue, mpiJobSucceededReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -615,9 +614,9 @@ func TestLauncherFailed(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = "Job has reached the specified backoff limit: second message"
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobFailed, v1.ConditionTrue, jobBackoffLimitExceededReason+"/FailedReason2", msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobFailed, corev1.ConditionTrue, jobBackoffLimitExceededReason+"/FailedReason2", msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
@@ -730,7 +729,7 @@ func TestShutdownWorker(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
 
-	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, v1.ConditionTrue, mpiJobSucceededReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
@@ -807,10 +806,10 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 				kubeflow.MPIReplicaTypeWorker:   {},
 			}
 			msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-			updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
-			updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, v1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
+			updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+			updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
 			msg = fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
-			updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, v1.ConditionFalse, mpiJobSuspendedReason, msg)
+			updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
 			f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 			f.run(getKey(mpiJob, t))
@@ -827,9 +826,9 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
 	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, v1.ConditionTrue, mpiJobRunningReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
 
 	mpiJob.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {
@@ -889,9 +888,9 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 
 	// expect MPI job status update to add the suspend condition
 	mpiJobCopy := mpiJob.DeepCopy()
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, v1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
 	msg = fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJobCopy.Namespace, mpiJobCopy.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, v1.ConditionFalse, mpiJobSuspendedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		// the launcher pod remains active. In live system it gets deleted by
 		// the launcher's Job controller.
@@ -915,10 +914,10 @@ func TestResumeMPIJob(t *testing.T) {
 	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
 	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
-	updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, v1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
+	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
 	msg = fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, v1.ConditionFalse, mpiJobSuspendedReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
 	mpiJob.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {},
 		kubeflow.MPIReplicaTypeWorker:   {},
@@ -963,7 +962,7 @@ func TestResumeMPIJob(t *testing.T) {
 	// expect an update to add the conditions
 	mpiJobCopy := mpiJob.DeepCopy()
 	mpiJobCopy.Status.StartTime = &metav1.Time{Time: fakeClock.Now()}
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, v1.ConditionFalse, "MPIJobResumed", "MPIJob resumed")
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, corev1.ConditionFalse, "MPIJobResumed", "MPIJob resumed")
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.runWithClock(getKey(mpiJob, t), fakeClock)
@@ -1034,7 +1033,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 		f.setUpPod(worker)
 	}
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {
 			Active:    1,
@@ -1104,9 +1103,9 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	}
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, v1.ConditionTrue, mpiJobRunningReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(getKey(mpiJob, t))
@@ -1160,7 +1159,7 @@ func TestWorkerReady(t *testing.T) {
 		},
 	}
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 

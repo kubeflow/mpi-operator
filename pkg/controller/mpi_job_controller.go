@@ -33,7 +33,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -520,7 +519,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	if len(mpiJob.Status.Conditions) == 0 {
 		msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
-		updateMPIJobConditions(mpiJob, kubeflow.JobCreated, v1.ConditionTrue, mpiJobCreatedReason, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 		c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobCreated", msg)
 		mpiJobsCreatedCount.Inc()
 	}
@@ -963,12 +962,12 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	oldStatus := mpiJob.Status.DeepCopy()
 	if isMPIJobSuspended(mpiJob) {
 		// it is suspended now
-		if updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, v1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended") {
+		if updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended") {
 			c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobSuspended", "MPIJob suspended")
 		}
 	} else if getCondition(mpiJob.Status, kubeflow.JobSuspended) != nil {
 		// it is not suspended now, consider resumed if the condition was set before
-		if updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, v1.ConditionFalse, mpiJobResumedReason, "MPIJob resumed") {
+		if updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, corev1.ConditionFalse, mpiJobResumedReason, "MPIJob resumed") {
 			c.recorder.Event(mpiJob, corev1.EventTypeNormal, "MPIJobResumed", "MPIJob resumed")
 			now := metav1.NewTime(c.clock.Now())
 			mpiJob.Status.StartTime = &now
@@ -992,7 +991,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			if mpiJob.Status.CompletionTime == nil {
 				mpiJob.Status.CompletionTime = launcher.Status.CompletionTime
 			}
-			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, v1.ConditionTrue, mpiJobSucceededReason, msg)
+			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
 			mpiJobsSuccessCount.Inc()
 		} else if isJobFailed(launcher) {
 			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
@@ -1026,16 +1025,16 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	if evict > 0 {
 		msg := fmt.Sprintf("%d/%d workers are evicted", evict, len(worker))
 		klog.Infof("MPIJob <%s/%s>: %v", mpiJob.Namespace, mpiJob.Name, msg)
-		updateMPIJobConditions(mpiJob, kubeflow.JobFailed, v1.ConditionTrue, mpiJobEvict, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobFailed, corev1.ConditionTrue, mpiJobEvict, msg)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobEvict, msg)
 	}
 
 	if isMPIJobSuspended(mpiJob) {
 		msg := fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
-		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, v1.ConditionFalse, mpiJobSuspendedReason, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
 	} else if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
-		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, v1.ConditionTrue, mpiJobRunningReason, msg)
+		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
 		c.recorder.Eventf(mpiJob, corev1.EventTypeNormal, "MPIJobRunning", "MPIJob %s/%s is running", mpiJob.Namespace, mpiJob.Name)
 	}
 
@@ -1075,7 +1074,7 @@ func (c *MPIJobController) updateMPIJobFailedStatus(mpiJob *kubeflow.MPIJob, lau
 		now := metav1.Now()
 		mpiJob.Status.CompletionTime = &now
 	}
-	updateMPIJobConditions(mpiJob, kubeflow.JobFailed, v1.ConditionTrue, reason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobFailed, corev1.ConditionTrue, reason, msg)
 	mpiJobsFailureCount.Inc()
 }
 
