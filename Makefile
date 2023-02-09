@@ -65,7 +65,7 @@ test: bin/envtest
 .PHONY: test_e2e
 test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: bin/kubectl kind images test_images dev_manifest
-	go test -tags e2e ./test/e2e/...
+	go test -v ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
