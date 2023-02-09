@@ -51,15 +51,6 @@ rules:
   - create
   - patch
 - apiGroups:
-  - apps
-  resources:
-  - statefulsets
-  verbs:
-  - create
-  - list
-  - update
-  - watch
-- apiGroups:
   - batch
   resources:
   - jobs
