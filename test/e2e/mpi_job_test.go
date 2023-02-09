@@ -84,9 +84,10 @@ var _ = ginkgo.Describe("MPIJob", func() {
 		ginkgo.BeforeEach(func() {
 			mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
 				{
-					Name:    "launcher",
-					Image:   openMPIImage,
-					Command: []string{"mpirun"},
+					Name:            "launcher",
+					Image:           openMPIImage,
+					ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+					Command:         []string{"mpirun"},
 					Args: []string{
 						"-n",
 						"2",
@@ -96,8 +97,9 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			}
 			mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
 				{
-					Name:  "worker",
-					Image: openMPIImage,
+					Name:            "worker",
+					Image:           openMPIImage,
+					ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
 				},
 			}
 		})
@@ -190,9 +192,10 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
 					{
-						Name:    "launcher",
-						Image:   intelMPIImage,
-						Command: []string{}, // uses entrypoint.
+						Name:            "launcher",
+						Image:           intelMPIImage,
+						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+						Command:         []string{},              // uses entrypoint.
 						Args: []string{
 							"mpirun",
 							"-n",
@@ -203,9 +206,10 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				}
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
 					{
-						Name:    "worker",
-						Image:   intelMPIImage,
-						Command: []string{}, // uses entrypoint.
+						Name:            "worker",
+						Image:           intelMPIImage,
+						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+						Command:         []string{},              // uses entrypoint.
 						Args: []string{
 							"/usr/sbin/sshd",
 							"-De",

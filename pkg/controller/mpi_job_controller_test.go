@@ -56,6 +56,7 @@ var (
 
 	ignoreConditionTimes = cmpopts.IgnoreFields(kubeflow.JobCondition{}, "LastUpdateTime", "LastTransitionTime")
 	ignoreSecretEntries  = cmpopts.IgnoreMapEntries(func(k string, v []uint8) bool { return true })
+	ignoreReferences     = cmpopts.IgnoreFields(metav1.ObjectMeta{}, "OwnerReferences")
 )
 
 type fixture struct {
@@ -1476,7 +1477,6 @@ func TestNewLauncherAndWorker(t *testing.T) {
 			},
 		},
 	}
-	ignoreReferences := cmpopts.IgnoreFields(metav1.ObjectMeta{}, "OwnerReferences")
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			job := tc.job.DeepCopy()
@@ -1495,6 +1495,75 @@ func TestNewLauncherAndWorker(t *testing.T) {
 			}
 			if diff := cmp.Diff(&tc.wantWorker, worker, ignoreReferences); diff != "" {
 				t.Errorf("Unexpected launcher pod (-want,+got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestNewConfigMap(t *testing.T) {
+	testCases := map[string]struct {
+		mpiJob         *kubeflow.MPIJob
+		workerReplicas int32
+		wantCM         *corev1.ConfigMap
+	}{
+		"OpenMPI without slots": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots",
+					Namespace: "tenant-a",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
+				},
+			},
+			workerReplicas: 2,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots-config",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						"app": "openmpi-without-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "openmpi-without-slots-worker-0.openmpi-without-slots-worker.tenant-a.svc slots=1\nopenmpi-without-slots-worker-1.openmpi-without-slots-worker.tenant-a.svc slots=1\n",
+				},
+			},
+		},
+		"IntelMPI with slots": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "intelmpi-with-slots",
+					Namespace: "project-x",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker:    pointer.Int32(10),
+					MPIImplementation: kubeflow.MPIImplementationIntel,
+				},
+			},
+			workerReplicas: 1,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "intelmpi-with-slots-config",
+					Namespace: "project-x",
+					Labels: map[string]string{
+						"app": "intelmpi-with-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "intelmpi-with-slots-worker-0.intelmpi-with-slots-worker.project-x.svc:10\n",
+				},
+			},
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			cm := newConfigMap(tc.mpiJob, tc.workerReplicas)
+			if !metav1.IsControlledBy(cm, tc.mpiJob) {
+				t.Errorf("Created configMap is not controlled by MPIJob")
+			}
+			if diff := cmp.Diff(tc.wantCM, cm, ignoreReferences); len(diff) != 0 {
+				t.Errorf("Unexpected configMap (-want,+got):\n%s", diff)
 			}
 		})
 	}
