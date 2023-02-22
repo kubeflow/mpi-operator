@@ -59,7 +59,7 @@ vet:
 .PHONY: test
 test:
 test: bin/envtest
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -covermode atomic -coverprofile=profile.cov ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -covermode atomic -coverprofile=profile.cov $(shell go list ./... | grep -v '/test/e2e')
 
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
