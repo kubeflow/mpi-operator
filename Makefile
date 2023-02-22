@@ -59,13 +59,13 @@ vet:
 .PHONY: test
 test:
 test: bin/envtest
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -covermode atomic -coverprofile=profile.cov ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -covermode atomic -coverprofile=profile.cov $(shell go list ./... | grep -v '/test/e2e')
 
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
 test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: bin/kubectl kind images test_images dev_manifest
-	go test -tags e2e ./test/e2e/...
+	go test -v ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
