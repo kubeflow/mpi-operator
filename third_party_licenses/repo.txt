@@ -360,7 +360,6 @@ kubernetes/legacy-cloud-providers
 kubernetes/metrics
 kubernetes/repo-infra
 kubernetes/sample-apiserver
-kubernetes/sample-controller
 kubernetes/utils
 cznic/cc
 cznic/golex

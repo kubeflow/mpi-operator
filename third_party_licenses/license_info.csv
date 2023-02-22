@@ -349,7 +349,6 @@ kubernetes/legacy-cloud-providers,https://github.com/kubernetes/legacy-cloud-pro
 kubernetes/metrics,https://github.com/kubernetes/metrics/blob/master/LICENSE,Apache License 2.0,https://raw.githubusercontent.com/kubernetes/metrics/master/LICENSE
 kubernetes/repo-infra,https://github.com/kubernetes/repo-infra/blob/master/LICENSE,Apache License 2.0,https://raw.githubusercontent.com/kubernetes/repo-infra/master/LICENSE
 kubernetes/sample-apiserver,https://github.com/kubernetes/sample-apiserver/blob/master/LICENSE,Apache License 2.0,https://raw.githubusercontent.com/kubernetes/sample-apiserver/master/LICENSE
-kubernetes/sample-controller,https://github.com/kubernetes/sample-controller/blob/master/LICENSE,Apache License 2.0,https://raw.githubusercontent.com/kubernetes/sample-controller/master/LICENSE
 kubernetes/utils,https://github.com/kubernetes/utils/blob/master/LICENSE,Apache License 2.0,https://raw.githubusercontent.com/kubernetes/utils/master/LICENSE
 cznic/cc,https://github.com/cznic/cc/blob/master/LICENSE,BSD 3-Clause "New" or "Revised" License,https://raw.githubusercontent.com/cznic/cc/master/LICENSE
 cznic/golex,https://github.com/cznic/golex/blob/master/LICENSE,BSD 3-Clause "New" or "Revised" License,https://raw.githubusercontent.com/cznic/golex/master/LICENSE

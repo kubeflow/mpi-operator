@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	kubeapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	kubeinformers "k8s.io/client-go/informers"
 	kubeclientset "k8s.io/client-go/kubernetes"
@@ -39,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
-	"k8s.io/sample-controller/pkg/signals"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
 	podgroupsinformer "volcano.sh/apis/pkg/client/informers/externalversions/scheduling/v1beta1"
@@ -97,7 +97,7 @@ func Run(opt *options.ServerOption) error {
 	klog.Infof("Server options: %+v", opt)
 
 	// set up signals so we handle the first shutdown signal gracefully
-	stopCh := signals.SetupSignalHandler()
+	stopCh := kubeapiserver.SetupSignalHandler()
 
 	// Note: ENV KUBECONFIG will overwrite user defined Kubeconfig option.
 	if len(os.Getenv(RecommendedKubeConfigPathEnv)) > 0 {
