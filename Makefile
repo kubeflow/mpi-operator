@@ -21,6 +21,7 @@ RELEASE_VERSION?=v0.3.0
 CONTROLLER_VERSION?=v2
 BASE_IMAGE_SSH_PORT?=2222
 IMG_BUILDER=docker
+PLATFORMS ?= linux/amd64
 LD_FLAGS_V2=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
     -X '${REPO_PATH}/pkg/version.Built=${Date}'   \
@@ -90,17 +91,17 @@ clean:
 .PHONY: images
 images:
 	@echo "VERSION: ${RELEASE_VERSION}"
-	${IMG_BUILDER} build --build-arg VERSION=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
+	${IMG_BUILDER} build --platform $(PLATFORMS) --build-arg VERSION=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
 
 .PHONY: test_images
 test_images:
-	${IMG_BUILDER} build --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base build/base
-	${IMG_BUILDER} build -t mpioperator/openmpi build/base -f build/base/openmpi.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/openmpi-builder build/base -f build/base/openmpi-builder.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/mpi-pi:openmpi examples/v2beta1/pi
-	${IMG_BUILDER} build -t mpioperator/intel build/base -f build/base/intel.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/intel-builder build/base -f build/base/intel-builder.Dockerfile
-	${IMG_BUILDER} build -t mpioperator/mpi-pi:intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+	${IMG_BUILDER} build --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base build/base
+	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/openmpi build/base -f build/base/openmpi.Dockerfile
+	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/openmpi-builder build/base -f build/base/openmpi-builder.Dockerfile
+	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/mpi-pi:openmpi examples/v2beta1/pi
+	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/intel build/base -f build/base/intel.Dockerfile
+	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/intel-builder build/base -f build/base/intel-builder.Dockerfile
+	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/mpi-pi:intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
 
 .PHONY: tidy
 tidy:
