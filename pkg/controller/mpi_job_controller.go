@@ -265,8 +265,8 @@ func NewMPIJobController(
 	gangSchedulerName string) *MPIJobController {
 	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClientSet,
 		configMapInformer, secretInformer, serviceInformer, jobInformer,
-		podInformer, podgroupsInformer, mpiJobInformer, gangSchedulerName,
-		&clock.RealClock{})
+		podInformer, podgroupsInformer, mpiJobInformer,
+		gangSchedulerName, &clock.RealClock{})
 }
 
 // NewMPIJobController returns a new MPIJob controller.
@@ -387,13 +387,19 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers.
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.configMapSynced, c.secretSynced, c.serviceSynced, c.jobSynced, c.podSynced, c.mpiJobSynced); !ok {
-		return fmt.Errorf("failed to wait for caches to sync")
+	synced := []cache.InformerSynced{
+		c.configMapSynced,
+		c.secretSynced,
+		c.serviceSynced,
+		c.jobSynced,
+		c.podSynced,
+		c.mpiJobSynced,
 	}
 	if c.gangSchedulerName != "" {
-		if ok := cache.WaitForCacheSync(stopCh, c.podgroupsSynced); !ok {
-			return fmt.Errorf("failed to wait for podgroup caches to sync")
-		}
+		synced = append(synced, c.podgroupsSynced)
+	}
+	if ok := cache.WaitForCacheSync(stopCh, synced...); !ok {
+		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
 	klog.Info("Starting workers")
@@ -570,7 +576,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if !isMPIJobSuspended(mpiJob) {
 			// Get the PodGroup for this MPIJob
 			if c.gangSchedulerName != "" {
-				if podgroup, err := c.getOrCreatePodGroups(mpiJob, workerReplicas(mpiJob)+1); podgroup == nil || err != nil {
+				if podgroup, err := c.getOrCreatePodGroups(mpiJob); podgroup == nil || err != nil {
 					return err
 				}
 			}
@@ -664,11 +670,11 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 }
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by volcano.
-func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob, minAvailableWorkerReplicas int32) (*podgroupv1beta1.PodGroup, error) {
+func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (*podgroupv1beta1.PodGroup, error) {
 	podgroup, err := c.podgroupsLister.PodGroups(mpiJob.Namespace).Get(mpiJob.Name)
 	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		podgroup, err = c.volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Create(context.TODO(), newPodGroup(mpiJob, minAvailableWorkerReplicas), metav1.CreateOptions{})
+		podgroup, err = c.volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Create(context.TODO(), newPodGroup(mpiJob), metav1.CreateOptions{})
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -844,7 +850,7 @@ func keysFromData(data map[string][]byte) []string {
 	return keys
 }
 
-// getOrCreateWorkerStatefulSet gets the worker StatefulSet controlled by this
+// getOrCreateWorkerStatefulSet gets the worker Pod controlled by this
 // MPIJob, or creates one if it doesn't exist.
 func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1.Pod, error) {
 	var workerPods []*corev1.Pod
@@ -1296,38 +1302,11 @@ func newSSHAuthSecret(job *kubeflow.MPIJob) (*corev1.Secret, error) {
 	}, nil
 }
 
-// newPodGroup creates a new PodGroup for an MPIJob
-// resource. It also sets the appropriate OwnerReferences on the resource so
-// handleObject can discover the MPIJob resource that 'owns' it.
-func newPodGroup(mpiJob *kubeflow.MPIJob, minAvailableReplicas int32) *podgroupv1beta1.PodGroup {
-	var pName string
-	if l := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher]; l != nil {
-		pName = l.Template.Spec.PriorityClassName
-		if w := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]; pName == "" && w != nil {
-			pName = w.Template.Spec.PriorityClassName
-		}
-	}
-	return &podgroupv1beta1.PodGroup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mpiJob.Name,
-			Namespace: mpiJob.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
-			},
-		},
-		Spec: podgroupv1beta1.PodGroupSpec{
-			MinMember:         minAvailableReplicas,
-			Queue:             mpiJob.Annotations[podgroupv1beta1.QueueNameAnnotationKey],
-			PriorityClassName: pName,
-		},
-	}
-}
-
 func workerName(mpiJob *kubeflow.MPIJob, index int) string {
 	return fmt.Sprintf("%s%s-%d", mpiJob.Name, workerSuffix, index)
 }
 
-// newWorker creates a new worker StatefulSet for an MPIJob resource. It also
+// newWorker creates a new worker Pod for an MPIJob resource. It also
 // sets the appropriate OwnerReferences on the resource so handleObject can
 // discover the MPIJob resource that 'owns' it.
 func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1.Pod {

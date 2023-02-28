@@ -7846,6 +7846,12 @@ spec:
                       e.g. gang-scheduling
                     properties:
                       minAvailable:
+                        description: "MinAvailable defines the minimal number of member
+                          to run the PodGroup. If the gang-scheduling is set to the
+                          volcano, input is passed to `.spec.mimMember` in PodGroup
+                          for the volcano. When using this field, you need to make
+                          sure the application supports resizing (e.g., Elastic Horovod).
+                          \n If not set, it defaults to the number of workers."
                         format: int32
                         type: integer
                       minResources:
@@ -7855,14 +7861,26 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: ResourceList is a set of (resource name, quantity)
-                          pairs.
+                        description: MinResources defines the minimal resources of
+                          members to run the PodGroup. If the gang-scheduling is set
+                          to the volcano, input is passed to `.spec.mimResources`
+                          in PodGroup for volcano.
                         type: object
                       priorityClass:
+                        description: PriorityClass defines the PodGroup's PriorityClass.
+                          If the gang-scheduling is set to the volcano, input is passed
+                          to `.spec.priorityClassName` in PodGroup for volcano.
                         type: string
                       queue:
+                        description: Queue defines the queue name to allocate resource
+                          for PodGroup. If the gang-scheduling is set to the volcano,
+                          input is passed to `.spec.queue` in PodGroup for the volcano.
                         type: string
                       scheduleTimeoutSeconds:
+                        description: 'SchedulerTimeoutSeconds defines the maximal
+                          time of members to wait before run the PodGroup. Currently,
+                          this parameter isn''t respected in any case. TODO (tenzen-y):
+                          Modify comments when supporting scheduler-plugins.'
                         format: int32
                         type: integer
                     type: object

@@ -76,6 +76,7 @@ class V2beta1SchedulingPolicy(object):
     def min_available(self):
         """Gets the min_available of this V2beta1SchedulingPolicy.  # noqa: E501
 
+        MinAvailable defines the minimal number of member to run the PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.mimMember` in PodGroup for the volcano. When using this field, you need to make sure the application supports resizing (e.g., Elastic Horovod).  If not set, it defaults to the number of workers.  # noqa: E501
 
         :return: The min_available of this V2beta1SchedulingPolicy.  # noqa: E501
         :rtype: int
@@ -86,6 +87,7 @@ class V2beta1SchedulingPolicy(object):
     def min_available(self, min_available):
         """Sets the min_available of this V2beta1SchedulingPolicy.
 
+        MinAvailable defines the minimal number of member to run the PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.mimMember` in PodGroup for the volcano. When using this field, you need to make sure the application supports resizing (e.g., Elastic Horovod).  If not set, it defaults to the number of workers.  # noqa: E501
 
         :param min_available: The min_available of this V2beta1SchedulingPolicy.  # noqa: E501
         :type min_available: int
@@ -97,6 +99,7 @@ class V2beta1SchedulingPolicy(object):
     def min_resources(self):
         """Gets the min_resources of this V2beta1SchedulingPolicy.  # noqa: E501
 
+        MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.mimResources` in PodGroup for volcano.  # noqa: E501
 
         :return: The min_resources of this V2beta1SchedulingPolicy.  # noqa: E501
         :rtype: dict(str, ResourceQuantity)
@@ -107,6 +110,7 @@ class V2beta1SchedulingPolicy(object):
     def min_resources(self, min_resources):
         """Sets the min_resources of this V2beta1SchedulingPolicy.
 
+        MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.mimResources` in PodGroup for volcano.  # noqa: E501
 
         :param min_resources: The min_resources of this V2beta1SchedulingPolicy.  # noqa: E501
         :type min_resources: dict(str, ResourceQuantity)
@@ -118,6 +122,7 @@ class V2beta1SchedulingPolicy(object):
     def priority_class(self):
         """Gets the priority_class of this V2beta1SchedulingPolicy.  # noqa: E501
 
+        PriorityClass defines the PodGroup's PriorityClass. If the gang-scheduling is set to the volcano, input is passed to `.spec.priorityClassName` in PodGroup for volcano.  # noqa: E501
 
         :return: The priority_class of this V2beta1SchedulingPolicy.  # noqa: E501
         :rtype: str
@@ -128,6 +133,7 @@ class V2beta1SchedulingPolicy(object):
     def priority_class(self, priority_class):
         """Sets the priority_class of this V2beta1SchedulingPolicy.
 
+        PriorityClass defines the PodGroup's PriorityClass. If the gang-scheduling is set to the volcano, input is passed to `.spec.priorityClassName` in PodGroup for volcano.  # noqa: E501
 
         :param priority_class: The priority_class of this V2beta1SchedulingPolicy.  # noqa: E501
         :type priority_class: str
@@ -139,6 +145,7 @@ class V2beta1SchedulingPolicy(object):
     def queue(self):
         """Gets the queue of this V2beta1SchedulingPolicy.  # noqa: E501
 
+        Queue defines the queue name to allocate resource for PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.queue` in PodGroup for the volcano.  # noqa: E501
 
         :return: The queue of this V2beta1SchedulingPolicy.  # noqa: E501
         :rtype: str
@@ -149,6 +156,7 @@ class V2beta1SchedulingPolicy(object):
     def queue(self, queue):
         """Sets the queue of this V2beta1SchedulingPolicy.
 
+        Queue defines the queue name to allocate resource for PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.queue` in PodGroup for the volcano.  # noqa: E501
 
         :param queue: The queue of this V2beta1SchedulingPolicy.  # noqa: E501
         :type queue: str
@@ -160,6 +168,7 @@ class V2beta1SchedulingPolicy(object):
     def schedule_timeout_seconds(self):
         """Gets the schedule_timeout_seconds of this V2beta1SchedulingPolicy.  # noqa: E501
 
+        SchedulerTimeoutSeconds defines the maximal time of members to wait before run the PodGroup. Currently, this parameter isn't respected in any case.  # noqa: E501
 
         :return: The schedule_timeout_seconds of this V2beta1SchedulingPolicy.  # noqa: E501
         :rtype: int
@@ -170,6 +179,7 @@ class V2beta1SchedulingPolicy(object):
     def schedule_timeout_seconds(self, schedule_timeout_seconds):
         """Sets the schedule_timeout_seconds of this V2beta1SchedulingPolicy.
 
+        SchedulerTimeoutSeconds defines the maximal time of members to wait before run the PodGroup. Currently, this parameter isn't respected in any case.  # noqa: E501
 
         :param schedule_timeout_seconds: The schedule_timeout_seconds of this V2beta1SchedulingPolicy.  # noqa: E501
         :type schedule_timeout_seconds: int
