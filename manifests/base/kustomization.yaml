@@ -16,17 +16,3 @@ images:
 - name: mpioperator/mpi-operator
   newName: mpioperator/mpi-operator
   newTag: latest
-configMapGenerator:
-- name: mpi-operator-config
-  envs:
-  - params.env
-generatorOptions:
-  disableNameSuffixHash: true
-vars:
-- name: lock-namespace
-  objref:
-    kind: ConfigMap
-    name: mpi-operator-config
-    apiVersion: v1
-  fieldref:
-    fieldpath: data.lock-namespace
