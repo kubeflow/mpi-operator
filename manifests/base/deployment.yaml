@@ -17,8 +17,6 @@ spec:
       containers:
       - args:
         - -alsologtostderr
-        - --lock-namespace
-        - $(lock-namespace)
         image: mpioperator/mpi-operator:latest
         name: mpi-operator
       serviceAccountName: mpi-operator
