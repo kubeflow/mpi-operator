@@ -22,14 +22,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kubeinformers "k8s.io/client-go/informers"
+	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -37,11 +40,12 @@ import (
 	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/pointer"
-	podgroupv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
+	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
+	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
+	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	volcanofake "volcano.sh/apis/pkg/client/clientset/versioned/fake"
-	volcanoinformers "volcano.sh/apis/pkg/client/informers/externalversions"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
@@ -63,15 +67,18 @@ type fixture struct {
 	client        *fake.Clientset
 	kubeClient    *k8sfake.Clientset
 	volcanoClient *volcanofake.Clientset
+	schedClient   *schedclientset.Clientset
 
 	// Objects to put in the store.
-	configMapLister []*corev1.ConfigMap
-	serviceLister   []*corev1.Service
-	secretLister    []*corev1.Secret
-	podGroupLister  []*podgroupv1beta1.PodGroup
-	jobLister       []*batchv1.Job
-	podLister       []*corev1.Pod
-	mpiJobLister    []*kubeflow.MPIJob
+	configMapLister       []*corev1.ConfigMap
+	serviceLister         []*corev1.Service
+	secretLister          []*corev1.Secret
+	volcanoPodGroupLister []*volcanov1beta1.PodGroup
+	schedPodGroupLister   []*schedv1alpha1.PodGroup
+	jobLister             []*batchv1.Job
+	podLister             []*corev1.Pod
+	priorityClassLister   []*schedulingv1.PriorityClass
+	mpiJobLister          []*kubeflow.MPIJob
 
 	// Actions expected to happen on the client.
 	kubeActions []core.Action
@@ -80,13 +87,16 @@ type fixture struct {
 	// Objects from here are pre-loaded into NewSimpleFake.
 	kubeObjects []runtime.Object
 	objects     []runtime.Object
+
+	gangSchedulingName string
 }
 
-func newFixture(t *testing.T) *fixture {
+func newFixture(t *testing.T, gangSchedulingName string) *fixture {
 	f := &fixture{}
 	f.t = t
 	f.objects = []runtime.Object{}
 	f.kubeObjects = []runtime.Object{}
+	f.gangSchedulingName = gangSchedulingName
 	return f
 }
 
@@ -148,28 +158,34 @@ func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.T
 	return mpiJob
 }
 
-func (f *fixture) newController(gangSchedulerName string, clock clock.WithTicker) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
-
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
-	volcanoInformerFactory := volcanoinformers.NewSharedInformerFactory(f.volcanoClient, 0)
-	podgroupsInformer := volcanoInformerFactory.Scheduling().V1beta1().PodGroups()
+	var podGroupCtrl PodGroupControl
+	if f.gangSchedulingName == options.GangSchedulerVolcano {
+		podGroupCtrl = NewVolcanoCtrl(f.volcanoClient, metav1.NamespaceAll)
+	} else if len(f.gangSchedulingName) != 0 {
+		podGroupCtrl = NewSchedulerPluginsCtrl(f.schedClient, metav1.NamespaceAll, "default-scheduler")
+	}
+	var priorityClassInformer schedulinginformers.PriorityClassInformer
+	if podGroupCtrl != nil {
+		priorityClassInformer = k8sI.Scheduling().V1().PriorityClasses()
+	}
 
 	c := NewMPIJobControllerWithClock(
 		f.kubeClient,
 		f.client,
-		f.volcanoClient,
+		podGroupCtrl,
 		k8sI.Core().V1().ConfigMaps(),
 		k8sI.Core().V1().Secrets(),
 		k8sI.Core().V1().Services(),
 		k8sI.Batch().V1().Jobs(),
 		k8sI.Core().V1().Pods(),
-		podgroupsInformer,
+		priorityClassInformer,
 		i.Kubeflow().V2beta1().MPIJobs(),
-		gangSchedulerName,
 		clock,
 	)
 
@@ -177,7 +193,7 @@ func (f *fixture) newController(gangSchedulerName string, clock clock.WithTicker
 	c.serviceSynced = alwaysReady
 	c.secretSynced = alwaysReady
 	c.podSynced = alwaysReady
-	c.podgroupsSynced = alwaysReady
+	c.podGroupSynced = alwaysReady
 	c.mpiJobSynced = alwaysReady
 	c.recorder = &record.FakeRecorder{}
 
@@ -216,10 +232,24 @@ func (f *fixture) newController(gangSchedulerName string, clock clock.WithTicker
 		}
 	}
 
-	for _, podGroup := range f.podGroupLister {
-		err := podgroupsInformer.Informer().GetIndexer().Add(podGroup)
-		if err != nil {
-			fmt.Println("Failed to create pod group")
+	if podGroupCtrl != nil {
+		for _, podGroup := range f.volcanoPodGroupLister {
+			err := podGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
+			if err != nil {
+				fmt.Println("Failed to create volcano pod group")
+			}
+		}
+		for _, podGroup := range f.schedPodGroupLister {
+			err := podGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
+			if err != nil {
+				fmt.Println("Failed to create scheduler-plugins pod group")
+			}
+		}
+		for _, priorityClass := range f.priorityClassLister {
+			err := k8sI.Scheduling().V1().PriorityClasses().Informer().GetIndexer().Add(priorityClass)
+			if err != nil {
+				fmt.Println("Failed to create priorityClass")
+			}
 		}
 	}
 
@@ -238,20 +268,23 @@ func (f *fixture) run(mpiJobName string) {
 }
 
 func (f *fixture) runWithClock(mpiJobName string, clock clock.WithTicker) {
-	f.runController(mpiJobName, true, false, "", clock)
+	f.runController(mpiJobName, true, false, clock)
 }
 
 func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true, "", clock.RealClock{})
+	f.runController(mpiJobName, true, true, clock.RealClock{})
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, gangSchedulerName string, clock clock.WithTicker) {
-	c, i, k8sI := f.newController(gangSchedulerName, clock)
+func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, clock clock.WithTicker) {
+	c, i, k8sI := f.newController(clock)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
 		i.Start(stopCh)
 		k8sI.Start(stopCh)
+		if c.podGroupCtrl != nil {
+			c.podGroupCtrl.StartInformerFactory(stopCh)
+		}
 	}
 
 	err := c.syncHandler(mpiJobName)
@@ -353,6 +386,8 @@ func filterInformerActions(actions []core.Action) []core.Action {
 				action.Matches("watch", "pods") ||
 				action.Matches("list", "podgroups") ||
 				action.Matches("watch", "podgroups") ||
+				action.Matches("list", "priorityclasses") ||
+				action.Matches("watch", "priorityclasses") ||
 				action.Matches("list", "mpijobs") ||
 				action.Matches("watch", "mpijobs")) {
 			continue
@@ -424,6 +459,11 @@ func (f *fixture) setUpSecret(secret *corev1.Secret) {
 	f.kubeObjects = append(f.kubeObjects, secret)
 }
 
+func (f *fixture) setUpPriorityClass(priorityClass *schedulingv1.PriorityClass) {
+	f.priorityClassLister = append(f.priorityClassLister, priorityClass)
+	f.kubeObjects = append(f.kubeObjects, priorityClass)
+}
+
 func setUpMPIJobTimestamp(mpiJob *kubeflow.MPIJob, startTime, completionTime *metav1.Time) {
 	if startTime != nil {
 		mpiJob.Status.StartTime = startTime
@@ -444,12 +484,12 @@ func getKey(mpiJob *kubeflow.MPIJob, t *testing.T) string {
 }
 
 func TestDoNothingWithInvalidKey(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	f.run("foo/bar/baz")
 }
 
 func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
@@ -457,7 +497,7 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 }
 
 func TestDoNothingWithInvalidMPIJob(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	// An empty MPIJob doesn't pass validation.
 	mpiJob := &kubeflow.MPIJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -473,7 +513,7 @@ func TestAllResourcesCreated(t *testing.T) {
 	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
-			f := newFixture(t)
+			f := newFixture(t, "")
 			now := metav1.Now()
 			mpiJob := newMPIJob("foo", newInt32(5), &now, nil)
 			mpiJob.Spec.MPIImplementation = implementation
@@ -512,7 +552,7 @@ func TestAllResourcesCreated(t *testing.T) {
 }
 
 func TestLauncherNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -530,7 +570,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 }
 
 func TestLauncherSucceeded(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
@@ -569,7 +609,7 @@ func TestLauncherSucceeded(t *testing.T) {
 }
 
 func TestLauncherFailed(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -624,7 +664,7 @@ func TestLauncherFailed(t *testing.T) {
 }
 
 func TestConfigMapNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -642,7 +682,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 }
 
 func TestWorkerServiceNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -660,7 +700,7 @@ func TestWorkerServiceNotControlledByUs(t *testing.T) {
 }
 
 func TestLauncherServiceNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -695,7 +735,7 @@ func TestLauncherServiceNotControlledByUs(t *testing.T) {
 }
 
 func TestSecretNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -721,7 +761,7 @@ func TestSecretNotControlledByUs(t *testing.T) {
 }
 
 func TestShutdownWorker(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -769,7 +809,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
-			f := newFixture(t)
+			f := newFixture(t, "")
 
 			// create a suspended job
 			var replicas int32 = 8
@@ -818,7 +858,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 }
 
 func TestSuspendedRunningMPIJob(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 
 	// setup a running MPIJob with a launcher
 	var replicas int32 = 8
@@ -906,7 +946,7 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 
 func TestResumeMPIJob(t *testing.T) {
 	fakeClock := clocktesting.NewFakeClock(time.Now().Truncate(time.Second))
-	f := newFixture(t)
+	f := newFixture(t, "")
 
 	// create a suspended job
 	var replicas int32 = 8
@@ -969,7 +1009,7 @@ func TestResumeMPIJob(t *testing.T) {
 }
 
 func TestWorkerNotControlledByUs(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -1000,7 +1040,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 }
 
 func TestLauncherActiveWorkerNotReady(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -1053,7 +1093,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 }
 
 func TestLauncherActiveWorkerReady(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
@@ -1112,7 +1152,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 }
 
 func TestWorkerReady(t *testing.T) {
-	f := newFixture(t)
+	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 

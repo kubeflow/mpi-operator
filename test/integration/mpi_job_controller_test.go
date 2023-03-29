@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,11 +29,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/pointer"
+	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
+	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
+	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
+	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
@@ -48,7 +53,7 @@ func TestMPIJobSuccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	s := newTestSetup(ctx, t)
-	startController(ctx, s.kClient, s.mpiClient)
+	startController(ctx, s.kClient, s.mpiClient, nil)
 
 	mpiJob := &kubeflow.MPIJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -100,7 +105,7 @@ func TestMPIJobSuccess(t *testing.T) {
 		Reason: "MPIJobCreated",
 	}, mpiJob))
 
-	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2)
+	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2, nil)
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {},
 		kubeflow.MPIReplicaTypeWorker:   {},
@@ -157,7 +162,7 @@ func TestMPIJobSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Updating launcher Job Complete condition: %v", err)
 	}
-	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
+	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0, nil)
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {
 			Succeeded: 1,
@@ -174,7 +179,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	s := newTestSetup(ctx, t)
-	startController(ctx, s.kClient, s.mpiClient)
+	startController(ctx, s.kClient, s.mpiClient, nil)
 
 	mpiJob := &kubeflow.MPIJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -232,7 +237,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 		Reason: "MPIJobSuspended",
 	}, mpiJob))
 
-	_, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
+	_, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0, nil)
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {},
 		kubeflow.MPIReplicaTypeWorker:   {},
@@ -263,7 +268,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 		Reason: "MPIJobResumed",
 	}, mpiJob))
 
-	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2)
+	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2, nil)
 
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {},
@@ -318,7 +323,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to delete mock pod for launcher Job: %v", err)
 	}
-	_, launcherJob = validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
+	_, launcherJob = validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0, nil)
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {},
 		kubeflow.MPIReplicaTypeWorker:   {},
@@ -338,7 +343,7 @@ func TestMPIJobFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	s := newTestSetup(ctx, t)
-	startController(ctx, s.kClient, s.mpiClient)
+	startController(ctx, s.kClient, s.mpiClient, nil)
 
 	mpiJob := &kubeflow.MPIJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -386,7 +391,7 @@ func TestMPIJobFailure(t *testing.T) {
 		t.Fatalf("Failed sending job to apiserver: %v", err)
 	}
 
-	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2)
+	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2, nil)
 
 	s.events.expect(eventForJob(corev1.Event{
 		Type:   corev1.EventTypeNormal,
@@ -445,7 +450,7 @@ func TestMPIJobFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Updating launcher Job Failed condition: %v", err)
 	}
-	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0)
+	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0, nil)
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {
 			Failed: 2,
@@ -458,24 +463,117 @@ func TestMPIJobFailure(t *testing.T) {
 	}
 }
 
-func startController(ctx context.Context, kClient kubernetes.Interface, mpiClient clientset.Interface) {
+func TestMPIJobWithSchedulerPlugins(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	s := newTestSetup(ctx, t)
+	gangSchedulerCfg := &gangSchedulerConfig{
+		schedulerName: "default-scheduler",
+		schedClient:   s.gangSchedulerCfg.schedClient,
+	}
+	startController(ctx, s.kClient, s.mpiClient, gangSchedulerCfg)
+
+	mpiJob := &kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "job",
+			Namespace: s.namespace,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			SlotsPerWorker: newInt32(1),
+			RunPolicy: kubeflow.RunPolicy{
+				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				SchedulingPolicy: &kubeflow.SchedulingPolicy{
+					ScheduleTimeoutSeconds: pointer.Int32(900),
+				},
+			},
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+				kubeflow.MPIReplicaTypeWorker: {
+					Replicas: newInt32(2),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	var err error
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending job to apiserver: %v", err)
+	}
+
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobCreated",
+	}, mpiJob))
+
+	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2, gangSchedulerCfg)
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	})
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
+		t.Errorf("MPIJob missing Created condition")
+	}
+	s.events.verify(t)
+}
+
+func startController(
+	ctx context.Context,
+	kClient kubernetes.Interface,
+	mpiClient clientset.Interface,
+	gangSchedulerCfg *gangSchedulerConfig,
+) {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kClient, 0)
 	mpiInformerFactory := informers.NewSharedInformerFactory(mpiClient, 0)
+
+	var podGroupCtrl controller.PodGroupControl
+	var priorityClassInformer schedulinginformers.PriorityClassInformer
+	if gangSchedulerCfg != nil {
+		priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
+		if gangSchedulerCfg.schedulerName == "volcano" {
+			podGroupCtrl = controller.NewVolcanoCtrl(gangSchedulerCfg.volcanoClient, metav1.NamespaceAll)
+		} else if len(gangSchedulerCfg.schedulerName) != 0 {
+			podGroupCtrl = controller.NewSchedulerPluginsCtrl(gangSchedulerCfg.schedClient, metav1.NamespaceAll, gangSchedulerCfg.schedulerName)
+		}
+	}
+
 	ctrl := controller.NewMPIJobController(
 		kClient,
 		mpiClient,
-		nil,
+		podGroupCtrl,
 		kubeInformerFactory.Core().V1().ConfigMaps(),
 		kubeInformerFactory.Core().V1().Secrets(),
 		kubeInformerFactory.Core().V1().Services(),
 		kubeInformerFactory.Batch().V1().Jobs(),
 		kubeInformerFactory.Core().V1().Pods(),
-		nil,
-		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-		"")
+		priorityClassInformer,
+		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs())
 
 	go kubeInformerFactory.Start(ctx.Done())
 	go mpiInformerFactory.Start(ctx.Done())
+	if podGroupCtrl != nil {
+		podGroupCtrl.StartInformerFactory(ctx.Done())
+	}
 
 	go func() {
 		if err := ctrl.Run(1, ctx.Done()); err != nil {
@@ -484,7 +582,14 @@ func startController(ctx context.Context, kClient kubernetes.Interface, mpiClien
 	}()
 }
 
-func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient kubernetes.Interface, job *kubeflow.MPIJob, workers int) ([]corev1.Pod, *batchv1.Job) {
+func validateMPIJobDependencies(
+	ctx context.Context,
+	t *testing.T,
+	kubeClient kubernetes.Interface,
+	job *kubeflow.MPIJob,
+	workers int,
+	gangSchedulingCfg *gangSchedulerConfig,
+) ([]corev1.Pod, *batchv1.Job) {
 	t.Helper()
 	var (
 		svc         *corev1.Service
@@ -492,6 +597,7 @@ func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient ku
 		secret      *corev1.Secret
 		workerPods  []corev1.Pod
 		launcherJob *batchv1.Job
+		podGroup    metav1.Object
 	)
 	var problems []string
 	if err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
@@ -531,6 +637,25 @@ func validateMPIJobDependencies(ctx context.Context, t *testing.T, kubeClient ku
 		}
 		if launcherJob == nil {
 			problems = append(problems, "Launcher Job not found")
+		}
+		if cfg := gangSchedulingCfg; cfg != nil {
+			if cfg.schedulerName == "volcano" {
+				podGroup, err = getVolcanoPodGroup(ctx, cfg.volcanoClient, job)
+				if err != nil {
+					return false, err
+				}
+				if podGroup == nil {
+					problems = append(problems, "Volcano PodGroup not found")
+				}
+			} else if len(cfg.schedulerName) != 0 {
+				podGroup, err = getSchedPodGroup(ctx, cfg.schedClient, job)
+				if err != nil {
+					return false, err
+				}
+				if podGroup == nil {
+					problems = append(problems, "Scheduler Plugins PodGroup not found")
+				}
+			}
 		}
 
 		if len(problems) == 0 {
@@ -658,6 +783,32 @@ func getLauncherJobForMPIJob(ctx context.Context, client kubernetes.Interface, m
 	for _, j := range result.Items {
 		if metav1.IsControlledBy(&j, mpiJob) {
 			return &j, nil
+		}
+	}
+	return nil, nil
+}
+
+func getSchedPodGroup(ctx context.Context, client schedclientset.Interface, job *kubeflow.MPIJob) (*schedv1alpha1.PodGroup, error) {
+	result, err := client.SchedulingV1alpha1().PodGroups(job.Namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, pg := range result.Items {
+		if metav1.IsControlledBy(&pg, job) {
+			return &pg, nil
+		}
+	}
+	return nil, nil
+}
+
+func getVolcanoPodGroup(ctx context.Context, client volcanoclient.Interface, job *kubeflow.MPIJob) (*volcanov1beta1.PodGroup, error) {
+	result, err := client.SchedulingV1beta1().PodGroups(job.Namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, pg := range result.Items {
+		if metav1.IsControlledBy(&pg, job) {
+			return &pg, nil
 		}
 	}
 	return nil, nil

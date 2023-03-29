@@ -25,7 +25,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,6 +32,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
+	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
+
+	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 )
 
 var (
@@ -41,7 +44,10 @@ var (
 
 func TestMain(m *testing.M) {
 	env := &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "manifests", "base")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "manifests", "base"),
+			filepath.Join("..", "..", "dep-crds", "scheduler-plugins"),
+		},
 	}
 	var err error
 	restConfig, err = env.Start()
@@ -59,10 +65,17 @@ func TestMain(m *testing.M) {
 }
 
 type testSetup struct {
-	kClient   kubernetes.Interface
-	mpiClient clientset.Interface
-	namespace string
-	events    *eventChecker
+	kClient          kubernetes.Interface
+	mpiClient        clientset.Interface
+	namespace        string
+	events           *eventChecker
+	gangSchedulerCfg *gangSchedulerConfig
+}
+
+type gangSchedulerConfig struct {
+	schedulerName string
+	volcanoClient volcanoclient.Interface
+	schedClient   schedclientset.Interface
 }
 
 func newTestSetup(ctx context.Context, t *testing.T) testSetup {
@@ -74,6 +87,14 @@ func newTestSetup(ctx context.Context, t *testing.T) testSetup {
 	mpiClient, err := clientset.NewForConfig(restConfig)
 	if err != nil {
 		t.Fatalf("Creating MPI client: %v", err)
+	}
+	volcanoClient, err := volcanoclient.NewForConfig(restConfig)
+	if err != nil {
+		t.Fatalf("Creating Volcano client: %v", err)
+	}
+	schedClient, err := schedclientset.NewForConfig(restConfig)
+	if err != nil {
+		t.Fatalf("Creating scheduler-plugins client: %v", err)
 	}
 	ns, cleanup, err := createTestNamespace(ctx, kubeClient)
 	if err != nil {
@@ -93,6 +114,10 @@ func newTestSetup(ctx context.Context, t *testing.T) testSetup {
 		mpiClient: mpiClient,
 		namespace: ns,
 		events:    evChecker,
+		gangSchedulerCfg: &gangSchedulerConfig{
+			volcanoClient: volcanoClient,
+			schedClient:   schedClient,
+		},
 	}
 }
 

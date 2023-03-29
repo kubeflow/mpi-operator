@@ -35,6 +35,8 @@ ENVTEST_K8S_VERSION=1.25.0
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
+# Use go.mod go version as a single source of truth of scheduler-plugins version.
+SCHEDULER_PLUGINS_VERSION?=$(shell awk '/scheduler-plugins/{print $$2}' go.mod|head -n1)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
@@ -59,8 +61,8 @@ vet:
 
 .PHONY: test
 test:
-test: bin/envtest
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -covermode atomic -coverprofile=profile.cov $(shell go list ./... | grep -v '/test/e2e')
+test: bin/envtest scheduler-plugins-crd
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v -covermode atomic -coverprofile=profile.cov $(shell go list ./... | grep -v '/test/e2e')
 
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
@@ -151,3 +153,9 @@ KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 .PHONY: kustomize
 kustomize:
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
+
+.PHONY: scheduler-plugins-crd
+scheduler-plugins-crd:
+	GOPATH=/tmp go get sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)
+	mkdir -p $(PROJECT_DIR)/dep-crds/scheduler-plugins/
+	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/coscheduling/* $(PROJECT_DIR)/dep-crds/scheduler-plugins

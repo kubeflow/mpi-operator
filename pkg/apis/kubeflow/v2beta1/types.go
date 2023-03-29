@@ -53,11 +53,12 @@ const (
 
 // SchedulingPolicy encapsulates various scheduling policies of the distributed training
 // job, for example `minAvailable` for gang-scheduling.
+// Now, it supports only for volcano and scheduler-plugins.
 type SchedulingPolicy struct {
 	// MinAvailable defines the minimal number of member to run the PodGroup.
-	// If the gang-scheduling is set to the volcano,
-	// input is passed to `.spec.mimMember` in PodGroup for the volcano.
-	// When using this field, you need to make sure the application supports resizing (e.g., Elastic Horovod).
+	// If the gang-scheduling isn't empty, input is passed to `.spec.minMember` in PodGroup.
+	// Note that, when using this field,
+	// you need to make sure the application supports resizing (e.g., Elastic Horovod).
 	//
 	// If not set, it defaults to the number of workers.
 	// +optional
@@ -65,25 +66,30 @@ type SchedulingPolicy struct {
 
 	// Queue defines the queue name to allocate resource for PodGroup.
 	// If the gang-scheduling is set to the volcano,
-	// input is passed to `.spec.queue` in PodGroup for the volcano.
+	// input is passed to `.spec.queue` in PodGroup for the volcano,
+	// and if it is set to the scheduler-plugins,
+	// input isn't passed to PodGroup.
 	// +optional
 	Queue string `json:"queue,omitempty"`
 
 	// MinResources defines the minimal resources of members to run the PodGroup.
-	// If the gang-scheduling is set to the volcano,
-	// input is passed to `.spec.mimResources` in PodGroup for volcano.
+	// If the gang-scheduling isn't empty,
+	// input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.
 	// +optional
 	MinResources *v1.ResourceList `json:"minResources,omitempty"`
 
 	// PriorityClass defines the PodGroup's PriorityClass.
 	// If the gang-scheduling is set to the volcano,
-	// input is passed to `.spec.priorityClassName` in PodGroup for volcano.
+	// input is passed to `.spec.priorityClassName` in PodGroup for volcano,
+	// and if it is set to the scheduler-plugins,
+	// input isn't passed to PodGroup for scheduler-plugins.
 	// +optional
 	PriorityClass string `json:"priorityClass,omitempty"`
 
 	// SchedulerTimeoutSeconds defines the maximal time of members to wait before run the PodGroup.
-	// Currently, this parameter isn't respected in any case.
-	// TODO (tenzen-y): Modify comments when supporting scheduler-plugins.
+	// If the gang-scheduling is set to the scheduler-plugins,
+	// input is passed to `.spec.scheduleTimeoutSeconds` in PodGroup for the scheduler-plugins,
+	// and if it is set to the volcano, input isn't passed to PodGroup.
 	// +optional
 	ScheduleTimeoutSeconds *int32 `json:"scheduleTimeoutSeconds,omitempty"`
 }

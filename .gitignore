@@ -4,3 +4,4 @@ _output/
 bin/
 profile.cov
 hack/python-sdk/openapi-generator-cli.jar
+dep-crds/
