@@ -673,10 +673,11 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by volcano.
 func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1.Object, error) {
-	podGroup, err := c.podGroupCtrl.getPodGroup(mpiJob.Namespace, mpiJob.Name)
+	newPodGroup := c.podGroupCtrl.newPodGroup(mpiJob)
+	podGroup, err := c.podGroupCtrl.getPodGroup(newPodGroup.GetNamespace(), newPodGroup.GetName())
 	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		podGroup, err = c.podGroupCtrl.createPodGroup(context.TODO(), mpiJob.Namespace, c.podGroupCtrl.newPodGroup(mpiJob))
+		return c.podGroupCtrl.createPodGroup(context.TODO(), newPodGroup)
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -690,6 +691,10 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1
 		msg := fmt.Sprintf(MessageResourceExists, podGroup.GetName(), "PodGroup")
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
 		return nil, fmt.Errorf(msg)
+	}
+
+	if !c.podGroupCtrl.pgSpecsAreEqual(podGroup, newPodGroup) {
+		return c.podGroupCtrl.updatePodGroup(context.TODO(), podGroup, newPodGroup)
 	}
 	return podGroup, nil
 }

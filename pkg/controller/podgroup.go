@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulinglisters "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/client-go/tools/cache"
@@ -51,15 +52,17 @@ type PodGroupControl interface {
 	// getPodGroup will return a podGroup.
 	getPodGroup(namespace, name string) (metav1.Object, error)
 	// createPodGroup will create  a podGroup.
-	createPodGroup(ctx context.Context, namespace string, pg metav1.Object) (metav1.Object, error)
+	createPodGroup(ctx context.Context, pg metav1.Object) (metav1.Object, error)
 	// updatePodGroup will update a podGroup.
-	updatePodGroup(ctx context.Context, namespace string, pg metav1.Object) (metav1.Object, error)
+	updatePodGroup(ctx context.Context, old, new metav1.Object) (metav1.Object, error)
 	// deletePodGroup will delete a podGroup.
 	deletePodGroup(ctx context.Context, namespace, name string) error
 	// decoratePodTemplateSpec will decorate the podTemplate before it's used to generate a pod with information for gang-scheduling.
 	decoratePodTemplateSpec(pts *corev1.PodTemplateSpec, mpiJobName string)
 	// calculatePGMinResources will calculate minResources for podGroup.
 	calculatePGMinResources(minMember *int32, mpiJob *kubeflow.MPIJob) *corev1.ResourceList
+	// podGroupSpecIsDeepEqual will return true if the spec fields of two podGroup are equals.
+	pgSpecsAreEqual(a, b metav1.Object) bool
 }
 
 // VolcanoCtrl is the implementation fo PodGroupControl with volcano.
@@ -136,14 +139,16 @@ func (v *VolcanoCtrl) getPodGroup(namespace, name string) (metav1.Object, error)
 	return v.PodGroupInformer.Lister().PodGroups(namespace).Get(name)
 }
 
-func (v *VolcanoCtrl) createPodGroup(ctx context.Context, namespace string, pg metav1.Object) (metav1.Object, error) {
+func (v *VolcanoCtrl) createPodGroup(ctx context.Context, pg metav1.Object) (metav1.Object, error) {
 	podGroup := pg.(*volcanov1beta1.PodGroup)
-	return v.Client.SchedulingV1beta1().PodGroups(namespace).Create(ctx, podGroup, metav1.CreateOptions{})
+	return v.Client.SchedulingV1beta1().PodGroups(pg.GetNamespace()).Create(ctx, podGroup, metav1.CreateOptions{})
 }
 
-func (v *VolcanoCtrl) updatePodGroup(ctx context.Context, namespace string, pg metav1.Object) (metav1.Object, error) {
-	podGroup := pg.(*volcanov1beta1.PodGroup)
-	return v.Client.SchedulingV1beta1().PodGroups(namespace).Update(ctx, podGroup, metav1.UpdateOptions{})
+func (v *VolcanoCtrl) updatePodGroup(ctx context.Context, old, new metav1.Object) (metav1.Object, error) {
+	oldPG := old.(*volcanov1beta1.PodGroup)
+	newPG := new.(*volcanov1beta1.PodGroup)
+	oldPG.Spec = newPG.Spec
+	return v.Client.SchedulingV1beta1().PodGroups(oldPG.GetNamespace()).Update(ctx, oldPG, metav1.UpdateOptions{})
 }
 
 func (v *VolcanoCtrl) deletePodGroup(ctx context.Context, namespace, name string) error {
@@ -167,6 +172,12 @@ func (v *VolcanoCtrl) calculatePGMinResources(_ *int32, mpiJob *kubeflow.MPIJob)
 		return schedPolicy.MinResources
 	}
 	return nil
+}
+
+func (v *VolcanoCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
+	PGa := a.(*volcanov1beta1.PodGroup)
+	PGb := b.(*volcanov1beta1.PodGroup)
+	return equality.Semantic.DeepEqual(PGa.Spec, PGb.Spec)
 }
 
 var _ PodGroupControl = &VolcanoCtrl{}
@@ -244,14 +255,16 @@ func (s *SchedulerPluginsCtrl) getPodGroup(namespace, name string) (metav1.Objec
 	return s.PodGroupInformer.Lister().PodGroups(namespace).Get(name)
 }
 
-func (s *SchedulerPluginsCtrl) createPodGroup(ctx context.Context, namespace string, pg metav1.Object) (metav1.Object, error) {
+func (s *SchedulerPluginsCtrl) createPodGroup(ctx context.Context, pg metav1.Object) (metav1.Object, error) {
 	podGroup := pg.(*schedv1alpha1.PodGroup)
-	return s.Client.SchedulingV1alpha1().PodGroups(namespace).Create(ctx, podGroup, metav1.CreateOptions{})
+	return s.Client.SchedulingV1alpha1().PodGroups(pg.GetNamespace()).Create(ctx, podGroup, metav1.CreateOptions{})
 }
 
-func (s *SchedulerPluginsCtrl) updatePodGroup(ctx context.Context, namespace string, pg metav1.Object) (metav1.Object, error) {
-	podGroup := pg.(*schedv1alpha1.PodGroup)
-	return s.Client.SchedulingV1alpha1().PodGroups(namespace).Update(ctx, podGroup, metav1.UpdateOptions{})
+func (s *SchedulerPluginsCtrl) updatePodGroup(ctx context.Context, old, new metav1.Object) (metav1.Object, error) {
+	oldPG := old.(*schedv1alpha1.PodGroup)
+	newPG := new.(*schedv1alpha1.PodGroup)
+	oldPG.Spec = newPG.Spec
+	return s.Client.SchedulingV1alpha1().PodGroups(oldPG.GetNamespace()).Update(ctx, oldPG, metav1.UpdateOptions{})
 }
 
 func (s *SchedulerPluginsCtrl) deletePodGroup(ctx context.Context, namespace, name string) error {
@@ -325,6 +338,12 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 		}
 	}
 	return &minResources
+}
+
+func (s *SchedulerPluginsCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
+	PGa := a.(*schedv1alpha1.PodGroup)
+	PGb := b.(*schedv1alpha1.PodGroup)
+	return equality.Semantic.DeepEqual(PGa.Spec, PGb.Spec)
 }
 
 var _ PodGroupControl = &SchedulerPluginsCtrl{}

@@ -515,6 +515,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 			},
 		},
 	}
+	// 1. Create MPIJob
 	var err error
 	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
 	if err != nil {
@@ -535,6 +536,23 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 		t.Errorf("MPIJob missing Created condition")
 	}
 	s.events.verify(t)
+
+	// 2. Update SchedulingPolicy of MPIJob
+	updatedScheduleTimeSeconds := int32(10)
+	mpiJob.Spec.RunPolicy.SchedulingPolicy.ScheduleTimeoutSeconds = &updatedScheduleTimeSeconds
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Errorf("Failed sending job to apiserver: %v", err)
+	}
+	if err = wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
+		pg, err := getSchedPodGroup(ctx, gangSchedulerCfg.schedClient, mpiJob)
+		if err != nil {
+			return false, err
+		}
+		return *pg.Spec.ScheduleTimeoutSeconds == updatedScheduleTimeSeconds, nil
+	}); err != nil {
+		t.Errorf("Failed updating scheduler-plugins PodGroup: %v", err)
+	}
 }
 
 func startController(
