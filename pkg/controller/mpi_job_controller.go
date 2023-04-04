@@ -598,10 +598,14 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
-			if err != nil {
-				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
-				return fmt.Errorf("creating launcher Pod: %w", err)
+			if !mpiJob.Spec.WaitForWorkers || c.countReadyWorkerPods(worker) == len(worker) {
+				launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
+				if err != nil {
+					c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
+					return fmt.Errorf("creating launcher Pod: %w", err)
+				}
+			} else {
+				klog.V(4).Infof("Waiting for workers %s/%s to start.", mpiJob.Namespace, mpiJob.Name)
 			}
 		}
 	}
@@ -748,6 +752,18 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 	}
 
 	return podList, nil
+}
+
+func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) (int) {
+	ready := 0
+	for _, pod := range workers {
+		for _, c := range pod.Status.Conditions {
+			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+				ready++
+			}
+		}
+	}
+	return ready
 }
 
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
@@ -985,14 +1001,15 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			mpiJob.Status.StartTime = &now
 		}
 	}
-	launcherPods, err := c.jobPods(launcher)
-	if err != nil {
-		return fmt.Errorf("checking launcher pods running: %w", err)
-	}
-	// Job.status.Active accounts for Pending and Running pods. Count running pods
-	// from the lister instead.
-	launcherPodsCnt := countRunningPods(launcherPods)
+        launcherPodsCnt := 0
 	if launcher != nil {
+		launcherPods, err := c.jobPods(launcher)
+		if err != nil {
+			return fmt.Errorf("checking launcher pods running: %w", err)
+		}
+		// Job.status.Active accounts for Pending and Running pods. Count running pods
+		// from the lister instead.
+		launcherPodsCnt := countRunningPods(launcherPods)
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
 		launcherStatus := mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher]
 		launcherStatus.Failed = launcher.Status.Failed

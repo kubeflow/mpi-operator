@@ -345,6 +345,10 @@
         "sshAuthMountPath": {
           "description": "SSHAuthMountPath is the directory where SSH keys are mounted. Defaults to \"/root/.ssh\".",
           "type": "string"
+        },
+        "waitForWorkers": {
+          "description": "Spawn launcher pod only after all worker pods are in Ready state. Defaults to false.",
+          "type": "boolean"
         }
       }
     },

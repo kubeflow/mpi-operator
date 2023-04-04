@@ -7919,6 +7919,10 @@ spec:
                 description: SSHAuthMountPath is the directory where SSH keys are
                   mounted. Defaults to "/root/.ssh".
                 type: string
+              waitForWorkers:
+                default: false
+                description: WaitForWorkers specifies whether to spawn launcher after all workers are in Ready state.
+                type: boolean 
             required:
             - mpiReplicaSpecs
             type: object

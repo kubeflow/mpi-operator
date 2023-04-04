@@ -486,6 +486,12 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
+					"waitForWorkers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spawn launcher only after all workers are in ready state. Defaults to false.",
+							Type:	     []string{"boolean"},
+						},
+					},
 					"mpiImplementation": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) and \"Intel\".",

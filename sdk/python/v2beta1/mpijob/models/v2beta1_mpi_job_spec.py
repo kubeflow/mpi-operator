@@ -37,7 +37,8 @@ class V2beta1MPIJobSpec(object):
         'mpi_replica_specs': 'dict(str, V1ReplicaSpec)',
         'run_policy': 'V2beta1RunPolicy',
         'slots_per_worker': 'int',
-        'ssh_auth_mount_path': 'str'
+        'ssh_auth_mount_path': 'str',
+        'wait_for_workers': 'bool'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class V2beta1MPIJobSpec(object):
         'mpi_replica_specs': 'mpiReplicaSpecs',
         'run_policy': 'runPolicy',
         'slots_per_worker': 'slotsPerWorker',
-        'ssh_auth_mount_path': 'sshAuthMountPath'
+        'ssh_auth_mount_path': 'sshAuthMountPath',
+        'wait_for_workers': 'waitForWorkers'
     }
 
-    def __init__(self, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, wait_for_workers=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1MPIJobSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration.get_default_copy()
@@ -59,6 +61,7 @@ class V2beta1MPIJobSpec(object):
         self._run_policy = None
         self._slots_per_worker = None
         self._ssh_auth_mount_path = None
+        self._wait_for_workers = None
         self.discriminator = None
 
         if mpi_implementation is not None:
@@ -70,6 +73,8 @@ class V2beta1MPIJobSpec(object):
             self.slots_per_worker = slots_per_worker
         if ssh_auth_mount_path is not None:
             self.ssh_auth_mount_path = ssh_auth_mount_path
+        if wait_for_workers is not None:
+            self.wait_for_workers = wait_for_workers
 
     @property
     def mpi_implementation(self):
@@ -185,6 +190,29 @@ class V2beta1MPIJobSpec(object):
         """
 
         self._ssh_auth_mount_path = ssh_auth_mount_path
+
+    @property
+    def wait_for_workers(self):
+        """Gets the wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
+
+        WaitForWorkers specifies whether to spawn launcher after all workers are in Ready state.  # noqa: E501
+
+        :return: The wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._wait_for_workers
+
+    @wait_for_workers.setter
+    def wait_for_workers(self, wait_for_workers):
+        """Sets the wait_for_workers of this V2beta1MPIJobSpec.
+
+        WaitForWorkers specifies whether to spawn launcher after all workers are in Ready state.  # noqa: E501
+
+        :param wait_for_workers: The wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
+        :type wait_for_workers: bool
+        """
+
+        self._wait_for_workers = wait_for_workers
 
     def to_dict(self, serialize=False):
         """Returns the model properties as a dict"""

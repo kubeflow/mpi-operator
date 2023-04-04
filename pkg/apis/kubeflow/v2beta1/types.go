@@ -154,6 +154,9 @@ type MPIJobSpec struct {
 	// +kubebuilder:default:="/root/.ssh"
 	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
 
+	// WaitForWorkers if true, the launcher is created only after all workers are in Ready state
+	WaitForWorkers bool `json:"waitForWorkers,omitempty"`
+
 	// MPIImplementation is the MPI implementation.
 	// Options are "OpenMPI" (default) and "Intel".
 	// +kubebuilder:validation:Enum:=OpenMPI;Intel
