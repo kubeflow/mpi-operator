@@ -306,6 +306,7 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 	for rt, replica := range mpiJob.Spec.MPIReplicaSpecs {
 		rp := replicaPriority{
 			priority:    0,
+			replicaType: rt,
 			ReplicaSpec: *replica,
 		}
 		pcName := replica.Template.Spec.PriorityClassName
@@ -322,8 +323,17 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 	sort.Sort(sort.Reverse(order))
 	// Launcher + Worker > minMember
 	if minMember != nil && *order[0].Replicas+*order[1].Replicas > *minMember {
-		// NUM(Workers) = minMember - NUM(Launcher)
-		order[1].Replicas = pointer.Int32(*minMember - 1)
+		// If the launcher and workers have the same priority, it treats workers as a lower priority.
+		if order[0].priority == order[1].priority {
+			wIndex := order.getWorkerIndex()
+			if wIndex == -1 {
+				klog.Warningf("Couldn't find the worker replicas")
+				return nil
+			}
+			order[wIndex].Replicas = pointer.Int32(*minMember - 1)
+		} else {
+			order[1].Replicas = pointer.Int32(*minMember - 1)
+		}
 	}
 
 	minResources := corev1.ResourceList{}
@@ -403,7 +413,8 @@ func addResources(minResources corev1.ResourceList, resources corev1.ResourceReq
 }
 
 type replicaPriority struct {
-	priority int32
+	priority    int32
+	replicaType kubeflow.MPIReplicaType
 
 	common.ReplicaSpec
 }
@@ -420,4 +431,15 @@ func (p replicasOrder) Less(i, j int) bool {
 
 func (p replicasOrder) Swap(i, j int) {
 	p[i], p[j] = p[j], p[i]
+}
+
+// getWorkerIndex will return an index holding the replicaSpec for the worker.
+// If the worker doesn't exist, it returns -1.
+func (p replicasOrder) getWorkerIndex() int {
+	for i := range p {
+		if p[i].replicaType == kubeflow.MPIReplicaTypeWorker {
+			return i
+		}
+	}
+	return -1
 }
