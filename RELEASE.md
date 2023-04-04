@@ -1,5 +1,14 @@
 # MPI Operator Releases
 
+## Release v0.4.0
+* Breaking changes
+  * Removed v1 operator. If you want to use MPIJob v1, you can use the training-operator.
+* Support for suspending semantics. Third party controllers can leverage the suspend field to implement queuing and preemption for an MPIJob.
+* Support for the coscheduling plugins of the scheduler-plugins. 
+* The operator supports multi-architecture (amd64, aarch64, and ppc64le).
+* Bug fixes
+  * Fix support for elastic Horovod.
+
 ## Release v0.3.0
 
 * Scalability improvements
