@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,13 +29,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	controllerruntime "sigs.k8s.io/controller-runtime"
+	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
+
+	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 )
 
 const (
-	envUseExistingCluster   = "USE_EXISTING_CLUSTER"
-	envUseExistingOperator  = "USE_EXISTING_OPERATOR"
-	envTestMPIOperatorImage = "TEST_MPI_OPERATOR_IMAGE"
-	envTestKindImage        = "TEST_KIND_IMAGE"
+	envUseExistingCluster      = "USE_EXISTING_CLUSTER"
+	envUseExistingOperator     = "USE_EXISTING_OPERATOR"
+	envTestMPIOperatorImage    = "TEST_MPI_OPERATOR_IMAGE"
+	envTestKindImage           = "TEST_KIND_IMAGE"
+	envSchedulerPluginsVersion = "SCHEDULER_PLUGINS_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
 	defaultKindImage        = "kindest/node:v1.25.3"
@@ -45,29 +48,40 @@ const (
 	rootPath                = "../.."
 	kubectlPath             = rootPath + "/bin/kubectl"
 	kindPath                = rootPath + "/bin/kind"
+	helmPath                = rootPath + "/bin/helm"
 	operatorManifestsPath   = rootPath + "/manifests/overlays/dev"
 
-	mpiOperator = "mpi-operator"
+	schedulerPluginsManifestPath   = rootPath + "/dep-manifests/scheduler-plugins/"
+	envUseExistingSchedulerPlugins = "USE_EXISTING_SCHEDULER_PLUGINS"
+	defaultSchedulerPluginsVersion = "v0.25.7"
+
+	mpiOperator      = "mpi-operator"
+	schedulerPlugins = "scheduler-plugins"
 
 	waitInterval   = 500 * time.Millisecond
 	foreverTimeout = 200 * time.Second
 )
 
 var (
-	useExistingCluster  bool
-	useExistingOperator bool
-	mpiOperatorImage    string
-	kindImage           string
+	useExistingCluster          bool
+	useExistingOperator         bool
+	useExistingSchedulerPlugins bool
+	mpiOperatorImage            string
+	kindImage                   string
+	schedulerPluginsVersion     string
 
-	k8sClient kubernetes.Interface
-	mpiClient clientset.Interface
+	k8sClient   kubernetes.Interface
+	mpiClient   clientset.Interface
+	schedClient schedclientset.Interface
 )
 
 func init() {
 	useExistingCluster = getEnvDefault(envUseExistingCluster, "false") == "true"
 	useExistingOperator = getEnvDefault(envUseExistingOperator, "false") == "true"
+	useExistingSchedulerPlugins = getEnvDefault(envUseExistingSchedulerPlugins, "false") == "true"
 	mpiOperatorImage = getEnvDefault(envTestMPIOperatorImage, defaultMPIOperatorImage)
 	kindImage = getEnvDefault(envTestKindImage, defaultKindImage)
+	schedulerPluginsVersion = getEnvDefault(envSchedulerPluginsVersion, defaultSchedulerPluginsVersion)
 }
 
 func TestE2E(t *testing.T) {
@@ -91,12 +105,14 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	mpiClient, err = clientset.NewForConfig(restConfig)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	schedClient, err = schedclientset.NewForConfig(restConfig)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 	if !useExistingOperator {
 		ginkgo.By("Installing operator")
 		err = installOperator()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
-
 	return nil
 }, func([]byte) {})
 
@@ -139,14 +155,32 @@ func installOperator() error {
 	}
 	ctx := context.Background()
 	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
-		deployment, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-		if err != nil {
+		return ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
+	})
+}
+
+func installSchedulerPlugins() error {
+	// TODO: Remove flags to overwrite images once the scheduler-plugins with the appropriate helm charts is released.
+	// In the specific scheudler-plugins version such as v0.25.7, manifests are incorrect.
+	// So we overwrite images.
+	overwriteControllerImage := fmt.Sprintf("controller.image=registry.k8s.io/scheduler-plugins/controller:%s", schedulerPluginsVersion)
+	overwriteSchedulerImage := fmt.Sprintf("scheduler.image=registry.k8s.io/scheduler-plugins/kube-scheduler:%s", schedulerPluginsVersion)
+	err := runCommand(helmPath, "install", "scheduler-plugins", schedulerPluginsManifestPath, "--create-namespace", "--namespace", schedulerPlugins,
+		"--set", overwriteSchedulerImage, "--set", overwriteControllerImage)
+	if err != nil {
+		return fmt.Errorf("installing scheduler-plugins Helm Chart: %w", err)
+	}
+	ctx := context.Background()
+	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+		controllerName := fmt.Sprintf("%s-controller", schedulerPlugins)
+		if ok, err := ensureDeploymentAvailableReplicas(ctx, schedulerPlugins, controllerName); !ok || err != nil {
 			return false, err
 		}
-		return deployment.Status.AvailableReplicas != 0, nil
+		schedulerName := fmt.Sprintf("%s-scheduler", schedulerPlugins)
+		if ok, err := ensureDeploymentAvailableReplicas(ctx, schedulerPlugins, schedulerName); !ok || err != nil {
+			return false, err
+		}
+		return true, nil
 	})
 }
 
@@ -155,4 +189,15 @@ func runCommand(name string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return cmd.Run()
+}
+
+func ensureDeploymentAvailableReplicas(ctx context.Context, namespace, name string) (bool, error) {
+	deployment, err := k8sClient.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return deployment.Status.AvailableReplicas != 0, nil
 }

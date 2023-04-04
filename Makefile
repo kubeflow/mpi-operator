@@ -29,6 +29,7 @@ LD_FLAGS_V2=" \
 IMAGE_NAME?=mpioperator/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
 KIND_VERSION=v0.17.0
+HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
 KUBECTL_VERSION=v1.25.6
 ENVTEST_K8S_VERSION=1.25.0
@@ -67,8 +68,8 @@ test: bin/envtest scheduler-plugins-crd
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
 test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
-test_e2e: bin/kubectl kind images test_images dev_manifest
-	go test -v ./test/e2e/...
+test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
+	SCHEDULER_PLUGINS_VERSION=$(SCHEDULER_PLUGINS_VERSION) go test -v ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
@@ -143,6 +144,10 @@ bin/kubectl: bin
 kind: bin
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/kind@${KIND_VERSION}
 
+.PHONY: helm
+helm: bin
+	@GOBIN=$(PROJECT_DIR)/bin go install helm.sh/helm/v3/cmd/helm@${HELM_VERSION}
+
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
@@ -154,8 +159,27 @@ KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 kustomize:
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
 
+# The build via `go install` will fail with the following err:
+# > The go.mod file for the module providing named packages contains one or
+#   more replace directives. It must not contain directives that would cause
+#   it to be interpreted differently than if it were the main module.
+# However, we can ignore the above error since it is only necessary to download the manifests.
+.PHONY: scheduler-plugins
+scheduler-plugins:
+	-@GOPATH=/tmp go install sigs.k8s.io/scheduler-plugins/cmd/controller@$(SCHEDULER_PLUGINS_VERSION)
+
 .PHONY: scheduler-plugins-crd
-scheduler-plugins-crd:
-	GOPATH=/tmp go get sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)
+scheduler-plugins-crd: scheduler-plugins
 	mkdir -p $(PROJECT_DIR)/dep-crds/scheduler-plugins/
 	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/coscheduling/* $(PROJECT_DIR)/dep-crds/scheduler-plugins
+
+.PHONY: scheduler-plugins-chart
+scheduler-plugins-chart: scheduler-plugins-crd
+	mkdir -p $(PROJECT_DIR)/dep-manifests/scheduler-plugins/
+	cp -rf /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/install/charts/as-a-second-scheduler/* $(PROJECT_DIR)/dep-manifests/scheduler-plugins
+	mkdir -p $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds
+	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/appgroup/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/appgroup.diktyo.x-k8s.io_appgroups.yaml
+	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/networktopology/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/networktopology.diktyo.x-k8s.io_networktopologies.yaml
+	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/capacityscheduling/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/scheduling.x-k8s.io_elasticquotas.yaml
+	cp -f $(PROJECT_DIR)/dep-crds/scheduler-plugins/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/scheduling.x-k8s.io_podgroups.yaml
+	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/noderesourcetopology/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/topology.node.k8s.io_noderesourcetopologies.yaml
