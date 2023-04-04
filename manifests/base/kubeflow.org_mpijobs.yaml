@@ -7922,7 +7922,7 @@ spec:
               waitForWorkers:
                 description: WaitForWorkers if true, the launcher is created only
                   after all workers are in Ready state
-                type: boolean 
+                type: boolean
             required:
             - mpiReplicaSpecs
             type: object
