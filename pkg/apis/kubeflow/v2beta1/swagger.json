@@ -347,7 +347,7 @@
           "type": "string"
         },
         "waitForWorkers": {
-          "description": "Spawn launcher pod only after all worker pods are in Ready state. Defaults to false.",
+          "description": "WaitForWorkers if true, the launcher is created only after all workers are in Ready state",
           "type": "boolean"
         }
       }

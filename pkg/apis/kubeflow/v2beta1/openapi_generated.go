@@ -489,7 +489,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 					"waitForWorkers": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spawn launcher only after all workers are in ready state. Defaults to false.",
-							Type:	     []string{"boolean"},
+							Type:        []string{"boolean"},
 						},
 					},
 					"mpiImplementation": {

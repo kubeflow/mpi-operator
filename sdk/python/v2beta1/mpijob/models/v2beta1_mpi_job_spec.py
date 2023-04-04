@@ -195,10 +195,10 @@ class V2beta1MPIJobSpec(object):
     def wait_for_workers(self):
         """Gets the wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
 
-        WaitForWorkers specifies whether to spawn launcher after all workers are in Ready state.  # noqa: E501
+        WaitForWorkers if true, the launcher is created only after all workers are in Ready state  # noqa: E501
 
         :return: The wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
-        :rtype: str
+        :rtype: bool
         """
         return self._wait_for_workers
 
@@ -206,7 +206,7 @@ class V2beta1MPIJobSpec(object):
     def wait_for_workers(self, wait_for_workers):
         """Sets the wait_for_workers of this V2beta1MPIJobSpec.
 
-        WaitForWorkers specifies whether to spawn launcher after all workers are in Ready state.  # noqa: E501
+        WaitForWorkers if true, the launcher is created only after all workers are in Ready state  # noqa: E501
 
         :param wait_for_workers: The wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
         :type wait_for_workers: bool
