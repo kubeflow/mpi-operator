@@ -22,6 +22,7 @@ CONTROLLER_VERSION?=v2
 BASE_IMAGE_SSH_PORT?=2222
 IMG_BUILDER=docker
 PLATFORMS ?= linux/amd64
+INTEL_PLATFORMS ?= linux/amd64
 LD_FLAGS_V2=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
     -X '${REPO_PATH}/pkg/version.Built=${Date}'   \
@@ -104,9 +105,9 @@ test_images:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/openmpi:${RELEASE_VERSION} build/base -f build/base/openmpi.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t mpioperator/openmpi-builder:${RELEASE_VERSION} build/base -f build/base/openmpi-builder.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi examples/v2beta1/pi
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t mpioperator/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) -t mpioperator/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
 
 .PHONY: tidy
 tidy:
