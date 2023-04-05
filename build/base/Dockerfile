@@ -1,15 +1,17 @@
-FROM debian:buster
+FROM debian:bullseye
 
 ARG port=2222
 
 RUN apt update && apt install -y --no-install-recommends \
 			openssh-server \
 			openssh-client \
+            libcap2-bin \
 		&& rm -rf /var/lib/apt/lists/*
 # Add priviledge separation directoy to run sshd as root.
 RUN mkdir -p /var/run/sshd
 # Add capability to run sshd as non-root.
 RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/sshd
+RUN apt remove libcap2-bin -y
 
 # Allow OpenSSH to talk to containers without asking for confirmation
 # by disabling StrictHostKeyChecking.

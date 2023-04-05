@@ -15,8 +15,8 @@
 BIN_DIR=_output/cmd/bin
 REPO_PATH="github.com/kubeflow/mpi-operator"
 REL_OSARCH="linux/amd64"
-GitSHA=`git rev-parse HEAD`
-Date=`date "+%Y-%m-%d %H:%M:%S"`
+GitSHA=$(shell git rev-parse HEAD)
+Date=$(shell date "+%Y-%m-%d %H:%M:%S")
 RELEASE_VERSION?=v0.3.0
 CONTROLLER_VERSION?=v2
 BASE_IMAGE_SSH_PORT?=2222
@@ -28,7 +28,7 @@ LD_FLAGS_V2=" \
     -X '${REPO_PATH}/pkg/version.Version=${RELEASE_VERSION}'"
 IMAGE_NAME?=mpioperator/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
-KIND_VERSION=v0.17.0
+KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
 KUBECTL_VERSION=v1.25.6
@@ -67,9 +67,11 @@ test: bin/envtest scheduler-plugins-crd
 
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
-test_e2e: export TEST_MPI_OPERATOR_IMAGE = ${IMAGE_NAME}:${RELEASE_VERSION}
+test_e2e: export TEST_MPI_OPERATOR_IMAGE=${IMAGE_NAME}:${RELEASE_VERSION}
+test_e2e: export TEST_OPENMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi
+test_e2e: export TEST_INTELMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-intel
 test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
-	SCHEDULER_PLUGINS_VERSION=$(SCHEDULER_PLUGINS_VERSION) go test -v ./test/e2e/...
+	go test -v ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
@@ -94,17 +96,17 @@ clean:
 .PHONY: images
 images:
 	@echo "VERSION: ${RELEASE_VERSION}"
-	${IMG_BUILDER} build --platform $(PLATFORMS) --build-arg VERSION=${CONTROLLER_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg VERSION=${CONTROLLER_VERSION} --build-arg RELEASE_VERSION=${RELEASE_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
 
 .PHONY: test_images
 test_images:
-	${IMG_BUILDER} build --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base build/base
-	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/openmpi build/base -f build/base/openmpi.Dockerfile
-	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/openmpi-builder build/base -f build/base/openmpi-builder.Dockerfile
-	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/mpi-pi:openmpi examples/v2beta1/pi
-	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/intel build/base -f build/base/intel.Dockerfile
-	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/intel-builder build/base -f build/base/intel-builder.Dockerfile
-	${IMG_BUILDER} build --platform $(PLATFORMS) -t mpioperator/mpi-pi:intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base:${RELEASE_VERSION} build/base
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/openmpi:${RELEASE_VERSION} build/base -f build/base/openmpi.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t mpioperator/openmpi-builder:${RELEASE_VERSION} build/base -f build/base/openmpi-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi examples/v2beta1/pi
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t mpioperator/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
 
 .PHONY: tidy
 tidy:

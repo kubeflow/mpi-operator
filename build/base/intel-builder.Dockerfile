@@ -2,7 +2,7 @@ FROM bash AS downloader
 
 RUN wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB -O key.PUB
 
-FROM debian:buster
+FROM debian:bullseye
 
 COPY --from=downloader key.PUB /tmp/key.PUB
 
@@ -16,7 +16,7 @@ RUN apt update \
     && apt autoremove -y \
     && apt update \
     && apt install -y --no-install-recommends \
-        libstdc++-8-dev binutils procps clang \
+        libstdc++-10-dev binutils procps clang \
         intel-oneapi-compiler-dpcpp-cpp \
         intel-oneapi-mpi-devel \
     && rm -rf /var/lib/apt/lists/*
