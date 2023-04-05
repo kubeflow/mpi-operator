@@ -183,3 +183,4 @@ scheduler-plugins-chart: scheduler-plugins-crd
 	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/capacityscheduling/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/scheduling.x-k8s.io_elasticquotas.yaml
 	cp -f $(PROJECT_DIR)/dep-crds/scheduler-plugins/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/scheduling.x-k8s.io_podgroups.yaml
 	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/noderesourcetopology/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/topology.node.k8s.io_noderesourcetopologies.yaml
+	chmod -R 760 $(PROJECT_DIR)/dep-manifests/scheduler-plugins
