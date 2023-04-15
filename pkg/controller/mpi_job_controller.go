@@ -134,6 +134,11 @@ var (
 		Name: "mpi_operator_job_info",
 		Help: "Information about MPIJob",
 	}, []string{"launcher", "namespace"})
+	mpiJobsDurationHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mpi_operator_jobs_duration_seconds",
+		Help:    "Duration of MPI jobs in seconds",
+		Buckets: prometheus.LinearBuckets(5, 86400, 31), // 5s to 2,592,000 seconds  (a month)
+	}, []string{"launcher", "namespace", "result"})
 
 	sshVolumeItems = []corev1.KeyToPath{
 		{
@@ -1004,9 +1009,20 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				mpiJob.Status.CompletionTime = launcher.Status.CompletionTime
 			}
 			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
+			
 			mpiJobsSuccessCount.Inc()
+			
+			if mpiJob.Status.StartTime != nil && mpiJob.Status.CompletionTime != nil {
+				duration := mpiJob.Status.CompletionTime.Sub(mpiJob.Status.StartTime.Time).Seconds()
+				mpiJobsDurationHistogram.WithLabelValues(launcher.Name, mpiJob.Namespace, "status: job success").Observe(duration)
+			}
 		} else if isJobFailed(launcher) {
 			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
+
+			if mpiJob.Status.StartTime != nil && mpiJob.Status.CompletionTime != nil {
+				duration := mpiJob.Status.CompletionTime.Sub(mpiJob.Status.StartTime.Time).Seconds()
+				mpiJobsDurationHistogram.WithLabelValues(launcher.Name, mpiJob.Namespace, "status: job failure").Observe(duration)
+			}
 		} else {
 			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher].Active = int32(launcherPodsCnt)
 		}
