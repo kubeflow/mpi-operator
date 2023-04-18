@@ -1009,7 +1009,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		}
 		// Job.status.Active accounts for Pending and Running pods. Count running pods
 		// from the lister instead.
-		launcherPodsCnt := countRunningPods(launcherPods)
+		launcherPodsCnt = countRunningPods(launcherPods)
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
 		launcherStatus := mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher]
 		launcherStatus.Failed = launcher.Status.Failed
