@@ -137,7 +137,7 @@ var (
 	mpiJobsDurationHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "mpi_operator_jobs_duration_seconds",
 		Help:    "Duration of MPI jobs in seconds",
-		Buckets: prometheus.LinearBuckets(5, 86400, 31), // 5s to 2,592,000 seconds  (a month)
+		Buckets: prometheus.LinearBuckets(0, 10, 60),
 	}, []string{"launcher", "namespace", "result"})
 
 	sshVolumeItems = []corev1.KeyToPath{
