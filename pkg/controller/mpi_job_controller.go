@@ -975,6 +975,13 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 	return nil
 }
 
+func observeDuration(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, status string) {
+	if mpiJob.Status.StartTime != nil && mpiJob.Status.CompletionTime != nil {
+		duration := mpiJob.Status.CompletionTime.Sub(mpiJob.Status.StartTime.Time).Seconds()
+		mpiJobsDurationHistogram.WithLabelValues(launcher.Name, mpiJob.Namespace, status).Observe(duration)
+	}
+}
+
 func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker []*corev1.Pod) error {
 	oldStatus := mpiJob.Status.DeepCopy()
 	if isMPIJobSuspended(mpiJob) {
@@ -1012,17 +1019,13 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			
 			mpiJobsSuccessCount.Inc()
 			
-			if mpiJob.Status.StartTime != nil && mpiJob.Status.CompletionTime != nil {
-				duration := mpiJob.Status.CompletionTime.Sub(mpiJob.Status.StartTime.Time).Seconds()
-				mpiJobsDurationHistogram.WithLabelValues(launcher.Name, mpiJob.Namespace, "status: job success").Observe(duration)
-			}
+			observeDuration(mpiJob, launcher, "status: job success")
+
 		} else if isJobFailed(launcher) {
 			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
 
-			if mpiJob.Status.StartTime != nil && mpiJob.Status.CompletionTime != nil {
-				duration := mpiJob.Status.CompletionTime.Sub(mpiJob.Status.StartTime.Time).Seconds()
-				mpiJobsDurationHistogram.WithLabelValues(launcher.Name, mpiJob.Namespace, "status: job failure").Observe(duration)
-			}
+			observeDuration(mpiJob, launcher, "status: job failure")
+
 		} else {
 			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher].Active = int32(launcherPodsCnt)
 		}
