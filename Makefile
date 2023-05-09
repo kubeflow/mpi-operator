@@ -32,7 +32,7 @@ KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/ku
 KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
-KUBECTL_VERSION=v1.25.6
+KUBECTL_VERSION=v1.25.8
 ENVTEST_K8S_VERSION=1.25.0
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)

@@ -35,6 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        kubernetes-version: ["v1.25.8", "v1.26.3", "v1.27.1"]
     steps:
     - name: Clone the code
       uses: actions/checkout@v3
