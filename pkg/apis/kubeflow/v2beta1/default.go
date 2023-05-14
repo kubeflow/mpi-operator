@@ -51,7 +51,7 @@ func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
 
 func setDefaultsRunPolicy(policy *RunPolicy) {
 	if policy.CleanPodPolicy == nil {
-		policy.CleanPodPolicy = newCleanPodPolicy(CleanPodPolicyNone)
+		policy.CleanPodPolicy = NewCleanPodPolicy(CleanPodPolicyNone)
 	}
 	// The remaining fields are passed as-is to the k8s Job API, which does its
 	// own defaulting.
@@ -80,6 +80,6 @@ func newInt32(v int32) *int32 {
 	return &v
 }
 
-func newCleanPodPolicy(policy CleanPodPolicy) *CleanPodPolicy {
+func NewCleanPodPolicy(policy CleanPodPolicy) *CleanPodPolicy {
 	return &policy
 }
