@@ -63,7 +63,7 @@ func TestMPIJobSuccess(t *testing.T) {
 		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
@@ -189,7 +189,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 				Suspend:        pointer.Bool(true),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
@@ -353,7 +353,7 @@ func TestMPIJobFailure(t *testing.T) {
 		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
@@ -481,7 +481,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 		Spec: kubeflow.MPIJobSpec{
 			SlotsPerWorker: newInt32(1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 				SchedulingPolicy: &kubeflow.SchedulingPolicy{
 					ScheduleTimeoutSeconds: pointer.Int32(900),
 				},
@@ -885,10 +885,6 @@ func isJobSuspended(job *batchv1.Job) bool {
 
 func newInt32(v int32) *int32 {
 	return &v
-}
-
-func newCleanPodPolicy(policy kubeflow.CleanPodPolicy) *kubeflow.CleanPodPolicy {
-	return &policy
 }
 
 func eventForJob(event corev1.Event, job *kubeflow.MPIJob) corev1.Event {

@@ -31,7 +31,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
 					RunPolicy: RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(CleanPodPolicyNone),
+						CleanPodPolicy: NewCleanPodPolicy(CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: MPIImplementationOpenMPI,
@@ -43,7 +43,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
 					RunPolicy: RunPolicy{
-						CleanPodPolicy:          newCleanPodPolicy(CleanPodPolicyRunning),
+						CleanPodPolicy:          NewCleanPodPolicy(CleanPodPolicyRunning),
 						TTLSecondsAfterFinished: newInt32(2),
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
@@ -56,7 +56,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
 					RunPolicy: RunPolicy{
-						CleanPodPolicy:          newCleanPodPolicy(CleanPodPolicyRunning),
+						CleanPodPolicy:          NewCleanPodPolicy(CleanPodPolicyRunning),
 						TTLSecondsAfterFinished: newInt32(2),
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
@@ -78,7 +78,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
 					RunPolicy: RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(CleanPodPolicyNone),
+						CleanPodPolicy: NewCleanPodPolicy(CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: MPIImplementationOpenMPI,
@@ -103,7 +103,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(1),
 					RunPolicy: RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(CleanPodPolicyNone),
+						CleanPodPolicy: NewCleanPodPolicy(CleanPodPolicyNone),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: MPIImplementationOpenMPI,
