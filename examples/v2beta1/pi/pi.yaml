@@ -14,7 +14,7 @@ spec:
       template:
         spec:
           containers:
-          - image: mpioperator/mpi-pi
+          - image: mpioperator/mpi-pi:openmpi
             name: mpi-launcher
             securityContext:
               runAsUser: 1000
@@ -33,7 +33,7 @@ spec:
       template:
         spec:
           containers:
-          - image: mpioperator/mpi-pi
+          - image: mpioperator/mpi-pi:openmpi
             name: mpi-worker
             securityContext:
               runAsUser: 1000

@@ -39,7 +39,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
@@ -65,7 +65,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
@@ -128,7 +128,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy:          newCleanPodPolicy("unknown"),
+						CleanPodPolicy:          kubeflow.NewCleanPodPolicy("unknown"),
 						TTLSecondsAfterFinished: newInt32(-1),
 						ActiveDeadlineSeconds:   newInt64(-1),
 						BackoffLimit:            newInt32(-1),
@@ -192,7 +192,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
@@ -214,7 +214,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
@@ -259,7 +259,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
@@ -312,7 +312,7 @@ func TestValidateMPIJob(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					SlotsPerWorker: newInt32(2),
 					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
@@ -350,9 +350,5 @@ func newInt32(v int32) *int32 {
 }
 
 func newInt64(v int64) *int64 {
-	return &v
-}
-
-func newCleanPodPolicy(v kubeflow.CleanPodPolicy) *kubeflow.CleanPodPolicy {
 	return &v
 }

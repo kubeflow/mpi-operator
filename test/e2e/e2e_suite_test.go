@@ -38,13 +38,15 @@ const (
 	envUseExistingCluster      = "USE_EXISTING_CLUSTER"
 	envUseExistingOperator     = "USE_EXISTING_OPERATOR"
 	envTestMPIOperatorImage    = "TEST_MPI_OPERATOR_IMAGE"
+	envTestOpenMPIImage        = "TEST_OPENMPI_IMAGE"
+	envTestIntelMPIImage       = "TEST_INTELMPI_IMAGE"
 	envTestKindImage           = "TEST_KIND_IMAGE"
 	envSchedulerPluginsVersion = "SCHEDULER_PLUGINS_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.25.3"
-	openMPIImage            = "mpioperator/mpi-pi:openmpi"
-	intelMPIImage           = "mpioperator/mpi-pi:intel"
+	defaultKindImage        = "kindest/node:v1.25.8"
+	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
+	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	rootPath                = "../.."
 	kubectlPath             = rootPath + "/bin/kubectl"
 	kindPath                = rootPath + "/bin/kind"
@@ -67,6 +69,8 @@ var (
 	useExistingOperator         bool
 	useExistingSchedulerPlugins bool
 	mpiOperatorImage            string
+	openMPIImage                string
+	intelMPIImage               string
 	kindImage                   string
 	schedulerPluginsVersion     string
 
@@ -80,6 +84,8 @@ func init() {
 	useExistingOperator = getEnvDefault(envUseExistingOperator, "false") == "true"
 	useExistingSchedulerPlugins = getEnvDefault(envUseExistingSchedulerPlugins, "false") == "true"
 	mpiOperatorImage = getEnvDefault(envTestMPIOperatorImage, defaultMPIOperatorImage)
+	openMPIImage = getEnvDefault(envTestOpenMPIImage, defaultOpenMPIImage)
+	intelMPIImage = getEnvDefault(envTestIntelMPIImage, defaultIntelMPIImage)
 	kindImage = getEnvDefault(envTestKindImage, defaultKindImage)
 	schedulerPluginsVersion = getEnvDefault(envSchedulerPluginsVersion, defaultSchedulerPluginsVersion)
 }
