@@ -190,7 +190,7 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 			SlotsPerWorker: newInt32(1),
 			WaitForWorkers: true,
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: newCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
