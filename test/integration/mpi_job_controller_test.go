@@ -261,6 +261,9 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 		Type: corev1.PodReady,
 		Status: corev1.ConditionTrue,
 	      })
+        if err != nil {
+                t.Fatalf("Updating worker Pods to Ready: %v", err)
+        }
 
 	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
 		kubeflow.MPIReplicaTypeLauncher: {},
