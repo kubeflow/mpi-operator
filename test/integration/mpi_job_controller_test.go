@@ -257,7 +257,7 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 		},
 	})
 	
-	err = updatePodsCondition(ctx, t, s.kClient, workerPods, corev1.PodCondition{
+	err = updatePodsCondition(ctx, s.kClient, workerPods, corev1.PodCondition{
 		Type: corev1.PodReady,
 		Status: corev1.ConditionTrue,
 	      })
@@ -866,7 +866,7 @@ func updatePodsToPhase(ctx context.Context, client kubernetes.Interface, pods []
 	return nil
 }
 
-func updatePodsCondition(ctx context.Context, t *testing.T, client kubernetes.Interface, pods []corev1.Pod, condition corev1.PodCondition) error {
+func updatePodsCondition(ctx context.Context, client kubernetes.Interface, pods []corev1.Pod, condition corev1.PodCondition) error {
 	for i, p := range pods {
 		p.Status.Conditions = append(p.Status.Conditions, condition)
 		newPod, err := client.CoreV1().Pods(p.Namespace).UpdateStatus(ctx, &p, metav1.UpdateOptions{})
