@@ -24,6 +24,7 @@ import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -233,7 +234,7 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 	}, mpiJob))
 
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
-		kubeflow.MPIReplicaTypeWorker:   {},
+		kubeflow.MPIReplicaTypeWorker:  {},
 	})
 	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
 		t.Errorf("MPIJob missing Created condition")
@@ -256,11 +257,16 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 			Active: 2,
 		},
 	})
-	
+
+	_, err = s.kClient.BatchV1().Jobs(s.namespace).Get(ctx, "job-launcher", metav1.GetOptions{})
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("Launcher is running before workers")
+	}
+
 	err = updatePodsCondition(ctx, s.kClient, workerPods, corev1.PodCondition{
-		Type: corev1.PodReady,
+		Type:   corev1.PodReady,
 		Status: corev1.ConditionTrue,
-	      })
+        })
         if err != nil {
                 t.Fatalf("Updating worker Pods to Ready: %v", err)
         }
@@ -877,7 +883,6 @@ func updatePodsCondition(ctx context.Context, client kubernetes.Interface, pods 
 	}
 	return nil
 }
-
 
 func getServiceForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob) (*corev1.Service, error) {
 	result, err := client.CoreV1().Services(job.Namespace).List(ctx, metav1.ListOptions{})

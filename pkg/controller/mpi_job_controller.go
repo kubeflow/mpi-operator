@@ -760,6 +760,7 @@ func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) (int) {
 		for _, c := range pod.Status.Conditions {
 			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
 				ready++
+				break
 			}
 		}
 	}
