@@ -13,8 +13,8 @@
 import inspect
 import pprint
 import re  # noqa: F401
-
 import six
+
 from mpijob.configuration import Configuration
 
 
