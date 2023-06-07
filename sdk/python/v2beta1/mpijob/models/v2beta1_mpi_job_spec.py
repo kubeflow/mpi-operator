@@ -13,8 +13,8 @@
 import inspect
 import pprint
 import re  # noqa: F401
-import six
 
+import six
 from mpijob.configuration import Configuration
 
 
@@ -75,7 +75,7 @@ class V2beta1MPIJobSpec(object):
     def mpi_implementation(self):
         """Gets the mpi_implementation of this V2beta1MPIJobSpec.  # noqa: E501
 
-        MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) and \"Intel\".  # noqa: E501
+        MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default), \"Intel\" and \"MPICH\".  # noqa: E501
 
         :return: The mpi_implementation of this V2beta1MPIJobSpec.  # noqa: E501
         :rtype: str
@@ -86,7 +86,7 @@ class V2beta1MPIJobSpec(object):
     def mpi_implementation(self, mpi_implementation):
         """Sets the mpi_implementation of this V2beta1MPIJobSpec.
 
-        MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default) and \"Intel\".  # noqa: E501
+        MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default), \"Intel\" and \"MPICH\".  # noqa: E501
 
         :param mpi_implementation: The mpi_implementation of this V2beta1MPIJobSpec.  # noqa: E501
         :type mpi_implementation: str

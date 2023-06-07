@@ -38,7 +38,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 				},
 			},
 		},
-		"base defaults overridden": {
+		"base defaults overridden (intel)": {
 			job: MPIJob{
 				Spec: MPIJobSpec{
 					SlotsPerWorker: newInt32(10),
@@ -63,6 +63,34 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: MPIImplementationIntel,
+				},
+			},
+		},
+		"base defaults overridden (mpich)": {
+			job: MPIJob{
+				Spec: MPIJobSpec{
+					SlotsPerWorker: newInt32(10),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy:          NewCleanPodPolicy(CleanPodPolicyRunning),
+						TTLSecondsAfterFinished: newInt32(2),
+						ActiveDeadlineSeconds:   newInt64(3),
+						BackoffLimit:            newInt32(4),
+					},
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: MPIImplementationMPICH,
+				},
+			},
+			want: MPIJob{
+				Spec: MPIJobSpec{
+					SlotsPerWorker: newInt32(10),
+					RunPolicy: RunPolicy{
+						CleanPodPolicy:          NewCleanPodPolicy(CleanPodPolicyRunning),
+						TTLSecondsAfterFinished: newInt32(2),
+						ActiveDeadlineSeconds:   newInt64(3),
+						BackoffLimit:            newInt32(4),
+					},
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: MPIImplementationMPICH,
 				},
 			},
 		},

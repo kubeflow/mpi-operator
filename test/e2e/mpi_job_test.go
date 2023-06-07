@@ -217,6 +217,54 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 	})
 
+	ginkgo.Context("with MPICH Implementation", func() {
+		ginkgo.When("running as root", func() {
+			ginkgo.BeforeEach(func() {
+				mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationMPICH
+				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
+					{
+						Name:            "launcher",
+						Image:           mpichImage,
+						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+						Command:         []string{},              // uses entrypoint.
+						Args: []string{
+							"mpirun",
+							"-n",
+							"2",
+							"/home/mpiuser/pi",
+						},
+					},
+				}
+				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
+					{
+						Name:            "worker",
+						Image:           mpichImage,
+						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+						Command:         []string{},              // uses entrypoint.
+						Args: []string{
+							"/usr/sbin/sshd",
+							"-De",
+						},
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Port: intstr.FromInt(2222),
+								},
+							},
+							InitialDelaySeconds: 3,
+						},
+					},
+				}
+			})
+
+			ginkgo.It("should succeed", func() {
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
+			})
+		})
+
+	})
+
 	ginkgo.Context("with scheduler-plugins", func() {
 		const enableGangSchedulingFlag = "--gang-scheduling=scheduler-plugins-scheduler"
 		var (
