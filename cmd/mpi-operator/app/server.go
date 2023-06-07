@@ -143,17 +143,16 @@ func Run(opt *options.ServerOption) error {
 		kubeflowInformerFactory := informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, kubeflowInformerFactoryOpts...)
 
 		// For the gang scheduling
-		var podGroupCtrl controllersv1.PodGroupControl
+		var (
+			podGroupCtrl          controllersv1.PodGroupControl
+			priorityClassInformer schedulinginformers.PriorityClassInformer
+		)
 		if opt.GangSchedulingName == options.GangSchedulerVolcano {
 			podGroupCtrl = controllersv1.NewVolcanoCtrl(volcanoClientSet, namespace)
 		} else if len(opt.GangSchedulingName) != 0 {
 			// Use scheduler-plugins as a default gang-scheduler.
-
-			podGroupCtrl = controllersv1.NewSchedulerPluginsCtrl(schedClientSet, namespace, opt.GangSchedulingName)
-		}
-		var priorityClassInformer schedulinginformers.PriorityClassInformer
-		if podGroupCtrl != nil {
 			priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
+			podGroupCtrl = controllersv1.NewSchedulerPluginsCtrl(schedClientSet, namespace, opt.GangSchedulingName, priorityClassInformer.Lister())
 		}
 
 		controller := controllersv1.NewMPIJobController(

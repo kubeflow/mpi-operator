@@ -24,6 +24,7 @@ import (
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -490,6 +491,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
+							PriorityClassName: "test-pc",
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
@@ -515,8 +517,24 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 			},
 		},
 	}
-	// 1. Create MPIJob
+	priorityClass := &schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: schedulingv1.SchemeGroupVersion.String(),
+			Kind:       "PriorityClass",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pc",
+		},
+		Value: 100_000,
+	}
+	// 1. Create PriorityClass
 	var err error
+	_, err = s.kClient.SchedulingV1().PriorityClasses().Create(ctx, priorityClass, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending priorityClass to apiserver: %v", err)
+	}
+
+	// 2. Create MPIJob
 	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Failed sending job to apiserver: %v", err)
@@ -537,7 +555,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 	}
 	s.events.verify(t)
 
-	// 2. Update SchedulingPolicy of MPIJob
+	// 3. Update SchedulingPolicy of MPIJob
 	updatedScheduleTimeSeconds := int32(10)
 	mpiJob.Spec.RunPolicy.SchedulingPolicy.ScheduleTimeoutSeconds = &updatedScheduleTimeSeconds
 	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
@@ -567,11 +585,12 @@ func startController(
 	var podGroupCtrl controller.PodGroupControl
 	var priorityClassInformer schedulinginformers.PriorityClassInformer
 	if gangSchedulerCfg != nil {
-		priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
 		if gangSchedulerCfg.schedulerName == "volcano" {
 			podGroupCtrl = controller.NewVolcanoCtrl(gangSchedulerCfg.volcanoClient, metav1.NamespaceAll)
 		} else if len(gangSchedulerCfg.schedulerName) != 0 {
-			podGroupCtrl = controller.NewSchedulerPluginsCtrl(gangSchedulerCfg.schedClient, metav1.NamespaceAll, gangSchedulerCfg.schedulerName)
+			priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
+			podGroupCtrl = controller.NewSchedulerPluginsCtrl(
+				gangSchedulerCfg.schedClient, metav1.NamespaceAll, gangSchedulerCfg.schedulerName, priorityClassInformer.Lister())
 		}
 	}
 

@@ -191,17 +191,22 @@ type SchedulerPluginsCtrl struct {
 	schedulerName       string
 }
 
-func NewSchedulerPluginsCtrl(c schedclientset.Interface, watchNamespace, schedulerName string) *SchedulerPluginsCtrl {
+func NewSchedulerPluginsCtrl(
+	c schedclientset.Interface,
+	watchNamespace, schedulerName string,
+	pcLister schedulinglisters.PriorityClassLister,
+) *SchedulerPluginsCtrl {
 	var informerFactoryOpts []schedinformers.SharedInformerOption
 	if watchNamespace != metav1.NamespaceAll {
 		informerFactoryOpts = append(informerFactoryOpts, schedinformers.WithNamespace(watchNamespace))
 	}
-	informerFactory := schedinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
+	pgInformerFactory := schedinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
 	return &SchedulerPluginsCtrl{
-		Client:           c,
-		InformerFactory:  informerFactory,
-		PodGroupInformer: informerFactory.Scheduling().V1alpha1().PodGroups(),
-		schedulerName:    schedulerName,
+		Client:              c,
+		InformerFactory:     pgInformerFactory,
+		PodGroupInformer:    pgInformerFactory.Scheduling().V1alpha1().PodGroups(),
+		PriorityClassLister: pcLister,
+		schedulerName:       schedulerName,
 	}
 }
 

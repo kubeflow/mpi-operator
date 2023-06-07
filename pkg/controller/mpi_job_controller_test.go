@@ -164,15 +164,15 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
-	var podGroupCtrl PodGroupControl
+	var (
+		podGroupCtrl          PodGroupControl
+		priorityClassInformer schedulinginformers.PriorityClassInformer
+	)
 	if f.gangSchedulingName == options.GangSchedulerVolcano {
 		podGroupCtrl = NewVolcanoCtrl(f.volcanoClient, metav1.NamespaceAll)
 	} else if len(f.gangSchedulingName) != 0 {
-		podGroupCtrl = NewSchedulerPluginsCtrl(f.schedClient, metav1.NamespaceAll, "default-scheduler")
-	}
-	var priorityClassInformer schedulinginformers.PriorityClassInformer
-	if podGroupCtrl != nil {
 		priorityClassInformer = k8sI.Scheduling().V1().PriorityClasses()
+		podGroupCtrl = NewSchedulerPluginsCtrl(f.schedClient, metav1.NamespaceAll, "default-scheduler", priorityClassInformer.Lister())
 	}
 
 	c := NewMPIJobControllerWithClock(
