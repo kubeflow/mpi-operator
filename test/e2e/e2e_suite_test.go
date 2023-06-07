@@ -47,6 +47,7 @@ const (
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
 	defaultKindImage        = "kindest/node:v1.25.8"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
+	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
 	rootPath                = "../.."
 	kubectlPath             = rootPath + "/bin/kubectl"

@@ -510,7 +510,7 @@ func TestDoNothingWithInvalidMPIJob(t *testing.T) {
 }
 
 func TestAllResourcesCreated(t *testing.T) {
-	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, , kubeflow.MPIImplementationMPICH}
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t, "")
