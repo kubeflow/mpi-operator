@@ -231,6 +231,10 @@ func (s *SchedulerPluginsCtrl) newPodGroup(mpiJob *kubeflow.MPIJob) metav1.Objec
 		scheduleTimeoutSec = schedPolicy.ScheduleTimeoutSeconds
 	}
 	minMember := calculateMinAvailable(mpiJob)
+	var minResources corev1.ResourceList
+	if origin := s.calculatePGMinResources(minMember, mpiJob); origin != nil {
+		minResources = *origin
+	}
 	return &schedv1alpha1.PodGroup{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: schedv1alpha1.SchemeGroupVersion.String(),
@@ -246,7 +250,7 @@ func (s *SchedulerPluginsCtrl) newPodGroup(mpiJob *kubeflow.MPIJob) metav1.Objec
 		Spec: schedv1alpha1.PodGroupSpec{
 			MinMember:              *minMember,
 			ScheduleTimeoutSeconds: scheduleTimeoutSec,
-			MinResources:           *s.calculatePGMinResources(minMember, mpiJob),
+			MinResources:           minResources,
 		},
 	}
 }
