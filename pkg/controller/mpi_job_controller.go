@@ -55,7 +55,10 @@ import (
 	"k8s.io/klog"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/pointer"
+	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
+	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/validation"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
@@ -211,8 +214,8 @@ type MPIJobController struct {
 	kubeClient kubernetes.Interface
 	// kubeflowClient is a clientset for our own API group.
 	kubeflowClient clientset.Interface
-	// podGroupCtrl is a client for PodGroups (volcano and scheduler-plugins).
-	podGroupCtrl PodGroupControl
+	// PodGroupCtrl is a client for PodGroups (volcano and scheduler-plugins).
+	PodGroupCtrl PodGroupControl
 
 	configMapLister     corelisters.ConfigMapLister
 	configMapSynced     cache.InformerSynced
@@ -251,24 +254,8 @@ type MPIJobController struct {
 func NewMPIJobController(
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
-	podGroupCtrl PodGroupControl,
-	configMapInformer coreinformers.ConfigMapInformer,
-	secretInformer coreinformers.SecretInformer,
-	serviceInformer coreinformers.ServiceInformer,
-	jobInformer batchinformers.JobInformer,
-	podInformer coreinformers.PodInformer,
-	priorityClassInformer schedulinginformers.PriorityClassInformer,
-	mpiJobInformer informers.MPIJobInformer) *MPIJobController {
-	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, podGroupCtrl,
-		configMapInformer, secretInformer, serviceInformer, jobInformer,
-		podInformer, priorityClassInformer, mpiJobInformer, &clock.RealClock{})
-}
-
-// NewMPIJobControllerWithClock returns a new MPIJob controller.
-func NewMPIJobControllerWithClock(
-	kubeClient kubernetes.Interface,
-	kubeflowClient clientset.Interface,
-	podGroupCtrl PodGroupControl,
+	volcanoClient volcanoclient.Interface,
+	schedClient schedclientset.Interface,
 	configMapInformer coreinformers.ConfigMapInformer,
 	secretInformer coreinformers.SecretInformer,
 	serviceInformer coreinformers.ServiceInformer,
@@ -276,7 +263,27 @@ func NewMPIJobControllerWithClock(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	clock clock.WithTicker) *MPIJobController {
+	namespace, gangSchedulingName string) *MPIJobController {
+	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
+		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
+		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName)
+}
+
+// NewMPIJobControllerWithClock returns a new MPIJob controller.
+func NewMPIJobControllerWithClock(
+	kubeClient kubernetes.Interface,
+	kubeflowClient clientset.Interface,
+	volcanoClient volcanoclient.Interface,
+	schedClient schedclientset.Interface,
+	configMapInformer coreinformers.ConfigMapInformer,
+	secretInformer coreinformers.SecretInformer,
+	serviceInformer coreinformers.ServiceInformer,
+	jobInformer batchinformers.JobInformer,
+	podInformer coreinformers.PodInformer,
+	priorityClassInformer schedulinginformers.PriorityClassInformer,
+	mpiJobInformer informers.MPIJobInformer,
+	clock clock.WithTicker,
+	namespace, gangSchedulingName string) *MPIJobController {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -285,21 +292,29 @@ func NewMPIJobControllerWithClock(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
+	// For the gang scheduling.
 	var (
+		podGroupCtrl        PodGroupControl
 		podGroupSynced      cache.InformerSynced
 		priorityClassLister schedulinglisters.PriorityClassLister
 		priorityClassSynced cache.InformerSynced
 	)
-	if podGroupCtrl != nil {
-		podGroupSynced = podGroupCtrl.PodGroupSharedIndexInformer().HasSynced
+	if gangSchedulingName == options.GangSchedulerVolcano {
+		podGroupCtrl = NewVolcanoCtrl(volcanoClient, namespace)
+	} else if len(gangSchedulingName) != 0 {
+		// Use scheduler-plugins as a default gang-scheduler.
 		priorityClassLister = priorityClassInformer.Lister()
 		priorityClassSynced = priorityClassInformer.Informer().HasSynced
+		podGroupCtrl = NewSchedulerPluginsCtrl(schedClient, namespace, gangSchedulingName, priorityClassLister)
+	}
+	if podGroupCtrl != nil {
+		podGroupSynced = podGroupCtrl.PodGroupSharedIndexInformer().HasSynced
 	}
 
 	controller := &MPIJobController{
 		kubeClient:          kubeClient,
 		kubeflowClient:      kubeflowClient,
-		podGroupCtrl:        podGroupCtrl,
+		PodGroupCtrl:        podGroupCtrl,
 		configMapLister:     configMapInformer.Lister(),
 		configMapSynced:     configMapInformer.Informer().HasSynced,
 		secretLister:        secretInformer.Lister(),
@@ -398,7 +413,7 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 		c.podSynced,
 		c.mpiJobSynced,
 	}
-	if c.podGroupCtrl != nil {
+	if c.PodGroupCtrl != nil {
 		synced = append(synced, c.podGroupSynced, c.priorityClassSynced)
 	}
 	if ok := cache.WaitForCacheSync(stopCh, synced...); !ok {
@@ -578,7 +593,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 		if !isMPIJobSuspended(mpiJob) {
 			// Get the PodGroup for this MPIJob
-			if c.podGroupCtrl != nil {
+			if c.PodGroupCtrl != nil {
 				if podGroup, err := c.getOrCreatePodGroups(mpiJob); podGroup == nil || err != nil {
 					return err
 				}
@@ -638,7 +653,7 @@ func cleanUpWorkerPods(mpiJob *kubeflow.MPIJob, c *MPIJobController) error {
 		return err
 	}
 	initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
-	if c.podGroupCtrl != nil {
+	if c.PodGroupCtrl != nil {
 		if err := c.deletePodGroups(mpiJob); err != nil {
 			return err
 		}
@@ -673,11 +688,11 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 
 // getOrCreatePodGroups will create a PodGroup for gang scheduling by volcano.
 func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1.Object, error) {
-	newPodGroup := c.podGroupCtrl.newPodGroup(mpiJob)
-	podGroup, err := c.podGroupCtrl.getPodGroup(newPodGroup.GetNamespace(), newPodGroup.GetName())
+	newPodGroup := c.PodGroupCtrl.newPodGroup(mpiJob)
+	podGroup, err := c.PodGroupCtrl.getPodGroup(newPodGroup.GetNamespace(), newPodGroup.GetName())
 	// If the PodGroup doesn't exist, we'll create it.
 	if errors.IsNotFound(err) {
-		return c.podGroupCtrl.createPodGroup(context.TODO(), newPodGroup)
+		return c.PodGroupCtrl.createPodGroup(context.TODO(), newPodGroup)
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
@@ -693,15 +708,15 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1
 		return nil, fmt.Errorf(msg)
 	}
 
-	if !c.podGroupCtrl.pgSpecsAreEqual(podGroup, newPodGroup) {
-		return c.podGroupCtrl.updatePodGroup(context.TODO(), podGroup, newPodGroup)
+	if !c.PodGroupCtrl.pgSpecsAreEqual(podGroup, newPodGroup) {
+		return c.PodGroupCtrl.updatePodGroup(context.TODO(), podGroup, newPodGroup)
 	}
 	return podGroup, nil
 }
 
 // deletePodGroups will delete a PodGroup when MPIJob have done.
 func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
-	podGroup, err := c.podGroupCtrl.getPodGroup(mpiJob.Namespace, mpiJob.Name)
+	podGroup, err := c.PodGroupCtrl.getPodGroup(mpiJob.Namespace, mpiJob.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -718,7 +733,7 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 	}
 
 	// If the PodGroup exist, we'll delete it.
-	err = c.podGroupCtrl.deletePodGroup(context.TODO(), mpiJob.Namespace, mpiJob.Name)
+	err = c.PodGroupCtrl.deletePodGroup(context.TODO(), mpiJob.Namespace, mpiJob.Name)
 	// If an error occurs during Delete, we'll requeue the item so we
 	// can attempt processing again later. This could have been caused by a
 	// temporary network failure, or any other transient reason.
@@ -1345,8 +1360,8 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// add SchedulerName to podSpec
-	if c.podGroupCtrl != nil {
-		c.podGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
+	if c.PodGroupCtrl != nil {
+		c.PodGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
 	}
 
 	return &corev1.Pod{
@@ -1403,8 +1418,8 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 		podTemplate.Labels[key] = value
 	}
 	// add SchedulerName to podSpec
-	if c.podGroupCtrl != nil {
-		c.podGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
+	if c.PodGroupCtrl != nil {
+		c.PodGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
 	}
 	podTemplate.Spec.Hostname = launcherName
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.

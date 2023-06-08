@@ -191,17 +191,22 @@ type SchedulerPluginsCtrl struct {
 	schedulerName       string
 }
 
-func NewSchedulerPluginsCtrl(c schedclientset.Interface, watchNamespace, schedulerName string) *SchedulerPluginsCtrl {
+func NewSchedulerPluginsCtrl(
+	c schedclientset.Interface,
+	watchNamespace, schedulerName string,
+	pcLister schedulinglisters.PriorityClassLister,
+) *SchedulerPluginsCtrl {
 	var informerFactoryOpts []schedinformers.SharedInformerOption
 	if watchNamespace != metav1.NamespaceAll {
 		informerFactoryOpts = append(informerFactoryOpts, schedinformers.WithNamespace(watchNamespace))
 	}
-	informerFactory := schedinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
+	pgInformerFactory := schedinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
 	return &SchedulerPluginsCtrl{
-		Client:           c,
-		InformerFactory:  informerFactory,
-		PodGroupInformer: informerFactory.Scheduling().V1alpha1().PodGroups(),
-		schedulerName:    schedulerName,
+		Client:              c,
+		InformerFactory:     pgInformerFactory,
+		PodGroupInformer:    pgInformerFactory.Scheduling().V1alpha1().PodGroups(),
+		PriorityClassLister: pcLister,
+		schedulerName:       schedulerName,
 	}
 }
 
@@ -231,6 +236,10 @@ func (s *SchedulerPluginsCtrl) newPodGroup(mpiJob *kubeflow.MPIJob) metav1.Objec
 		scheduleTimeoutSec = schedPolicy.ScheduleTimeoutSeconds
 	}
 	minMember := calculateMinAvailable(mpiJob)
+	var minResources corev1.ResourceList
+	if origin := s.calculatePGMinResources(minMember, mpiJob); origin != nil {
+		minResources = *origin
+	}
 	return &schedv1alpha1.PodGroup{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: schedv1alpha1.SchemeGroupVersion.String(),
@@ -246,7 +255,7 @@ func (s *SchedulerPluginsCtrl) newPodGroup(mpiJob *kubeflow.MPIJob) metav1.Objec
 		Spec: schedv1alpha1.PodGroupSpec{
 			MinMember:              *minMember,
 			ScheduleTimeoutSeconds: scheduleTimeoutSec,
-			MinResources:           *s.calculatePGMinResources(minMember, mpiJob),
+			MinResources:           minResources,
 		},
 	}
 }
