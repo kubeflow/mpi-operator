@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/pointer"
@@ -567,6 +566,9 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
+		if pg == nil {
+			return false, nil
+		}
 		return *pg.Spec.ScheduleTimeoutSeconds == updatedScheduleTimeSeconds, nil
 	}); err != nil {
 		t.Errorf("Failed updating scheduler-plugins PodGroup: %v", err)
@@ -581,35 +583,38 @@ func startController(
 ) {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kClient, 0)
 	mpiInformerFactory := informers.NewSharedInformerFactory(mpiClient, 0)
-
-	var podGroupCtrl controller.PodGroupControl
-	var priorityClassInformer schedulinginformers.PriorityClassInformer
+	var (
+		volcanoClient volcanoclient.Interface
+		schedClient   schedclientset.Interface
+		schedulerName string
+	)
 	if gangSchedulerCfg != nil {
-		if gangSchedulerCfg.schedulerName == "volcano" {
-			podGroupCtrl = controller.NewVolcanoCtrl(gangSchedulerCfg.volcanoClient, metav1.NamespaceAll)
-		} else if len(gangSchedulerCfg.schedulerName) != 0 {
-			priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
-			podGroupCtrl = controller.NewSchedulerPluginsCtrl(
-				gangSchedulerCfg.schedClient, metav1.NamespaceAll, gangSchedulerCfg.schedulerName, priorityClassInformer.Lister())
+		schedulerName = gangSchedulerCfg.schedulerName
+		if gangSchedulerCfg.volcanoClient != nil {
+			volcanoClient = gangSchedulerCfg.volcanoClient
+		} else if gangSchedulerCfg.schedClient != nil {
+			schedClient = gangSchedulerCfg.schedClient
 		}
 	}
-
 	ctrl := controller.NewMPIJobController(
 		kClient,
 		mpiClient,
-		podGroupCtrl,
+		volcanoClient,
+		schedClient,
 		kubeInformerFactory.Core().V1().ConfigMaps(),
 		kubeInformerFactory.Core().V1().Secrets(),
 		kubeInformerFactory.Core().V1().Services(),
 		kubeInformerFactory.Batch().V1().Jobs(),
 		kubeInformerFactory.Core().V1().Pods(),
-		priorityClassInformer,
-		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs())
+		kubeInformerFactory.Scheduling().V1().PriorityClasses(),
+		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
+		metav1.NamespaceAll, schedulerName,
+	)
 
 	go kubeInformerFactory.Start(ctx.Done())
 	go mpiInformerFactory.Start(ctx.Done())
-	if podGroupCtrl != nil {
-		podGroupCtrl.StartInformerFactory(ctx.Done())
+	if ctrl.PodGroupCtrl != nil {
+		ctrl.PodGroupCtrl.StartInformerFactory(ctx.Done())
 	}
 
 	go func() {

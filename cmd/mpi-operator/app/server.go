@@ -30,7 +30,6 @@ import (
 	kubeapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
 	kubeinformers "k8s.io/client-go/informers"
-	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -142,35 +141,24 @@ func Run(opt *options.ServerOption) error {
 		kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeInformerFactoryOpts...)
 		kubeflowInformerFactory := informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, kubeflowInformerFactoryOpts...)
 
-		// For the gang scheduling
-		var (
-			podGroupCtrl          controllersv1.PodGroupControl
-			priorityClassInformer schedulinginformers.PriorityClassInformer
-		)
-		if opt.GangSchedulingName == options.GangSchedulerVolcano {
-			podGroupCtrl = controllersv1.NewVolcanoCtrl(volcanoClientSet, namespace)
-		} else if len(opt.GangSchedulingName) != 0 {
-			// Use scheduler-plugins as a default gang-scheduler.
-			priorityClassInformer = kubeInformerFactory.Scheduling().V1().PriorityClasses()
-			podGroupCtrl = controllersv1.NewSchedulerPluginsCtrl(schedClientSet, namespace, opt.GangSchedulingName, priorityClassInformer.Lister())
-		}
-
 		controller := controllersv1.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
-			podGroupCtrl,
+			volcanoClientSet,
+			schedClientSet,
 			kubeInformerFactory.Core().V1().ConfigMaps(),
 			kubeInformerFactory.Core().V1().Secrets(),
 			kubeInformerFactory.Core().V1().Services(),
 			kubeInformerFactory.Batch().V1().Jobs(),
 			kubeInformerFactory.Core().V1().Pods(),
-			priorityClassInformer,
-			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs())
+			kubeInformerFactory.Scheduling().V1().PriorityClasses(),
+			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
+			namespace, opt.GangSchedulingName)
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())
-		if podGroupCtrl != nil {
-			podGroupCtrl.StartInformerFactory(ctx.Done())
+		if controller.PodGroupCtrl != nil {
+			controller.PodGroupCtrl.StartInformerFactory(ctx.Done())
 		}
 
 		// Set leader election start function.
