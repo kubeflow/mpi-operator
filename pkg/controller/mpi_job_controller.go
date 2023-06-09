@@ -137,6 +137,11 @@ var (
 		Name: "mpi_operator_job_info",
 		Help: "Information about MPIJob",
 	}, []string{"launcher", "namespace"})
+	mpiJobsDurationHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mpi_operator_jobs_duration_seconds",
+		Help:    "Duration of MPI jobs in seconds",
+		Buckets: prometheus.LinearBuckets(0, 10, 60),
+	}, []string{"launcher", "namespace", "result"})
 
 	sshVolumeItems = []corev1.KeyToPath{
 		{
@@ -985,6 +990,13 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 	return nil
 }
 
+func observeDuration(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, status string) {
+	if mpiJob.Status.StartTime != nil && mpiJob.Status.CompletionTime != nil {
+		duration := mpiJob.Status.CompletionTime.Sub(mpiJob.Status.StartTime.Time).Seconds()
+		mpiJobsDurationHistogram.WithLabelValues(launcher.Name, mpiJob.Namespace, status).Observe(duration)
+	}
+}
+
 func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher *batchv1.Job, worker []*corev1.Pod) error {
 	oldStatus := mpiJob.Status.DeepCopy()
 	if isMPIJobSuspended(mpiJob) {
@@ -1019,9 +1031,16 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				mpiJob.Status.CompletionTime = launcher.Status.CompletionTime
 			}
 			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
+			
 			mpiJobsSuccessCount.Inc()
+			
+			observeDuration(mpiJob, launcher, "status: job success")
+
 		} else if isJobFailed(launcher) {
 			c.updateMPIJobFailedStatus(mpiJob, launcher, launcherPods)
+
+			observeDuration(mpiJob, launcher, "status: job failure")
+
 		} else {
 			mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher].Active = int32(launcherPodsCnt)
 		}
