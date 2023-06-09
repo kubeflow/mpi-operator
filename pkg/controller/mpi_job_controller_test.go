@@ -535,7 +535,7 @@ func TestAllResourcesCreated(t *testing.T) {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
 			}
 			if implementation == kubeflow.MPIImplementationIntel ||
-			   implementation == kubeflow.MPIImplementationMPICH {
+				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
 			}
 			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
@@ -831,7 +831,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 			}
 			f.expectCreateSecretAction(secret)
 			if implementation == kubeflow.MPIImplementationIntel ||
-			   implementation == kubeflow.MPIImplementationMPICH {
+				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJob))
 			}
 

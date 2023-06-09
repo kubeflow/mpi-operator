@@ -599,7 +599,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
-		   mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
+			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
 			// The Intel and MPICH implementations require workers to communicate with the
 			// launcher through its hostname. For that, we create a Service which
 			// has the same name as the launcher's hostname.
