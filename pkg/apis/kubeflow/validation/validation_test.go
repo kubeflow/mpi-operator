@@ -63,7 +63,7 @@ func GenerateValidJob(mpiImplementation kubeflow.MPIImplementation, hasWorkers b
 			},
 			SSHAuthMountPath:  "/home/mpiuser/.ssh",
 			MPIImplementation: mpiImplementation,
-			MPIReplicaSpecs: replicaSpecs,
+			MPIReplicaSpecs:   replicaSpecs,
 		},
 	}
 
