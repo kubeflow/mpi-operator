@@ -1212,9 +1212,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
 			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc slots=%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
-		case kubeflow.MPIImplementationIntel:
-			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc:%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
-		case kubeflow.MPIImplementationMPICH:
+		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
 			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc:%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
 		}
 	}
