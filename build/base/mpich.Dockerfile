@@ -8,5 +8,5 @@ RUN apt update \
         mpich \
     && rm -rf /var/lib/apt/lists/*
 
-COPY mpich-entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
