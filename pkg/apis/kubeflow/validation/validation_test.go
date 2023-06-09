@@ -26,71 +26,66 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+func GenerateValidJob(mpiImplementation kubeflow.MPIImplementation, hasWorkers bool) kubeflow.MPIJob {
+
+	replicaSpecs := map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+		kubeflow.MPIReplicaTypeLauncher: {
+			Replicas:      newInt32(1),
+			RestartPolicy: common.RestartPolicyNever,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{}},
+				},
+			},
+		},
+	}
+
+	if hasWorkers {
+		replicaSpecs[kubeflow.MPIReplicaTypeWorker] = &common.ReplicaSpec{
+			Replicas:      newInt32(3),
+			RestartPolicy: common.RestartPolicyNever,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{}},
+				},
+			},
+		}
+	}
+
+	job := kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+		},
+		Spec: kubeflow.MPIJobSpec{
+			SlotsPerWorker: newInt32(2),
+			RunPolicy: kubeflow.RunPolicy{
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+			},
+			SSHAuthMountPath:  "/home/mpiuser/.ssh",
+			MPIImplementation: mpiImplementation,
+			MPIReplicaSpecs: replicaSpecs,
+		},
+	}
+
+	return job
+}
+
 func TestValidateMPIJob(t *testing.T) {
 	cases := map[string]struct {
 		job      kubeflow.MPIJob
 		wantErrs field.ErrorList
 	}{
-		"valid": {
-			job: kubeflow.MPIJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo",
-				},
-				Spec: kubeflow.MPIJobSpec{
-					SlotsPerWorker: newInt32(2),
-					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
-					},
-					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: kubeflow.MPIImplementationIntel,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
-						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyNever,
-							Template: corev1.PodTemplateSpec{
-								Spec: corev1.PodSpec{
-									Containers: []corev1.Container{{}},
-								},
-							},
-						},
-					},
-				},
-			},
+		"valid (intel)": {
+			job: GenerateValidJob(kubeflow.MPIImplementationIntel, false),
 		},
-		"valid with worker": {
-			job: kubeflow.MPIJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo",
-				},
-				Spec: kubeflow.MPIJobSpec{
-					SlotsPerWorker: newInt32(2),
-					RunPolicy: kubeflow.RunPolicy{
-						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
-					},
-					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: kubeflow.MPIImplementationIntel,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
-						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyOnFailure,
-							Template: corev1.PodTemplateSpec{
-								Spec: corev1.PodSpec{
-									Containers: []corev1.Container{{}},
-								},
-							},
-						},
-						kubeflow.MPIReplicaTypeWorker: {
-							Replicas:      newInt32(3),
-							RestartPolicy: common.RestartPolicyNever,
-							Template: corev1.PodTemplateSpec{
-								Spec: corev1.PodSpec{
-									Containers: []corev1.Container{{}},
-								},
-							},
-						},
-					},
-				},
-			},
+		"valid with worker (intel)": {
+			job: GenerateValidJob(kubeflow.MPIImplementationIntel, true),
+		},
+		"valid (mpich)": {
+			job: GenerateValidJob(kubeflow.MPIImplementationMPICH, false),
+		},
+		"valid with worker (mpich)": {
+			job: GenerateValidJob(kubeflow.MPIImplementationMPICH, true),
 		},
 		"empty job": {
 			wantErrs: field.ErrorList{
