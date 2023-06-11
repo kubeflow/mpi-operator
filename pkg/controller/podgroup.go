@@ -21,7 +21,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulinglisters "k8s.io/client-go/listers/scheduling/v1"
@@ -171,7 +170,8 @@ func (v *VolcanoCtrl) decoratePodTemplateSpec(pts *corev1.PodTemplateSpec, mpiJo
 }
 
 // calculatePGMinResources calculate minResources for volcano podGroup
-// default to total replicas
+// The minMember is task's total MinAvailable or replicas if task's minAvailable is not set in vcJob
+// PodGroup's MinResources leaves empty now if it is not set. So we calculate the minResources among those first minMember replicas with higher priority
 // ret: https://github.com/volcano-sh/volcano/blob/1933d46bdc4434772518ebb74c4281671ddeffa1/pkg/webhooks/admission/jobs/mutate/mutate_job.go#L168
 // ref: https://github.com/volcano-sh/volcano/blob/1933d46bdc4434772518ebb74c4281671ddeffa1/pkg/controllers/job/job_controller_actions.go#L761
 func (v *VolcanoCtrl) calculatePGMinResources(minMember *int32, mpiJob *kubeflow.MPIJob) *corev1.ResourceList {
@@ -183,7 +183,7 @@ func (v *VolcanoCtrl) calculatePGMinResources(minMember *int32, mpiJob *kubeflow
 	}
 
 	// sort task by priorityClasses
-	return calPgMinResource(minMember, mpiJob, v.PriorityClassLister.Get)
+	return calPGMinResource(minMember, mpiJob, v.PriorityClassLister)
 }
 
 func (v *VolcanoCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
@@ -323,7 +323,7 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 		return nil
 	}
 
-	return calPgMinResource(minMember, mpiJob, s.PriorityClassLister.Get)
+	return calPGMinResource(minMember, mpiJob, s.PriorityClassLister)
 }
 
 func (s *SchedulerPluginsCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
@@ -334,10 +334,8 @@ func (s *SchedulerPluginsCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
 
 var _ PodGroupControl = &SchedulerPluginsCtrl{}
 
-type PriorityClassGetFunc func(string) (*schedulingv1.PriorityClass, error)
-
-// calPgMinResource returns the minimum resource for mpiJob with minMembers
-func calPgMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pFunc PriorityClassGetFunc) *corev1.ResourceList {
+// calPGMinResource returns the minimum resource for mpiJob with minMembers
+func calPGMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pcLister schedulinglisters.PriorityClassLister) *corev1.ResourceList {
 	var order replicasOrder
 	for rt, replica := range mpiJob.Spec.MPIReplicaSpecs {
 		rp := replicaPriority{
@@ -347,8 +345,8 @@ func calPgMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pFunc PriorityC
 		}
 
 		pcName := replica.Template.Spec.PriorityClassName
-		if len(pcName) != 0 && pFunc != nil{
-			if priorityClass, err := pFunc(pcName); err != nil {
+		if len(pcName) != 0 && pcLister != nil {
+			if priorityClass, err := pcLister.Get(pcName); err != nil {
 				klog.Warningf("Ignore replica %q priority class %q: %v", rt, pcName, err)
 			} else {
 				rp.priority = priorityClass.Value
@@ -356,7 +354,6 @@ func calPgMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pFunc PriorityC
 		}
 		order = append(order, rp)
 	}
-
 
 	sort.Sort(sort.Reverse(order))
 	// Launcher + Worker > minMember

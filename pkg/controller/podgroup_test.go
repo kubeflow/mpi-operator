@@ -819,7 +819,7 @@ func TestCalculateMinAvailable(t *testing.T) {
 	}
 }
 
-func TestSort(t *testing.T) {
+func TestReplicasOrder(t *testing.T) {
 	var lancherReplic, wokerReplic int32 = 1, 2
 	tests := map[string]struct {
 		original replicasOrder
