@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -183,6 +185,10 @@ func TestNewPodGroup(t *testing.T) {
 					MinMember:         3,
 					Queue:             "project-x",
 					PriorityClassName: "high",
+					MinResources: &corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("21"),
+						corev1.ResourceMemory: resource.MustParse("42Gi"),
+					},
 				},
 			},
 			wantSchedPG: &schedv1alpha1.PodGroup{
@@ -207,8 +213,10 @@ func TestNewPodGroup(t *testing.T) {
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			volcanoFixture := newFixture(t, "default-scheduler")
+			jobController, _, _ := volcanoFixture.newController(clock.RealClock{})
 			volcanoPGCtrl := &VolcanoCtrl{
-				Client: volcanoFixture.volcanoClient,
+				Client:              volcanoFixture.volcanoClient,
+				PriorityClassLister: jobController.priorityClassLister,
 			}
 			volcanoPG := volcanoPGCtrl.newPodGroup(tc.mpiJob)
 			if diff := cmp.Diff(tc.wantVolcanoPG, volcanoPG, ignoreReferences); len(diff) != 0 {
@@ -361,8 +369,10 @@ func TestDecoratePodTemplateSpec(t *testing.T) {
 
 func TestCalculatePGMinResources(t *testing.T) {
 	volcanoTests := map[string]struct {
-		job  *kubeflow.MPIJob
-		want *corev1.ResourceList
+		job             *kubeflow.MPIJob
+		priorityClasses []*schedulingv1.PriorityClass
+		minMember       int32
+		want            *corev1.ResourceList
 	}{
 		"minResources is not empty": {
 			job: &kubeflow.MPIJob{
@@ -388,12 +398,68 @@ func TestCalculatePGMinResources(t *testing.T) {
 			},
 			want: nil,
 		},
+		"without priorityClass": {
+			minMember: 3,
+			job: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Replicas: pointer.Int32(1),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{
+										{
+											Resources: corev1.ResourceRequirements{
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("2"),
+													corev1.ResourceMemory: resource.MustParse("1Gi"),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Replicas: pointer.Int32(2),
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{
+										{
+											Resources: corev1.ResourceRequirements{
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("10"),
+													corev1.ResourceMemory: resource.MustParse("32Gi"),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("22"),
+				corev1.ResourceMemory: resource.MustParse("65Gi"),
+			},
+		},
 	}
 	for name, tc := range volcanoTests {
 		t.Run(name, func(t *testing.T) {
-			f := newFixture(t, "scheduler-plugins-scheduler")
-			pgCtrl := VolcanoCtrl{Client: f.volcanoClient}
-			got := pgCtrl.calculatePGMinResources(pointer.Int32(0), tc.job)
+			f := newFixture(t, "volcano-scheduler")
+			if tc.priorityClasses != nil {
+				for _, pc := range tc.priorityClasses {
+					f.setUpPriorityClass(pc)
+				}
+			}
+			jobController, _, _ := f.newController(clock.RealClock{})
+			pgCtrl := VolcanoCtrl{Client: f.volcanoClient, PriorityClassLister: jobController.priorityClassLister}
+			got := pgCtrl.calculatePGMinResources(&tc.minMember, tc.job)
 			if diff := cmp.Diff(tc.want, got); len(diff) != 0 {
 				t.Fatalf("Unexpected calculatePGMinResources for the volcano (-want,+got):\n%s", diff)
 			}
@@ -748,6 +814,43 @@ func TestCalculateMinAvailable(t *testing.T) {
 			got := calculateMinAvailable(tc.job)
 			if tc.want != *got {
 				t.Fatalf("Unexpected calculateMinAvailable: (want: %v, got: %v)", tc.want, *got)
+			}
+		})
+	}
+}
+
+func TestSort(t *testing.T) {
+	var lancherReplic, wokerReplic int32 = 1, 2
+	tests := map[string]struct {
+		original replicasOrder
+		expected replicasOrder
+	}{
+		"1-lancher, 2-worker, lancher higher priority": {
+			original: replicasOrder{
+				{priority: 1, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
+			},
+			expected: replicasOrder{
+				{priority: 1, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
+			},
+		},
+		"1-lancher, 2-worker, equal priority": {
+			original: replicasOrder{
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
+			},
+			expected: replicasOrder{
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
+			},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			sort.Sort(sort.Reverse(tc.original))
+			if !reflect.DeepEqual(tc.original, tc.expected) {
+				t.Fatalf("Unexpected sort list (-want,+got):\n-want:%v\n+got:%v", tc.expected, tc.original)
 			}
 		})
 	}

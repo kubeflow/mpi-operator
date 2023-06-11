@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulinglisters "k8s.io/client-go/listers/scheduling/v1"
@@ -61,29 +62,31 @@ type PodGroupControl interface {
 	decoratePodTemplateSpec(pts *corev1.PodTemplateSpec, mpiJobName string)
 	// calculatePGMinResources will calculate minResources for podGroup.
 	calculatePGMinResources(minMember *int32, mpiJob *kubeflow.MPIJob) *corev1.ResourceList
-	// podGroupSpecIsDeepEqual will return true if the spec fields of two podGroup are equals.
+	// pgSpecsAreEqual will return true if the spec fields of two podGroup are equals.
 	pgSpecsAreEqual(a, b metav1.Object) bool
 }
 
 // VolcanoCtrl is the implementation fo PodGroupControl with volcano.
 type VolcanoCtrl struct {
-	Client           volcanoclient.Interface
-	InformerFactory  volcanoinformers.SharedInformerFactory
-	PodGroupInformer volcanopodgroupinformer.PodGroupInformer
-	schedulerName    string
+	Client              volcanoclient.Interface
+	InformerFactory     volcanoinformers.SharedInformerFactory
+	PodGroupInformer    volcanopodgroupinformer.PodGroupInformer
+	PriorityClassLister schedulinglisters.PriorityClassLister
+	schedulerName       string
 }
 
-func NewVolcanoCtrl(c volcanoclient.Interface, watchNamespace string) *VolcanoCtrl {
+func NewVolcanoCtrl(c volcanoclient.Interface, watchNamespace string, pcLister schedulinglisters.PriorityClassLister) *VolcanoCtrl {
 	var informerFactoryOpts []volcanoinformers.SharedInformerOption
 	if watchNamespace != metav1.NamespaceAll {
 		informerFactoryOpts = append(informerFactoryOpts, volcanoinformers.WithNamespace(watchNamespace))
 	}
 	informerFactory := volcanoinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
 	return &VolcanoCtrl{
-		Client:           c,
-		InformerFactory:  informerFactory,
-		PodGroupInformer: informerFactory.Scheduling().V1beta1().PodGroups(),
-		schedulerName:    options.GangSchedulerVolcano,
+		Client:              c,
+		InformerFactory:     informerFactory,
+		PodGroupInformer:    informerFactory.Scheduling().V1beta1().PodGroups(),
+		PriorityClassLister: pcLister,
+		schedulerName:       options.GangSchedulerVolcano,
 	}
 }
 
@@ -167,11 +170,20 @@ func (v *VolcanoCtrl) decoratePodTemplateSpec(pts *corev1.PodTemplateSpec, mpiJo
 	pts.Annotations[volcanov1beta1.KubeGroupNameAnnotationKey] = mpiJobName
 }
 
-func (v *VolcanoCtrl) calculatePGMinResources(_ *int32, mpiJob *kubeflow.MPIJob) *corev1.ResourceList {
-	if schedPolicy := mpiJob.Spec.RunPolicy.SchedulingPolicy; schedPolicy != nil {
+// calculatePGMinResources calculate minResources for volcano podGroup
+// default to total replicas
+// ret: https://github.com/volcano-sh/volcano/blob/1933d46bdc4434772518ebb74c4281671ddeffa1/pkg/webhooks/admission/jobs/mutate/mutate_job.go#L168
+// ref: https://github.com/volcano-sh/volcano/blob/1933d46bdc4434772518ebb74c4281671ddeffa1/pkg/controllers/job/job_controller_actions.go#L761
+func (v *VolcanoCtrl) calculatePGMinResources(minMember *int32, mpiJob *kubeflow.MPIJob) *corev1.ResourceList {
+	if schedPolicy := mpiJob.Spec.RunPolicy.SchedulingPolicy; schedPolicy != nil && schedPolicy.MinResources != nil {
 		return schedPolicy.MinResources
 	}
-	return nil
+	if minMember != nil && *minMember == 0 {
+		return nil
+	}
+
+	// sort task by priorityClasses
+	return calPgMinResource(minMember, mpiJob, v.PriorityClassLister.Get)
 }
 
 func (v *VolcanoCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
@@ -311,6 +323,21 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 		return nil
 	}
 
+	return calPgMinResource(minMember, mpiJob, s.PriorityClassLister.Get)
+}
+
+func (s *SchedulerPluginsCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
+	PGa := a.(*schedv1alpha1.PodGroup)
+	PGb := b.(*schedv1alpha1.PodGroup)
+	return equality.Semantic.DeepEqual(PGa.Spec, PGb.Spec)
+}
+
+var _ PodGroupControl = &SchedulerPluginsCtrl{}
+
+type PriorityClassGetFunc func(string) (*schedulingv1.PriorityClass, error)
+
+// calPgMinResource returns the minimum resource for mpiJob with minMembers
+func calPgMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pFunc PriorityClassGetFunc) *corev1.ResourceList {
 	var order replicasOrder
 	for rt, replica := range mpiJob.Spec.MPIReplicaSpecs {
 		rp := replicaPriority{
@@ -318,9 +345,10 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 			replicaType: rt,
 			ReplicaSpec: *replica,
 		}
+
 		pcName := replica.Template.Spec.PriorityClassName
-		if len(pcName) != 0 {
-			if priorityClass, err := s.PriorityClassLister.Get(pcName); err != nil {
+		if len(pcName) != 0 && pFunc != nil{
+			if priorityClass, err := pFunc(pcName); err != nil {
 				klog.Warningf("Ignore replica %q priority class %q: %v", rt, pcName, err)
 			} else {
 				rp.priority = priorityClass.Value
@@ -328,6 +356,7 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 		}
 		order = append(order, rp)
 	}
+
 
 	sort.Sort(sort.Reverse(order))
 	// Launcher + Worker > minMember
@@ -358,14 +387,6 @@ func (s *SchedulerPluginsCtrl) calculatePGMinResources(minMember *int32, mpiJob 
 	}
 	return &minResources
 }
-
-func (s *SchedulerPluginsCtrl) pgSpecsAreEqual(a, b metav1.Object) bool {
-	PGa := a.(*schedv1alpha1.PodGroup)
-	PGb := b.(*schedv1alpha1.PodGroup)
-	return equality.Semantic.DeepEqual(PGa.Spec, PGb.Spec)
-}
-
-var _ PodGroupControl = &SchedulerPluginsCtrl{}
 
 // calculateMinAvailable calculates minAvailable for the PodGroup.
 // If the schedulingPolicy.minAvailable is nil, it returns returns `NUM(workers) + 1`; otherwise returns `schedulingPolicy.minAvailable`.
