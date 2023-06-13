@@ -13,37 +13,37 @@ spec:
         spec:
           containers:
           # Container with the DeepSpeed training image built from the provided Dockerfile and the DeepSpeed support
-          # Change your image name and version in here
-          - image: <YOUR-DEEPSPEED-CONTAINER-NAME>:<VERSION>
+          # Sample container for DeepSpeed applied model, you can check this image to your application or training process
+          - image: cifards:v0.0.1
             name: deepspeed-mpijob-container
             command:
-              - mpirun
-              - --allow-run-as-root
-              - -np
-              - "2"
-              - -bind-to
-              - none
-              - -map-by
-              - slot
-              - -x
-              - NCCL_DEBUG=INFO
-              - -x
-              - LD_LIBRARY_PATH
-              - -x
-              - PATH
-              - -mca
-              - pml
-              - ob1
-              - -mca
-              - btl
-              - ^openib
-              - python
-              - cifar/cifar10_deepspeed.py
-              - --deepspeed_mpi
-              - --deepspeed
-              - --deepspeed_config
-              - ds_config.json
-              - $@
+            - mpirun
+            - --allow-run-as-root
+            - -np
+            - "2"
+            - -bind-to
+            - none
+            - -map-by
+            - slot
+            - -x
+            - NCCL_DEBUG=INFO
+            - -x
+            - LD_LIBRARY_PATH
+            - -x
+            - PATH
+            - -mca
+            - pml
+            - ob1
+            - -mca
+            - btl
+            - ^openib
+            - python
+            - cifar/cifar10_deepspeed.py
+            - --deepspeed_mpi
+            - --deepspeed
+            - --deepspeed_config
+            - ds_config.json
+            - $@
     Worker:
       replicas: 2
       template:
