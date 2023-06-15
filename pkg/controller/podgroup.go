@@ -169,9 +169,9 @@ func (v *VolcanoCtrl) decoratePodTemplateSpec(pts *corev1.PodTemplateSpec, mpiJo
 	pts.Annotations[volcanov1beta1.KubeGroupNameAnnotationKey] = mpiJobName
 }
 
-// calculatePGMinResources calculate minResources for volcano podGroup
-// The minMember is task's total MinAvailable or replicas if task's minAvailable is not set in vcJob
-// PodGroup's MinResources leaves empty now if it is not set. So we calculate the minResources among those first minMember replicas with higher priority
+// calculatePGMinResources calculates minResources for volcano podGroup.
+// The minMember is task's total MinAvailable or replicas if task's minAvailable is not set in vcJob.
+// PodGroup's MinResources leaves empty now if it is not set. So we calculate the minResources among those first minMember replicas with higher priority.
 // ret: https://github.com/volcano-sh/volcano/blob/1933d46bdc4434772518ebb74c4281671ddeffa1/pkg/webhooks/admission/jobs/mutate/mutate_job.go#L168
 // ref: https://github.com/volcano-sh/volcano/blob/1933d46bdc4434772518ebb74c4281671ddeffa1/pkg/controllers/job/job_controller_actions.go#L761
 func (v *VolcanoCtrl) calculatePGMinResources(minMember *int32, mpiJob *kubeflow.MPIJob) *corev1.ResourceList {
