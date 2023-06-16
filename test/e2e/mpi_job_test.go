@@ -170,43 +170,63 @@ var _ = ginkgo.Describe("MPIJob", func() {
 	})
 
 	ginkgo.Context("with Intel Implementation", func() {
-		ginkgo.When("running as root", func() {
-			ginkgo.BeforeEach(func() {
-				mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
-				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
-					{
-						Name:            "launcher",
-						Image:           intelMPIImage,
-						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
-						Command:         []string{},              // uses entrypoint.
-						Args: []string{
-							"mpirun",
-							"-n",
-							"2",
-							"/home/mpiuser/pi",
-						},
+		ginkgo.BeforeEach(func() {
+			mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
+			mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
+				{
+					Name:            "launcher",
+					Image:           intelMPIImage,
+					ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+					Command:         []string{},              // uses entrypoint.
+					Args: []string{
+						"mpirun",
+						"-n",
+						"2",
+						"/home/mpiuser/pi",
 					},
-				}
-				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
-					{
-						Name:            "worker",
-						Image:           intelMPIImage,
-						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
-						Command:         []string{},              // uses entrypoint.
-						Args: []string{
-							"/usr/sbin/sshd",
-							"-De",
-						},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								TCPSocket: &corev1.TCPSocketAction{
-									Port: intstr.FromInt(2222),
-								},
+				},
+			}
+			mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
+				{
+					Name:            "worker",
+					Image:           intelMPIImage,
+					ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+					Command:         []string{},              // uses entrypoint.
+					Args: []string{
+						"/usr/sbin/sshd",
+						"-De",
+					},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.FromInt(2222),
 							},
-							InitialDelaySeconds: 3,
 						},
+						InitialDelaySeconds: 3,
 					},
+				},
+			}
+		})
+
+		ginkgo.When("running as root", func() {
+			ginkgo.It("should succeed", func() {
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
+			})
+		})
+
+		ginkgo.When("running as non-root", func() {
+			ginkgo.BeforeEach(func () {
+				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
+
+				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+					RunAsUser: newInt64(1000),
 				}
+				workerContainer := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers[0]
+				workerContainer.SecurityContext = &corev1.SecurityContext{
+					RunAsUser: newInt64(1000),
+				}
+				workerContainer.Args = append(workerContainer.Args, "-f", "/home/mpiuser/.sshd_config")
 			})
 
 			ginkgo.It("should succeed", func() {
@@ -214,47 +234,66 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 		})
-
 	})
 
 	ginkgo.Context("with MPICH Implementation", func() {
-		ginkgo.When("running as root", func() {
-			ginkgo.BeforeEach(func() {
-				mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationMPICH
-				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
-					{
-						Name:            "launcher",
-						Image:           mpichImage,
-						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
-						Command:         []string{},              // uses entrypoint.
-						Args: []string{
-							"mpirun",
-							"-n",
-							"2",
-							"/home/mpiuser/pi",
-						},
+		ginkgo.BeforeEach(func() {
+			mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationMPICH
+			mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
+				{
+					Name:            "launcher",
+					Image:           mpichImage,
+					ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+					Command:         []string{},              // uses entrypoint.
+					Args: []string{
+						"mpirun",
+						"-n",
+						"2",
+						"/home/mpiuser/pi",
 					},
-				}
-				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
-					{
-						Name:            "worker",
-						Image:           mpichImage,
-						ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
-						Command:         []string{},              // uses entrypoint.
-						Args: []string{
-							"/usr/sbin/sshd",
-							"-De",
-						},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								TCPSocket: &corev1.TCPSocketAction{
-									Port: intstr.FromInt(2222),
-								},
+				},
+			}
+			mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers = []corev1.Container{
+				{
+					Name:            "worker",
+					Image:           mpichImage,
+					ImagePullPolicy: corev1.PullIfNotPresent, // use locally built image.
+					Command:         []string{},              // uses entrypoint.
+					Args: []string{
+						"/usr/sbin/sshd",
+						"-De",
+					},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.FromInt(2222),
 							},
-							InitialDelaySeconds: 3,
 						},
+						InitialDelaySeconds: 3,
 					},
+				},
+			}
+		})
+
+		ginkgo.When("running as root", func() {
+			ginkgo.It("should succeed", func() {
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
+			})
+		})
+
+		ginkgo.When("running as non-root", func() {
+			ginkgo.BeforeEach(func () {
+				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
+
+				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+					RunAsUser: newInt64(1000),
 				}
+				workerContainer := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers[0]
+				workerContainer.SecurityContext = &corev1.SecurityContext{
+					RunAsUser: newInt64(1000),
+				}
+				workerContainer.Args = append(workerContainer.Args, "-f", "/home/mpiuser/.sshd_config")
 			})
 
 			ginkgo.It("should succeed", func() {
@@ -262,7 +301,6 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 		})
-
 	})
 
 	ginkgo.Context("with scheduler-plugins", func() {
