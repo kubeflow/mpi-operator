@@ -202,6 +202,16 @@ var (
 			Value: "-o ConnectionAttempts=10",
 		},
 	}
+	mpichEnvVars = []corev1.EnvVar{
+		{
+			Name:  "HYDRA_HOST_FILE",
+			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
+		},
+		{
+			Name:  "HYDRA_LAUNCH_EXTRA_ARGS",
+			Value: "-o ConnectionAttempts=10",
+		},
+	}
 	nvidiaDisableEnvVars = []corev1.EnvVar{
 		{Name: "NVIDIA_VISIBLE_DEVICES"},
 		{Name: "NVIDIA_DRIVER_CAPABILITIES"},
@@ -603,8 +613,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 				return err
 			}
 		}
-		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel {
-			// The Intel implementation requires workers to communicate with the
+		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
+			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
+			// The Intel and MPICH implementations require workers to communicate with the
 			// launcher through its hostname. For that, we create a Service which
 			// has the same name as the launcher's hostname.
 			_, err := c.getOrCreateService(mpiJob, newLauncherService(mpiJob))
@@ -1216,7 +1227,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
 			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc slots=%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
-		case kubeflow.MPIImplementationIntel:
+		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
 			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc:%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
 		}
 	}
@@ -1444,6 +1455,8 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 			Name:  intelMPISlotsEnv,
 			Value: slotsStr,
 		})
+	case kubeflow.MPIImplementationMPICH:
+		container.Env = append(container.Env, mpichEnvVars...)
 	}
 
 	container.Env = append(container.Env,

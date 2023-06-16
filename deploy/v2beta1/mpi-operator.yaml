@@ -58,10 +58,11 @@ spec:
               mpiImplementation:
                 default: OpenMPI
                 description: MPIImplementation is the MPI implementation. Options
-                  are "OpenMPI" (default) and "Intel".
+                  are "OpenMPI" (default), "Intel" and "MPICH".
                 enum:
                 - OpenMPI
                 - Intel
+                - MPICH
                 type: string
               mpiReplicaSpecs:
                 additionalProperties:

@@ -218,6 +218,12 @@ For a sample that uses Intel MPI, see:
 cat examples/pi/pi-intel.yaml
 ```
 
+For a sample that uses MPICH, see:
+
+```bash
+cat examples/pi/pi-mpich.yaml
+```
+
 ## Exposed Metrics
 
 | Metric name | Metric type | Description | Labels |

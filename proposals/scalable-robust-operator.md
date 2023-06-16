@@ -40,7 +40,7 @@ An MPIJob CRD describes the Job. Important fields include:
 - The launcher template, which should have a `mpirun` command.
 
 The images are expected to have the MPI implementation binaries (such as
-OpenMPI, MPICH or Intel MPI) the user’s MPI executable.
+OpenMPI, Intel MPI or MPICH) the user’s MPI executable.
 
 A controller processes the MPIJob, starting a Job with the following steps:
 1. Creates ConfigMap, which contains:
@@ -148,7 +148,7 @@ following changes:
       doesn’t support changes to the completions field. This can be supported
       starting from 1.23. In the meantime, we can replicate the behavior by
       creating a new Job and doing Pod adoption.
-  - For Intel MPI, we also need a headless Service to front the launcher,
+  - For Intel MPI and MPICH, we also need a headless Service to front the launcher,
     because workers communicate back to the launcher using its hostname.
 - **Revert the use of the Job API for the launcher.**
   - The Job controller handles retries when the launcher or any of the workers fail.

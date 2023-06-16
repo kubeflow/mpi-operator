@@ -500,7 +500,7 @@ func TestDoNothingWithInvalidMPIJob(t *testing.T) {
 }
 
 func TestAllResourcesCreated(t *testing.T) {
-	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t, "")
@@ -524,7 +524,8 @@ func TestAllResourcesCreated(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
 			}
-			if implementation == kubeflow.MPIImplementationIntel {
+			if implementation == kubeflow.MPIImplementationIntel ||
+				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
 			}
 			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
@@ -796,7 +797,7 @@ func TestShutdownWorker(t *testing.T) {
 }
 
 func TestCreateSuspendedMPIJob(t *testing.T) {
-	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t, "")
@@ -819,7 +820,8 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 				t.Fatalf("Failed creating secret")
 			}
 			f.expectCreateSecretAction(secret)
-			if implementation == kubeflow.MPIImplementationIntel {
+			if implementation == kubeflow.MPIImplementationIntel ||
+				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJob))
 			}
 
@@ -1580,6 +1582,31 @@ func TestNewConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"hostfile": "intelmpi-with-slots-worker-0.intelmpi-with-slots-worker.project-x.svc:10\n",
+				},
+			},
+		},
+		"MPICH with slots": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mpich-with-slots",
+					Namespace: "project-x",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker:    pointer.Int32(10),
+					MPIImplementation: kubeflow.MPIImplementationMPICH,
+				},
+			},
+			workerReplicas: 1,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mpich-with-slots-config",
+					Namespace: "project-x",
+					Labels: map[string]string{
+						"app": "mpich-with-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "mpich-with-slots-worker-0.mpich-with-slots-worker.project-x.svc:10\n",
 				},
 			},
 		},
