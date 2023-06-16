@@ -299,12 +299,12 @@ func NewMPIJobControllerWithClock(
 		priorityClassLister schedulinglisters.PriorityClassLister
 		priorityClassSynced cache.InformerSynced
 	)
+	priorityClassLister = priorityClassInformer.Lister()
+	priorityClassSynced = priorityClassInformer.Informer().HasSynced
 	if gangSchedulingName == options.GangSchedulerVolcano {
-		podGroupCtrl = NewVolcanoCtrl(volcanoClient, namespace)
+		podGroupCtrl = NewVolcanoCtrl(volcanoClient, namespace, priorityClassLister)
 	} else if len(gangSchedulingName) != 0 {
 		// Use scheduler-plugins as a default gang-scheduler.
-		priorityClassLister = priorityClassInformer.Lister()
-		priorityClassSynced = priorityClassInformer.Informer().HasSynced
 		podGroupCtrl = NewSchedulerPluginsCtrl(schedClient, namespace, gangSchedulingName, priorityClassLister)
 	}
 	if podGroupCtrl != nil {
