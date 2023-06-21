@@ -134,6 +134,13 @@ type RunPolicy struct {
 	Suspend *bool `json:"suspend,omitempty"`
 }
 
+type LauncherCreationPolicy string
+
+const (
+	LauncherCreationPolicyAtStartup           = "AtStartup"
+	LauncherCreationPolicyWaitForWorkersReady = "WaitForWorkersReady"
+)
+
 type MPIJobSpec struct {
 
 	// Specifies the number of slots per worker used in hostfile.
@@ -154,8 +161,8 @@ type MPIJobSpec struct {
 	// +kubebuilder:default:="/root/.ssh"
 	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
 
-	// WaitForWorkers if true, the launcher is created only after all workers are in Ready state
-	WaitForWorkers bool `json:"waitForWorkers,omitempty"`
+	// launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.
+	LauncherCreationPolicy LauncherCreationPolicy `json:"launcherCreationPolicy,omitempty"`
 
 	// MPIImplementation is the MPI implementation.
 	// Options are "OpenMPI" (default) and "Intel".

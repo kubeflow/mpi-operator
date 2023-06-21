@@ -598,7 +598,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if launcher == nil {
-			if !mpiJob.Spec.WaitForWorkers || c.countReadyWorkerPods(worker) == len(worker) {
+			if mpiJob.Spec.LauncherCreationPolicy == kubeflow.LauncherCreationPolicyAtStartup || c.countReadyWorkerPods(worker) == len(worker) {
 				launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
 				if err != nil {
 					c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
@@ -754,7 +754,7 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 	return podList, nil
 }
 
-func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) (int) {
+func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) int {
 	ready := 0
 	for _, pod := range workers {
 		for _, c := range pod.Status.Conditions {
@@ -1002,7 +1002,7 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			mpiJob.Status.StartTime = &now
 		}
 	}
-        launcherPodsCnt := 0
+	launcherPodsCnt := 0
 	if launcher != nil {
 		launcherPods, err := c.jobPods(launcher)
 		if err != nil {

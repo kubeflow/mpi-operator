@@ -38,7 +38,7 @@ class V2beta1MPIJobSpec(object):
         'run_policy': 'V2beta1RunPolicy',
         'slots_per_worker': 'int',
         'ssh_auth_mount_path': 'str',
-        'wait_for_workers': 'bool'
+        'launcher_creation_policy': 'str'
     }
 
     attribute_map = {
@@ -47,7 +47,7 @@ class V2beta1MPIJobSpec(object):
         'run_policy': 'runPolicy',
         'slots_per_worker': 'slotsPerWorker',
         'ssh_auth_mount_path': 'sshAuthMountPath',
-        'wait_for_workers': 'waitForWorkers'
+        'launcher_creation_policy': 'launcherCreationPolicy'
     }
 
     def __init__(self, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, wait_for_workers=None, local_vars_configuration=None):  # noqa: E501
@@ -61,7 +61,7 @@ class V2beta1MPIJobSpec(object):
         self._run_policy = None
         self._slots_per_worker = None
         self._ssh_auth_mount_path = None
-        self._wait_for_workers = None
+        self._launcher_creation_policy = None
         self.discriminator = None
 
         if mpi_implementation is not None:
@@ -192,27 +192,27 @@ class V2beta1MPIJobSpec(object):
         self._ssh_auth_mount_path = ssh_auth_mount_path
 
     @property
-    def wait_for_workers(self):
-        """Gets the wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
+    def launcher_creation_policy(self):
+        """Gets the launcher_creation_policy of this V2beta1MPIJobSpec.  # noqa: E501
 
-        WaitForWorkers if true, the launcher is created only after all workers are in Ready state  # noqa: E501
+        launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state  # noqa: E501
 
-        :return: The wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
-        :rtype: bool
+        :return: The launcher_creation_policy of this V2beta1MPIJobSpec.  # noqa: E501
+        :rtype: str
         """
-        return self._wait_for_workers
+        return self._launcher_creation_policy
 
     @wait_for_workers.setter
-    def wait_for_workers(self, wait_for_workers):
-        """Sets the wait_for_workers of this V2beta1MPIJobSpec.
+    def launcher_creation_policy(self, launcher_creation_policy):
+        """Sets the launcher_creation_policy of this V2beta1MPIJobSpec.
 
-        WaitForWorkers if true, the launcher is created only after all workers are in Ready state  # noqa: E501
+        launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state  # noqa: E501
 
-        :param wait_for_workers: The wait_for_workers of this V2beta1MPIJobSpec.  # noqa: E501
-        :type wait_for_workers: bool
+        :param wait_for_workers: The launcher_creation_policy of this V2beta1MPIJobSpec.  # noqa: E501
+        :type wait_for_workers: str
         """
 
-        self._wait_for_workers = wait_for_workers
+        self._launcher_creation_policy = launcher_creation_policy
 
     def to_dict(self, serialize=False):
         """Returns the model properties as a dict"""

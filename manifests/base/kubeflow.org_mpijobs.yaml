@@ -33,6 +33,11 @@ spec:
             type: object
           spec:
             properties:
+              launcherCreationPolicy:
+                description: launcherCreationPolicy if WaitForWorkersReady, the launcher
+                  is created only after all workers are in Ready state. Defaults to
+                  AtStartup.
+                type: string
               mpiImplementation:
                 default: OpenMPI
                 description: MPIImplementation is the MPI implementation. Options
@@ -7919,10 +7924,6 @@ spec:
                 description: SSHAuthMountPath is the directory where SSH keys are
                   mounted. Defaults to "/root/.ssh".
                 type: string
-              waitForWorkers:
-                description: WaitForWorkers if true, the launcher is created only
-                  after all workers are in Ready state
-                type: boolean
             required:
             - mpiReplicaSpecs
             type: object

@@ -9,7 +9,7 @@ Name | Type | Description | Notes
 **run_policy** | [**V2beta1RunPolicy**](V2beta1RunPolicy.md) |  | [optional] 
 **slots_per_worker** | **int** | Specifies the number of slots per worker used in hostfile. Defaults to 1. | [optional] 
 **ssh_auth_mount_path** | **str** | SSHAuthMountPath is the directory where SSH keys are mounted. Defaults to \&quot;/root/.ssh\&quot;. | [optional] 
-**wait_for_workers** | **bool** | WaitForWorkers if true, the launcher is created only after all workers are in Ready state | [optional] 
+**launcher_creation_policy** | **str** | launcherCreationPolicy if \&quot;WaitForWorkersReady\&quot;, the launcher is created only after all workers are in Ready state. Defaults to \&quot;AtStartup\&quot; | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
