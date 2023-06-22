@@ -31,7 +31,7 @@ func TestValidateMPIJob(t *testing.T) {
 		job      kubeflow.MPIJob
 		wantErrs field.ErrorList
 	}{
-		"valid": {
+		"valid (intel)": {
 			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -57,7 +57,7 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
-		"valid with worker": {
+		"valid with worker (intel)": {
 			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "foo",
@@ -69,6 +69,67 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Replicas:      newInt32(1),
+							RestartPolicy: common.RestartPolicyOnFailure,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Replicas:      newInt32(3),
+							RestartPolicy: common.RestartPolicyNever,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"valid (mpich)": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker: newInt32(2),
+					RunPolicy: kubeflow.RunPolicy{
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+					},
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: kubeflow.MPIImplementationMPICH,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Replicas:      newInt32(1),
+							RestartPolicy: common.RestartPolicyNever,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"valid with worker (mpich)": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker: newInt32(2),
+					RunPolicy: kubeflow.RunPolicy{
+						CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+					},
+					SSHAuthMountPath:  "/home/mpiuser/.ssh",
+					MPIImplementation: kubeflow.MPIImplementationMPICH,
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),

@@ -165,8 +165,8 @@ type MPIJobSpec struct {
 	LauncherCreationPolicy LauncherCreationPolicy `json:"launcherCreationPolicy,omitempty"`
 
 	// MPIImplementation is the MPI implementation.
-	// Options are "OpenMPI" (default) and "Intel".
-	// +kubebuilder:validation:Enum:=OpenMPI;Intel
+	// Options are "OpenMPI" (default), "Intel" and "MPICH".
+	// +kubebuilder:validation:Enum:=OpenMPI;Intel;MPICH
 	// +kubebuilder:default:=OpenMPI
 	MPIImplementation MPIImplementation `json:"mpiImplementation,omitempty"`
 }
@@ -187,6 +187,7 @@ type MPIImplementation string
 const (
 	MPIImplementationOpenMPI MPIImplementation = "OpenMPI"
 	MPIImplementationIntel   MPIImplementation = "Intel"
+	MPIImplementationMPICH   MPIImplementation = "MPICH"
 )
 
 // JobStatus represents the current observed state of the training Job.

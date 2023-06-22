@@ -22,5 +22,5 @@ RUN apt update \
         intel-oneapi-mpi \
     && rm -rf /var/lib/apt/lists/*
 
-COPY intel-entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

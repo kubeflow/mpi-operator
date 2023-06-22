@@ -68,6 +68,9 @@ func SetDefaults_MPIJob(mpiJob *MPIJob) {
 	if mpiJob.Spec.MPIImplementation == "" {
 		mpiJob.Spec.MPIImplementation = MPIImplementationOpenMPI
 	}
+	if mpiJob.Spec.LauncherCreationPolicy == "" {
+		mpiJob.Spec.LauncherCreationPolicy = LauncherCreationPolicyAtStartup
+	}
 
 	// set default to Launcher
 	setDefaultsTypeLauncher(mpiJob.Spec.MPIReplicaSpecs[MPIReplicaTypeLauncher])

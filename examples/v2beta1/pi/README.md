@@ -19,9 +19,15 @@ For Intel MPI:
 docker build -t mpi-pi . -f intel.Dockerfile
 ```
 
+For MPICH:
+
+```bash
+docker build -t mpi-pi . -f mpich.Dockerfile
+```
+
 ## Create MPIJob
 
-Modify `pi.yaml` (for OpenMPI) or `pi-intel.yaml` (for Intel MPI) to set up the
+Modify `pi.yaml` (for OpenMPI), `pi-intel.yaml` (for Intel MPI) or `pi-mpich.yaml` (for MPICH) to set up the
 image name from your own registry.
 
 Then, run:

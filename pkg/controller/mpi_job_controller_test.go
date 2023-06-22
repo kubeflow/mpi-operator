@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kubeinformers "k8s.io/client-go/informers"
-	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -45,7 +44,6 @@ import (
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	volcanofake "volcano.sh/apis/pkg/client/clientset/versioned/fake"
 
-	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
@@ -164,29 +162,21 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
-	var podGroupCtrl PodGroupControl
-	if f.gangSchedulingName == options.GangSchedulerVolcano {
-		podGroupCtrl = NewVolcanoCtrl(f.volcanoClient, metav1.NamespaceAll)
-	} else if len(f.gangSchedulingName) != 0 {
-		podGroupCtrl = NewSchedulerPluginsCtrl(f.schedClient, metav1.NamespaceAll, "default-scheduler")
-	}
-	var priorityClassInformer schedulinginformers.PriorityClassInformer
-	if podGroupCtrl != nil {
-		priorityClassInformer = k8sI.Scheduling().V1().PriorityClasses()
-	}
-
 	c := NewMPIJobControllerWithClock(
 		f.kubeClient,
 		f.client,
-		podGroupCtrl,
+		f.volcanoClient,
+		f.schedClient,
 		k8sI.Core().V1().ConfigMaps(),
 		k8sI.Core().V1().Secrets(),
 		k8sI.Core().V1().Services(),
 		k8sI.Batch().V1().Jobs(),
 		k8sI.Core().V1().Pods(),
-		priorityClassInformer,
+		k8sI.Scheduling().V1().PriorityClasses(),
 		i.Kubeflow().V2beta1().MPIJobs(),
 		clock,
+		metav1.NamespaceAll,
+		f.gangSchedulingName,
 	)
 
 	c.configMapSynced = alwaysReady
@@ -232,15 +222,15 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 		}
 	}
 
-	if podGroupCtrl != nil {
+	if c.PodGroupCtrl != nil {
 		for _, podGroup := range f.volcanoPodGroupLister {
-			err := podGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
+			err := c.PodGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
 			if err != nil {
 				fmt.Println("Failed to create volcano pod group")
 			}
 		}
 		for _, podGroup := range f.schedPodGroupLister {
-			err := podGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
+			err := c.PodGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
 			if err != nil {
 				fmt.Println("Failed to create scheduler-plugins pod group")
 			}
@@ -282,8 +272,8 @@ func (f *fixture) runController(mpiJobName string, startInformers, expectError b
 		defer close(stopCh)
 		i.Start(stopCh)
 		k8sI.Start(stopCh)
-		if c.podGroupCtrl != nil {
-			c.podGroupCtrl.StartInformerFactory(stopCh)
+		if c.PodGroupCtrl != nil {
+			c.PodGroupCtrl.StartInformerFactory(stopCh)
 		}
 	}
 
@@ -510,7 +500,7 @@ func TestDoNothingWithInvalidMPIJob(t *testing.T) {
 }
 
 func TestAllResourcesCreated(t *testing.T) {
-	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t, "")
@@ -534,7 +524,8 @@ func TestAllResourcesCreated(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
 			}
-			if implementation == kubeflow.MPIImplementationIntel {
+			if implementation == kubeflow.MPIImplementationIntel ||
+				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
 			}
 			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
@@ -806,7 +797,7 @@ func TestShutdownWorker(t *testing.T) {
 }
 
 func TestCreateSuspendedMPIJob(t *testing.T) {
-	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel}
+	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t, "")
@@ -829,7 +820,8 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 				t.Fatalf("Failed creating secret")
 			}
 			f.expectCreateSecretAction(secret)
-			if implementation == kubeflow.MPIImplementationIntel {
+			if implementation == kubeflow.MPIImplementationIntel ||
+				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJob))
 			}
 
@@ -1590,6 +1582,31 @@ func TestNewConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"hostfile": "intelmpi-with-slots-worker-0.intelmpi-with-slots-worker.project-x.svc:10\n",
+				},
+			},
+		},
+		"MPICH with slots": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mpich-with-slots",
+					Namespace: "project-x",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker:    pointer.Int32(10),
+					MPIImplementation: kubeflow.MPIImplementationMPICH,
+				},
+			},
+			workerReplicas: 1,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mpich-with-slots-config",
+					Namespace: "project-x",
+					Labels: map[string]string{
+						"app": "mpich-with-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "mpich-with-slots-worker-0.mpich-with-slots-worker.project-x.svc:10\n",
 				},
 			},
 		},

@@ -40,6 +40,7 @@ const (
 	envTestMPIOperatorImage    = "TEST_MPI_OPERATOR_IMAGE"
 	envTestOpenMPIImage        = "TEST_OPENMPI_IMAGE"
 	envTestIntelMPIImage       = "TEST_INTELMPI_IMAGE"
+	envTestMPICHImage          = "TEST_MPICH_IMAGE"
 	envTestKindImage           = "TEST_KIND_IMAGE"
 	envSchedulerPluginsVersion = "SCHEDULER_PLUGINS_VERSION"
 
@@ -47,6 +48,7 @@ const (
 	defaultKindImage        = "kindest/node:v1.25.8"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
 	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
+	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
 	rootPath                = "../.."
 	kubectlPath             = rootPath + "/bin/kubectl"
 	kindPath                = rootPath + "/bin/kind"
@@ -71,6 +73,7 @@ var (
 	mpiOperatorImage            string
 	openMPIImage                string
 	intelMPIImage               string
+	mpichImage                  string
 	kindImage                   string
 	schedulerPluginsVersion     string
 
@@ -86,6 +89,7 @@ func init() {
 	mpiOperatorImage = getEnvDefault(envTestMPIOperatorImage, defaultMPIOperatorImage)
 	openMPIImage = getEnvDefault(envTestOpenMPIImage, defaultOpenMPIImage)
 	intelMPIImage = getEnvDefault(envTestIntelMPIImage, defaultIntelMPIImage)
+	mpichImage = getEnvDefault(envTestMPICHImage, defaultMPICHImage)
 	kindImage = getEnvDefault(envTestKindImage, defaultKindImage)
 	schedulerPluginsVersion = getEnvDefault(envSchedulerPluginsVersion, defaultSchedulerPluginsVersion)
 }
@@ -147,7 +151,7 @@ func bootstrapKindCluster() error {
 	if err != nil {
 		return fmt.Errorf("creating kind cluster: %w", err)
 	}
-	err = runCommand(kindPath, "load", "docker-image", mpiOperatorImage, openMPIImage, intelMPIImage)
+	err = runCommand(kindPath, "load", "docker-image", mpiOperatorImage, openMPIImage, intelMPIImage, mpichImage)
 	if err != nil {
 		return fmt.Errorf("loading container images: %w", err)
 	}

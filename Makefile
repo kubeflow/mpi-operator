@@ -23,6 +23,7 @@ BASE_IMAGE_SSH_PORT?=2222
 IMG_BUILDER=docker
 PLATFORMS ?= linux/amd64
 INTEL_PLATFORMS ?= linux/amd64
+MPICH_PLATFORMS ?= linux/amd64
 LD_FLAGS_V2=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
     -X '${REPO_PATH}/pkg/version.Built=${Date}'   \
@@ -71,6 +72,7 @@ test: bin/envtest scheduler-plugins-crd
 test_e2e: export TEST_MPI_OPERATOR_IMAGE=${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: export TEST_OPENMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi
 test_e2e: export TEST_INTELMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-intel
+test_e2e: export TEST_MPICH_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-mpich
 test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
 	go test -v ./test/e2e/...
 
@@ -108,6 +110,9 @@ test_images:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) -t mpioperator/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpich:${RELEASE_VERSION} build/base -f build/base/mpich.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) -t mpioperator/mpich-builder:${RELEASE_VERSION} build/base -f build/base/mpich-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-mpich examples/v2beta1/pi -f examples/v2beta1/pi/mpich.Dockerfile
 
 .PHONY: tidy
 tidy:
@@ -155,7 +160,7 @@ helm: bin
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
 controller-gen: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.1
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.0
 
 KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 .PHONY: kustomize
