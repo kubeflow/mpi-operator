@@ -23,7 +23,6 @@ import (
 	apimachineryvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
@@ -39,8 +38,8 @@ var (
 		string(kubeflow.MPIImplementationMPICH))
 
 	validRestartPolicies = sets.NewString(
-		string(common.RestartPolicyNever),
-		string(common.RestartPolicyOnFailure),
+		string(kubeflow.RestartPolicyNever),
+		string(kubeflow.RestartPolicyOnFailure),
 	)
 )
 
@@ -102,7 +101,7 @@ func validateRunPolicy(policy *kubeflow.RunPolicy, path *field.Path) field.Error
 	return errs
 }
 
-func validateMPIReplicaSpecs(replicaSpecs map[kubeflow.MPIReplicaType]*common.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateMPIReplicaSpecs(replicaSpecs map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if replicaSpecs == nil {
 		errs = append(errs, field.Required(path, "must have replica specs"))
@@ -113,7 +112,7 @@ func validateMPIReplicaSpecs(replicaSpecs map[kubeflow.MPIReplicaType]*common.Re
 	return errs
 }
 
-func validateLauncherReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateLauncherReplicaSpec(spec *kubeflow.ReplicaSpec, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec == nil {
 		errs = append(errs, field.Required(path, fmt.Sprintf("must have %s replica spec", kubeflow.MPIReplicaTypeLauncher)))
@@ -126,7 +125,7 @@ func validateLauncherReplicaSpec(spec *common.ReplicaSpec, path *field.Path) fie
 	return errs
 }
 
-func validateWorkerReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateWorkerReplicaSpec(spec *kubeflow.ReplicaSpec, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec == nil {
 		return errs
@@ -138,7 +137,7 @@ func validateWorkerReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field
 	return errs
 }
 
-func validateReplicaSpec(spec *common.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateReplicaSpec(spec *kubeflow.ReplicaSpec, path *field.Path) field.ErrorList {
 	var errs field.ErrorList
 	if spec.Replicas == nil {
 		errs = append(errs, field.Required(path.Child("replicas"), "must define number of replicas"))

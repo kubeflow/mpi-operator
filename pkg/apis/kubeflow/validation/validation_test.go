@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,10 +42,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -69,10 +68,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyOnFailure,
+							RestartPolicy: kubeflow.RestartPolicyOnFailure,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -81,7 +80,7 @@ func TestValidateMPIJob(t *testing.T) {
 						},
 						kubeflow.MPIReplicaTypeWorker: {
 							Replicas:      newInt32(3),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -104,10 +103,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationMPICH,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -130,10 +129,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationMPICH,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyOnFailure,
+							RestartPolicy: kubeflow.RestartPolicyOnFailure,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -142,7 +141,7 @@ func TestValidateMPIJob(t *testing.T) {
 						},
 						kubeflow.MPIReplicaTypeWorker: {
 							Replicas:      newInt32(3),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -196,10 +195,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementation("Unknown"),
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -208,7 +207,7 @@ func TestValidateMPIJob(t *testing.T) {
 						},
 						kubeflow.MPIReplicaTypeWorker: {
 							Replicas:      newInt32(1000),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -257,7 +256,7 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
-					MPIReplicaSpecs:   map[kubeflow.MPIReplicaType]*common.ReplicaSpec{},
+					MPIReplicaSpecs:   map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{},
 				},
 			},
 			wantErrs: field.ErrorList{
@@ -279,7 +278,7 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {},
 						kubeflow.MPIReplicaTypeWorker:   {},
 					},
@@ -324,10 +323,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(2),
-							RestartPolicy: common.RestartPolicyAlways,
+							RestartPolicy: kubeflow.RestartPolicyAlways,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},
@@ -377,10 +376,10 @@ func TestValidateMPIJob(t *testing.T) {
 					},
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
 					MPIImplementation: kubeflow.MPIImplementationIntel,
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
-							RestartPolicy: common.RestartPolicyNever,
+							RestartPolicy: kubeflow.RestartPolicyNever,
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{}},

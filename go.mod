@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/google/go-cmp v0.5.8
-	github.com/kubeflow/common v0.4.6
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.1
 	github.com/prometheus/client_golang v1.12.2

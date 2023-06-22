@@ -15,7 +15,6 @@
 package v2beta1
 
 import (
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -160,7 +159,7 @@ type MPIJobSpec struct {
 
 	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
-	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
+	MPIReplicaSpecs map[MPIReplicaType]*ReplicaSpec `json:"mpiReplicaSpecs"`
 
 	// SSHAuthMountPath is the directory where SSH keys are mounted.
 	// Defaults to "/root/.ssh".
