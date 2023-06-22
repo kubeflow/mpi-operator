@@ -322,7 +322,7 @@
       ],
       "properties": {
         "launcherCreationPolicy": {
-          "desctiption": "launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state",
+          "desctiption": "launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.",
           "type": "string"
         },
         "mpiImplementation": {
