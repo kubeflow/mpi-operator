@@ -50,7 +50,7 @@ class V2beta1MPIJobSpec(object):
         'ssh_auth_mount_path': 'sshAuthMountPath'
     }
 
-    def __init__(self, launcher_creation_policy=None, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, wait_for_workers=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, launcher_creation_policy=None, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1MPIJobSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration.get_default_copy()
