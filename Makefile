@@ -40,6 +40,7 @@ GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
 # Use go.mod go version as a single source of truth of scheduler-plugins version.
 SCHEDULER_PLUGINS_VERSION?=$(shell awk '/scheduler-plugins/{print $$2}' go.mod|head -n1)
+VOLCANO_SCHEDULER_VERSION?=$(shell go list -m -f "{{.Version}}" volcano.sh/apis)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
@@ -64,7 +65,7 @@ vet:
 
 .PHONY: test
 test:
-test: bin/envtest scheduler-plugins-crd
+test: bin/envtest scheduler-plugins-crd volcano-scheduler-crd
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v -covermode atomic -coverprofile=profile.cov $(shell go list ./... | grep -v '/test/e2e')
 
 # Only works with CONTROLLER_VERSION=v2
@@ -192,3 +193,12 @@ scheduler-plugins-chart: scheduler-plugins-crd
 	cp -f $(PROJECT_DIR)/dep-crds/scheduler-plugins/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/scheduling.x-k8s.io_podgroups.yaml
 	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/noderesourcetopology/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/topology.node.k8s.io_noderesourcetopologies.yaml
 	chmod -R 760 $(PROJECT_DIR)/dep-manifests/scheduler-plugins
+
+.PHONY: volcano-scheduler
+volcano-scheduler:
+	-@GOPATH=/tmp go install volcano.sh/volcano/cmd/scheduler@$(VOLCANO_SCHEDULER_VERSION)
+
+.PHONY: volcano-scheduler-crd
+volcano-scheduler-crd: volcano-scheduler
+	mkdir -p $(PROJECT_DIR)/dep-crds/volcano-scheduler/
+	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/config/crd/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
