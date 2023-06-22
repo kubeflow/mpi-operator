@@ -4,7 +4,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**launcher_creation_policy** | **str** | launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup. | [optional]
+**launcher_creation_policy** | **str** | launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup. | [optional] 
 **mpi_implementation** | **str** | MPIImplementation is the MPI implementation. Options are \&quot;OpenMPI\&quot; (default), \&quot;Intel\&quot; and \&quot;MPICH\&quot;. | [optional] 
 **mpi_replica_specs** | [**dict(str, V1ReplicaSpec)**](V1ReplicaSpec.md) | MPIReplicaSpecs contains maps from &#x60;MPIReplicaType&#x60; to &#x60;ReplicaSpec&#x60; that specify the MPI replicas to run. | 
 **run_policy** | [**V2beta1RunPolicy**](V2beta1RunPolicy.md) |  | [optional] 
