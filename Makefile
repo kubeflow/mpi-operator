@@ -74,7 +74,7 @@ test_e2e: export TEST_MPI_OPERATOR_IMAGE=${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: export TEST_OPENMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi
 test_e2e: export TEST_INTELMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-intel
 test_e2e: export TEST_MPICH_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-mpich
-test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
+test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart volcano-scheduler-deploy
 	go test -v ./test/e2e/...
 
 .PHONY: dev_manifest
@@ -202,3 +202,8 @@ volcano-scheduler:
 volcano-scheduler-crd: volcano-scheduler
 	mkdir -p $(PROJECT_DIR)/dep-crds/volcano-scheduler/
 	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/config/crd/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
+
+.PHONY: volcano-scheduler-deploy
+volcano-scheduler-deploy: volcano-scheduler-crd
+	mkdir -p $(PROJECT_DIR)/dep-manifests/volcano-scheduler/
+	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/installer/volcano-development.yaml $(PROJECT_DIR)/dep-manifests/volcano-scheduler/
