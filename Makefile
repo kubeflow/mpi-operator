@@ -28,7 +28,8 @@ LD_FLAGS_V2=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
     -X '${REPO_PATH}/pkg/version.Built=${Date}'   \
     -X '${REPO_PATH}/pkg/version.Version=${RELEASE_VERSION}'"
-IMAGE_NAME?=mpioperator/mpi-operator
+REGISTRY?=docker.io/mpioperator
+IMAGE_NAME?=${REGISTRY}/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
 KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
@@ -70,9 +71,9 @@ test: bin/envtest scheduler-plugins-crd
 # Only works with CONTROLLER_VERSION=v2
 .PHONY: test_e2e
 test_e2e: export TEST_MPI_OPERATOR_IMAGE=${IMAGE_NAME}:${RELEASE_VERSION}
-test_e2e: export TEST_OPENMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi
-test_e2e: export TEST_INTELMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-intel
-test_e2e: export TEST_MPICH_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-mpich
+test_e2e: export TEST_OPENMPI_IMAGE=${REGISTRY}/mpi-pi:${RELEASE_VERSION}-openmpi
+test_e2e: export TEST_INTELMPI_IMAGE=${REGISTRY}/mpi-pi:${RELEASE_VERSION}-intel
+test_e2e: export TEST_MPICH_IMAGE=${REGISTRY}/mpi-pi:${RELEASE_VERSION}-mpich
 test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
 	go test -timeout 20m -v ./test/e2e/...
 
@@ -103,16 +104,16 @@ images:
 
 .PHONY: test_images
 test_images:
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t mpioperator/base:${RELEASE_VERSION} build/base
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/openmpi:${RELEASE_VERSION} build/base -f build/base/openmpi.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t mpioperator/openmpi-builder:${RELEASE_VERSION} build/base -f build/base/openmpi-builder.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi examples/v2beta1/pi
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) -t mpioperator/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpich:${RELEASE_VERSION} build/base -f build/base/mpich.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) -t mpioperator/mpich-builder:${RELEASE_VERSION} build/base -f build/base/mpich-builder.Dockerfile
-	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t mpioperator/mpi-pi:${RELEASE_VERSION}-mpich examples/v2beta1/pi -f examples/v2beta1/pi/mpich.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t ${REGISTRY}/base:${RELEASE_VERSION} build/base
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/openmpi:${RELEASE_VERSION} build/base -f build/base/openmpi.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t ${REGISTRY}/openmpi-builder:${RELEASE_VERSION} build/base -f build/base/openmpi-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-openmpi examples/v2beta1/pi
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) -t ${REGISTRY}/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpich:${RELEASE_VERSION} build/base -f build/base/mpich.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) -t ${REGISTRY}/mpich-builder:${RELEASE_VERSION} build/base -f build/base/mpich-builder.Dockerfile
+	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-mpich examples/v2beta1/pi -f examples/v2beta1/pi/mpich.Dockerfile
 
 .PHONY: tidy
 tidy:
