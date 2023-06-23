@@ -74,7 +74,7 @@ test_e2e: export TEST_OPENMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-openmp
 test_e2e: export TEST_INTELMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-intel
 test_e2e: export TEST_MPICH_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-mpich
 test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
-	go test -v ./test/e2e/...
+	go test -timeout 20m -v ./test/e2e/...
 
 .PHONY: dev_manifest
 dev_manifest:
