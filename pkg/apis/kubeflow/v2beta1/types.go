@@ -137,8 +137,14 @@ type RunPolicy struct {
 type LauncherCreationPolicy string
 
 const (
-	LauncherCreationPolicyAtStartup           = "AtStartup"
-	LauncherCreationPolicyWaitForWorkersReady = "WaitForWorkersReady"
+	// LauncherCreationPolicyAtStartup is default behavior
+	// when Launcher is started in parallel with workers
+	LauncherCreationPolicyAtStartup LauncherCreationPolicy = "AtStartup"
+
+	// LauncherCreationPolicyWaitForWorkersReady makes Launcher reation
+	// postponed until all workers are in ready state so that the Launcher
+	// does not fail trying to connect to worker.
+	LauncherCreationPolicyWaitForWorkersReady LauncherCreationPolicy = "WaitForWorkersReady"
 )
 
 type MPIJobSpec struct {
