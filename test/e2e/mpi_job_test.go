@@ -438,7 +438,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 		)
 
 		ginkgo.BeforeEach(func() {
-			// Set up the scheduler-plugins.
+			// Set up the volcano-scheduler.
 			setupVolcanoScheduler()
 			// Set up the mpi-operator so that the volcano scheduler is used as gang-scheduler.
 			ginkgo.By("Scale-In the deployment to 0")
