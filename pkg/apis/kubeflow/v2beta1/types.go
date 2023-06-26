@@ -168,6 +168,8 @@ type MPIJobSpec struct {
 	SSHAuthMountPath string `json:"sshAuthMountPath,omitempty"`
 
 	// launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.
+	// +kubebuilder:validation:Enum:AtStartup;WaitForWorkersReady
+	// +kubebuilder:default:=AtStartup
 	LauncherCreationPolicy LauncherCreationPolicy `json:"launcherCreationPolicy,omitempty"`
 
 	// MPIImplementation is the MPI implementation.
