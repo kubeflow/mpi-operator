@@ -33,6 +33,7 @@ spec:
           spec:
             properties:
               launcherCreationPolicy:
+                default: AtStartup
                 description: launcherCreationPolicy if WaitForWorkersReady, the launcher
                   is created only after all workers are in Ready state. Defaults to
                   AtStartup.
