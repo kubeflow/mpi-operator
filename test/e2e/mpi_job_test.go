@@ -216,7 +216,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 		})
 
 		ginkgo.When("running as non-root", func() {
-			ginkgo.BeforeEach(func () {
+			ginkgo.BeforeEach(func() {
 				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
 
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
@@ -283,7 +283,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 		})
 
 		ginkgo.When("running as non-root", func() {
-			ginkgo.BeforeEach(func () {
+			ginkgo.BeforeEach(func() {
 				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
 
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{

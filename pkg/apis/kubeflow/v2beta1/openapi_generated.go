@@ -458,6 +458,13 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 							Format:      "int32",
 						},
 					},
+					"launcherCreationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"runPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RunPolicy encapsulates various runtime policies of the job.",

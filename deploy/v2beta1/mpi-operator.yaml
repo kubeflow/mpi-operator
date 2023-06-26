@@ -55,6 +55,12 @@ spec:
             type: object
           spec:
             properties:
+              launcherCreationPolicy:
+                default: AtStartup
+                description: launcherCreationPolicy if WaitForWorkersReady, the launcher
+                  is created only after all workers are in Ready state. Defaults to
+                  AtStartup.
+                type: string
               mpiImplementation:
                 default: OpenMPI
                 description: MPIImplementation is the MPI implementation. Options
