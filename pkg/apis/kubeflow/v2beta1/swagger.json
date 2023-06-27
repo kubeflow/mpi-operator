@@ -321,6 +321,10 @@
         "mpiReplicaSpecs"
       ],
       "properties": {
+        "launcherCreationPolicy": {
+          "description": "launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.",
+          "type": "string"
+        },
         "mpiImplementation": {
           "description": "MPIImplementation is the MPI implementation. Options are \"OpenMPI\" (default), \"Intel\" and \"MPICH\".",
           "type": "string"
