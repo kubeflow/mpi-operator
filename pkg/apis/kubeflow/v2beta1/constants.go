@@ -26,6 +26,7 @@ const (
 )
 
 // merge from common.v1
+// reference https://github.com/kubeflow/common/blob/master/pkg/apis/common/v1/constants.go
 const (
 
 	// ReplicaIndexLabel represents the label key for the replica-index, e.g. 0, 1, 2.. etc
