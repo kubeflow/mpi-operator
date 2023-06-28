@@ -40,6 +40,7 @@ GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
 # Use go.mod go version as a single source of truth of scheduler-plugins version.
 SCHEDULER_PLUGINS_VERSION?=$(shell awk '/scheduler-plugins/{print $$2}' go.mod|head -n1)
+VOLCANO_SCHEDULER_VERSION?=$(shell go list -m -f "{{.Version}}" volcano.sh/apis)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
@@ -64,7 +65,7 @@ vet:
 
 .PHONY: test
 test:
-test: bin/envtest scheduler-plugins-crd
+test: bin/envtest scheduler-plugins-crd volcano-scheduler-crd
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v -covermode atomic -coverprofile=profile.cov $(shell go list ./... | grep -v '/test/e2e')
 
 # Only works with CONTROLLER_VERSION=v2
@@ -73,7 +74,7 @@ test_e2e: export TEST_MPI_OPERATOR_IMAGE=${IMAGE_NAME}:${RELEASE_VERSION}
 test_e2e: export TEST_OPENMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-openmpi
 test_e2e: export TEST_INTELMPI_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-intel
 test_e2e: export TEST_MPICH_IMAGE=mpioperator/mpi-pi:${RELEASE_VERSION}-mpich
-test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart
+test_e2e: bin/kubectl kind helm images test_images dev_manifest scheduler-plugins-chart volcano-scheduler-deploy
 	go test -timeout 20m -v ./test/e2e/...
 
 .PHONY: dev_manifest
@@ -192,3 +193,17 @@ scheduler-plugins-chart: scheduler-plugins-crd
 	cp -f $(PROJECT_DIR)/dep-crds/scheduler-plugins/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/scheduling.x-k8s.io_podgroups.yaml
 	cp -f /tmp/pkg/mod/sigs.k8s.io/scheduler-plugins@$(SCHEDULER_PLUGINS_VERSION)/manifests/noderesourcetopology/crd.yaml $(PROJECT_DIR)/dep-manifests/scheduler-plugins/crds/topology.node.k8s.io_noderesourcetopologies.yaml
 	chmod -R 760 $(PROJECT_DIR)/dep-manifests/scheduler-plugins
+
+.PHONY: volcano-scheduler
+volcano-scheduler:
+	-@GOPATH=/tmp go install volcano.sh/volcano/cmd/scheduler@$(VOLCANO_SCHEDULER_VERSION)
+
+.PHONY: volcano-scheduler-crd
+volcano-scheduler-crd: volcano-scheduler
+	mkdir -p $(PROJECT_DIR)/dep-crds/volcano-scheduler/
+	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/config/crd/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
+
+.PHONY: volcano-scheduler-deploy
+volcano-scheduler-deploy: volcano-scheduler-crd
+	mkdir -p $(PROJECT_DIR)/dep-manifests/volcano-scheduler/
+	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/installer/volcano-development.yaml $(PROJECT_DIR)/dep-manifests/volcano-scheduler/
