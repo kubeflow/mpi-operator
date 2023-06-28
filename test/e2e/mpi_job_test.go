@@ -317,36 +317,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			// Set up the scheduler-plugins.
 			setUpSchedulerPlugins()
 			// Set up the mpi-operator so that the scheduler-plugins is used as gang-scheduler.
-			ginkgo.By("Scale-In the deployment to 0")
-			operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-			gomega.Expect(err).Should(gomega.Succeed())
-			operator.Spec.Replicas = newInt32(0)
-			_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
-			gomega.Expect(err).Should(gomega.Succeed())
-			gomega.Eventually(func() bool {
-				isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
-				gomega.Expect(err).Should(gomega.Succeed())
-				return isNotZero
-			}, foreverTimeout, waitInterval).Should(gomega.BeFalse())
-
-			ginkgo.By("Update the replicas and args")
-			gomega.Eventually(func() error {
-				updatedOperator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-				gomega.Expect(err).Should(gomega.Succeed())
-				updatedOperator.Spec.Template.Spec.Containers[0].Args = append(updatedOperator.Spec.Template.Spec.Containers[0].Args, enableGangSchedulingFlag)
-				updatedOperator.Spec.Replicas = newInt32(1)
-				_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, updatedOperator, metav1.UpdateOptions{})
-				return err
-			}, foreverTimeout, waitInterval).Should(gomega.BeNil())
-
-			ginkgo.By("Should be replicas is 1")
-			gomega.Eventually(func() bool {
-				isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
-				gomega.Expect(err).Should(gomega.Succeed())
-				return isNotZero
-			}, foreverTimeout, waitInterval).Should(gomega.BeTrue())
-			createMPIJobWithOpenMPI(mpiJob)
-			mpiJob.Spec.RunPolicy.SchedulingPolicy = &kubeflow.SchedulingPolicy{MinResources: unschedulableResources}
+			setupMPIOperator(ctx, mpiJob, enableGangSchedulingFlag, unschedulableResources)
 		})
 
 		ginkgo.AfterEach(func() {
@@ -441,36 +412,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			// Set up the volcano-scheduler.
 			setupVolcanoScheduler()
 			// Set up the mpi-operator so that the volcano scheduler is used as gang-scheduler.
-			ginkgo.By("Scale-In the deployment to 0")
-			operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-			gomega.Expect(err).Should(gomega.Succeed())
-			operator.Spec.Replicas = newInt32(0)
-			_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
-			gomega.Expect(err).Should(gomega.Succeed())
-			gomega.Eventually(func() bool {
-				isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
-				gomega.Expect(err).Should(gomega.Succeed())
-				return isNotZero
-			}, foreverTimeout, waitInterval).Should(gomega.BeFalse())
-
-			ginkgo.By("Update the replicas and args")
-			gomega.Eventually(func() error {
-				updatedOperator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-				gomega.Expect(err).Should(gomega.Succeed())
-				updatedOperator.Spec.Template.Spec.Containers[0].Args = append(updatedOperator.Spec.Template.Spec.Containers[0].Args, enableGangSchedulingFlag)
-				updatedOperator.Spec.Replicas = newInt32(1)
-				_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, updatedOperator, metav1.UpdateOptions{})
-				return err
-			}, foreverTimeout, waitInterval).Should(gomega.BeNil())
-
-			ginkgo.By("Should be replicas is 1")
-			gomega.Eventually(func() bool {
-				isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
-				gomega.Expect(err).Should(gomega.Succeed())
-				return isNotZero
-			}, foreverTimeout, waitInterval).Should(gomega.BeTrue())
-			createMPIJobWithOpenMPI(mpiJob)
-			mpiJob.Spec.RunPolicy.SchedulingPolicy = &kubeflow.SchedulingPolicy{MinResources: unschedulableResources}
+			setupMPIOperator(ctx, mpiJob, enableGangSchedulingFlag, unschedulableResources)
 		})
 
 		ginkgo.AfterEach(func() {
@@ -733,4 +675,38 @@ func cleanUpVolcanoScheduler() {
 		err := runCommand(kubectlPath, "delete", "-f", volcanoSchedulerManifestPath)
 		gomega.Expect(err).Should(gomega.Succeed())
 	}
+}
+
+// setupMPIOperator scales down and scales up the MPIOperator replication so that set up gang-scheduler takes effect
+func setupMPIOperator(ctx context.Context, mpiJob *kubeflow.MPIJob, enableGangSchedulingFlag string, unschedulableResources *corev1.ResourceList) {
+	ginkgo.By("Scale-In the deployment to 0")
+	operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
+	gomega.Expect(err).Should(gomega.Succeed())
+	operator.Spec.Replicas = newInt32(0)
+	_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
+	gomega.Expect(err).Should(gomega.Succeed())
+	gomega.Eventually(func() bool {
+		isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
+		gomega.Expect(err).Should(gomega.Succeed())
+		return isNotZero
+	}, foreverTimeout, waitInterval).Should(gomega.BeFalse())
+
+	ginkgo.By("Update the replicas and args")
+	gomega.Eventually(func() error {
+		updatedOperator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
+		gomega.Expect(err).Should(gomega.Succeed())
+		updatedOperator.Spec.Template.Spec.Containers[0].Args = append(updatedOperator.Spec.Template.Spec.Containers[0].Args, enableGangSchedulingFlag)
+		updatedOperator.Spec.Replicas = newInt32(1)
+		_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, updatedOperator, metav1.UpdateOptions{})
+		return err
+	}, foreverTimeout, waitInterval).Should(gomega.BeNil())
+
+	ginkgo.By("Should be replicas is 1")
+	gomega.Eventually(func() bool {
+		isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
+		gomega.Expect(err).Should(gomega.Succeed())
+		return isNotZero
+	}, foreverTimeout, waitInterval).Should(gomega.BeTrue())
+	createMPIJobWithOpenMPI(mpiJob)
+	mpiJob.Spec.RunPolicy.SchedulingPolicy = &kubeflow.SchedulingPolicy{MinResources: unschedulableResources}
 }
