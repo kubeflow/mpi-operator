@@ -315,7 +315,7 @@ const (
 )
 
 // Following is merge from common.v1
-// reference https://github.com/kubeflow/common/blob/master/pkg/apis/common/v1/types.go
+// reference https://github.com/kubeflow/training-operator/blob/master/pkg/apis/kubeflow.org/v1/common_types.go
 
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
