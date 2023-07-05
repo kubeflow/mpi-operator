@@ -731,7 +731,7 @@ func TestMPIJobWithVolcanoScheduler(t *testing.T) {
 					PriorityClass: prioClass,
 				},
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{

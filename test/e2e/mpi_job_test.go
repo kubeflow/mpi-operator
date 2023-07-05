@@ -457,7 +457,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				var err error
 				pods, err = k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labels.FormatLabels(map[string]string{
-						common.JobNameLabel: mpiJob.Name,
+						kubeflow.JobNameLabel: mpiJob.Name,
 					}),
 				})
 				return err
