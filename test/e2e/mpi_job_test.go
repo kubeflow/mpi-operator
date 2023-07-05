@@ -316,36 +316,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			// Set up the scheduler-plugins.
 			setUpSchedulerPlugins()
 			// Set up the mpi-operator so that the scheduler-plugins is used as gang-scheduler.
-			ginkgo.By("Scale-In the deployment to 0")
-			operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-			gomega.Expect(err).Should(gomega.Succeed())
-			operator.Spec.Replicas = newInt32(0)
-			_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
-			gomega.Expect(err).Should(gomega.Succeed())
-			gomega.Eventually(func() bool {
-				isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
-				gomega.Expect(err).Should(gomega.Succeed())
-				return isNotZero
-			}, foreverTimeout, waitInterval).Should(gomega.BeFalse())
-
-			ginkgo.By("Update the replicas and args")
-			gomega.Eventually(func() error {
-				updatedOperator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
-				gomega.Expect(err).Should(gomega.Succeed())
-				updatedOperator.Spec.Template.Spec.Containers[0].Args = append(updatedOperator.Spec.Template.Spec.Containers[0].Args, enableGangSchedulingFlag)
-				updatedOperator.Spec.Replicas = newInt32(1)
-				_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, updatedOperator, metav1.UpdateOptions{})
-				return err
-			}, foreverTimeout, waitInterval).Should(gomega.BeNil())
-
-			ginkgo.By("Should be replicas is 1")
-			gomega.Eventually(func() bool {
-				isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
-				gomega.Expect(err).Should(gomega.Succeed())
-				return isNotZero
-			}, foreverTimeout, waitInterval).Should(gomega.BeTrue())
-			createMPIJobWithOpenMPI(mpiJob)
-			mpiJob.Spec.RunPolicy.SchedulingPolicy = &kubeflow.SchedulingPolicy{MinResources: unschedulableResources}
+			setupMPIOperator(ctx, mpiJob, enableGangSchedulingFlag, unschedulableResources)
 		})
 
 		ginkgo.AfterEach(func() {
@@ -399,6 +370,102 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				gomega.Expect(pod.Status.Phase).Should(gomega.Equal(corev1.PodPending))
 			}
 			pg, err := schedClient.SchedulingV1alpha1().PodGroups(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(pg.Spec.MinResources.Cpu().String()).Should(gomega.BeComparableTo(unschedulableResources.Cpu().String()))
+			gomega.Expect(pg.Spec.MinResources.Memory().String()).Should(gomega.BeComparableTo(unschedulableResources.Memory().String()))
+
+			ginkgo.By("Updating MPIJob with schedulable schedulingPolicies")
+			gomega.Eventually(func() error {
+				updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+				gomega.Expect(err).Should(gomega.Succeed())
+				updatedJob.Spec.RunPolicy.SchedulingPolicy.MinResources = nil
+				_, err = mpiClient.KubeflowV2beta1().MPIJobs(updatedJob.Namespace).Update(ctx, updatedJob, metav1.UpdateOptions{})
+				return err
+			}, foreverTimeout, waitInterval).Should(gomega.BeNil())
+
+			ginkgo.By("Waiting for MPIJob to running")
+			gomega.Eventually(func() corev1.ConditionStatus {
+				updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+				gomega.Expect(err).Should(gomega.Succeed())
+				cond := getJobCondition(updatedJob, kubeflow.JobRunning)
+				if cond == nil {
+					return corev1.ConditionFalse
+				}
+				return cond.Status
+			}, foreverTimeout, waitInterval).Should(gomega.Equal(corev1.ConditionTrue))
+		})
+	})
+
+	// volcano e2e tests
+	ginkgo.Context("with volcano-scheduler", func() {
+		const enableGangSchedulingFlag = "--gang-scheduling=volcano"
+		var (
+			ctx                    = context.Background()
+			unschedulableResources = &corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100000"),   // unschedulable
+				corev1.ResourceMemory: resource.MustParse("100000Gi"), // unschedulable
+			}
+		)
+
+		ginkgo.BeforeEach(func() {
+			// Set up the volcano-scheduler.
+			setupVolcanoScheduler()
+			// Set up the mpi-operator so that the volcano scheduler is used as gang-scheduler.
+			setupMPIOperator(ctx, mpiJob, enableGangSchedulingFlag, unschedulableResources)
+		})
+
+		ginkgo.AfterEach(func() {
+			operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
+			oldOperator := operator.DeepCopy()
+			gomega.Expect(err).Should(gomega.Succeed())
+			// disable gang-scheduler in operator
+			for i, arg := range operator.Spec.Template.Spec.Containers[0].Args {
+				if arg == enableGangSchedulingFlag {
+					operator.Spec.Template.Spec.Containers[0].Args = append(
+						operator.Spec.Template.Spec.Containers[0].Args[:i], operator.Spec.Template.Spec.Containers[0].Args[i+1:]...)
+					break
+				}
+			}
+			if diff := cmp.Diff(oldOperator, operator); len(diff) != 0 {
+				_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
+				gomega.Expect(err).Should(gomega.Succeed())
+				gomega.Eventually(func() bool {
+					ok, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
+					gomega.Expect(err).Should(gomega.Succeed())
+					return ok
+				}, foreverTimeout, waitInterval).Should(gomega.BeTrue())
+			}
+			// Clean up the volcano.
+			cleanUpVolcanoScheduler()
+		})
+
+		ginkgo.It("should create pending pods", func() {
+			ginkgo.By("Creating MPIJob")
+			mpiJob := createJob(ctx, mpiJob)
+			var jobCondition *kubeflow.JobCondition
+			gomega.Eventually(func() *kubeflow.JobCondition {
+				updatedMPIJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+				gomega.Expect(err).Should(gomega.Succeed())
+				jobCondition = getJobCondition(updatedMPIJob, kubeflow.JobCreated)
+				return jobCondition
+			}, foreverTimeout, waitInterval).ShouldNot(gomega.BeNil())
+			gomega.Expect(jobCondition.Status).To(gomega.Equal(corev1.ConditionTrue))
+
+			ginkgo.By("Waiting for Pods to created")
+			var pods *corev1.PodList
+			gomega.Eventually(func() error {
+				var err error
+				pods, err = k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: labels.FormatLabels(map[string]string{
+						common.JobNameLabel: mpiJob.Name,
+					}),
+				})
+				return err
+			}, foreverTimeout, waitInterval).Should(gomega.BeNil())
+			for _, pod := range pods.Items {
+				gomega.Expect(pod.Status.Phase).Should(gomega.Equal(corev1.PodPending))
+			}
+			pg, err := volcanoClient.SchedulingV1beta1().PodGroups(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(pg.Spec.MinResources.Cpu().String()).Should(gomega.BeComparableTo(unschedulableResources.Cpu().String()))
 			gomega.Expect(pg.Spec.MinResources.Memory().String()).Should(gomega.BeComparableTo(unschedulableResources.Memory().String()))
@@ -591,4 +658,54 @@ func cleanUpSchedulerPlugins() {
 		err = runCommand(kubectlPath, "delete", "namespace", schedulerPlugins)
 		gomega.Expect(err).Should(gomega.Succeed())
 	}
+}
+
+func setupVolcanoScheduler() {
+	if !useExistingVolcanoScheduler {
+		ginkgo.By("Installing volcano-scheduler")
+		err := installVolcanoScheduler()
+		gomega.Expect(err).Should(gomega.Succeed())
+	}
+}
+
+func cleanUpVolcanoScheduler() {
+	if !useExistingVolcanoScheduler {
+		ginkgo.By("Uninstalling volcano-scheduler")
+		err := runCommand(kubectlPath, "delete", "-f", volcanoSchedulerManifestPath)
+		gomega.Expect(err).Should(gomega.Succeed())
+	}
+}
+
+// setupMPIOperator scales down and scales up the MPIOperator replication so that set up gang-scheduler takes effect
+func setupMPIOperator(ctx context.Context, mpiJob *kubeflow.MPIJob, enableGangSchedulingFlag string, unschedulableResources *corev1.ResourceList) {
+	ginkgo.By("Scale-In the deployment to 0")
+	operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
+	gomega.Expect(err).Should(gomega.Succeed())
+	operator.Spec.Replicas = newInt32(0)
+	_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
+	gomega.Expect(err).Should(gomega.Succeed())
+	gomega.Eventually(func() bool {
+		isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
+		gomega.Expect(err).Should(gomega.Succeed())
+		return isNotZero
+	}, foreverTimeout, waitInterval).Should(gomega.BeFalse())
+
+	ginkgo.By("Update the replicas and args")
+	gomega.Eventually(func() error {
+		updatedOperator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
+		gomega.Expect(err).Should(gomega.Succeed())
+		updatedOperator.Spec.Template.Spec.Containers[0].Args = append(updatedOperator.Spec.Template.Spec.Containers[0].Args, enableGangSchedulingFlag)
+		updatedOperator.Spec.Replicas = newInt32(1)
+		_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, updatedOperator, metav1.UpdateOptions{})
+		return err
+	}, foreverTimeout, waitInterval).Should(gomega.BeNil())
+
+	ginkgo.By("Should be replicas is 1")
+	gomega.Eventually(func() bool {
+		isNotZero, err := ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
+		gomega.Expect(err).Should(gomega.Succeed())
+		return isNotZero
+	}, foreverTimeout, waitInterval).Should(gomega.BeTrue())
+	createMPIJobWithOpenMPI(mpiJob)
+	mpiJob.Spec.RunPolicy.SchedulingPolicy = &kubeflow.SchedulingPolicy{MinResources: unschedulableResources}
 }

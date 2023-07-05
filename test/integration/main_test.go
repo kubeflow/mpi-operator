@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "manifests", "base"),
 			filepath.Join("..", "..", "dep-crds", "scheduler-plugins"),
+			filepath.Join("..", "..", "dep-crds", "volcano-scheduler"),
 		},
 	}
 	var err error
