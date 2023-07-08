@@ -20,7 +20,6 @@ import (
 	"io"
 
 	"github.com/google/go-cmp/cmp"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -70,9 +69,9 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				Namespace: namespace,
 			},
 			Spec: kubeflow.MPIJobSpec{
-				MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+				MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 					kubeflow.MPIReplicaTypeLauncher: {
-						RestartPolicy: common.RestartPolicyOnFailure,
+						RestartPolicy: kubeflow.RestartPolicyOnFailure,
 					},
 					kubeflow.MPIReplicaTypeWorker: {
 						Replicas: newInt32(2),
@@ -458,7 +457,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				var err error
 				pods, err = k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labels.FormatLabels(map[string]string{
-						common.JobNameLabel: mpiJob.Name,
+						kubeflow.JobNameLabel: mpiJob.Name,
 					}),
 				})
 				return err
@@ -540,9 +539,9 @@ func waitForCompletion(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.M
 func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			common.OperatorNameLabel: kubeflow.OperatorName,
-			common.JobNameLabel:      mpiJob.Name,
-			common.JobRoleLabel:      "launcher",
+			kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+			kubeflow.JobNameLabel:      mpiJob.Name,
+			kubeflow.JobRoleLabel:      "launcher",
 		},
 	}
 	launcherPods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
@@ -565,7 +564,7 @@ func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
 		return fmt.Errorf("obtaining launcher logs: %w", err)
 	}
 
-	selector.MatchLabels[common.JobRoleLabel] = "worker"
+	selector.MatchLabels[kubeflow.JobRoleLabel] = "worker"
 	workerPods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: metav1.FormatLabelSelector(&selector),
 	})

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -66,7 +65,7 @@ func TestMPIJobSuccess(t *testing.T) {
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -193,7 +192,7 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -324,7 +323,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 				Suspend:        pointer.Bool(true),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -487,7 +486,7 @@ func TestMPIJobFailure(t *testing.T) {
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -618,7 +617,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 					ScheduleTimeoutSeconds: pointer.Int32(900),
 				},
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -732,7 +731,7 @@ func TestMPIJobWithVolcanoScheduler(t *testing.T) {
 					PriorityClass: prioClass,
 				},
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{

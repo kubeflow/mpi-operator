@@ -35,7 +35,7 @@ class V2beta1MPIJobSpec(object):
     openapi_types = {
         'launcher_creation_policy': 'str',
         'mpi_implementation': 'str',
-        'mpi_replica_specs': 'dict(str, V1ReplicaSpec)',
+        'mpi_replica_specs': 'dict(str, V2beta1ReplicaSpec)',
         'run_policy': 'V2beta1RunPolicy',
         'slots_per_worker': 'int',
         'ssh_auth_mount_path': 'str'
@@ -129,7 +129,7 @@ class V2beta1MPIJobSpec(object):
         MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that specify the MPI replicas to run.  # noqa: E501
 
         :return: The mpi_replica_specs of this V2beta1MPIJobSpec.  # noqa: E501
-        :rtype: dict(str, V1ReplicaSpec)
+        :rtype: dict(str, V2beta1ReplicaSpec)
         """
         return self._mpi_replica_specs
 
@@ -140,7 +140,7 @@ class V2beta1MPIJobSpec(object):
         MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that specify the MPI replicas to run.  # noqa: E501
 
         :param mpi_replica_specs: The mpi_replica_specs of this V2beta1MPIJobSpec.  # noqa: E501
-        :type mpi_replica_specs: dict(str, V1ReplicaSpec)
+        :type mpi_replica_specs: dict(str, V2beta1ReplicaSpec)
         """
         if self.local_vars_configuration.client_side_validation and mpi_replica_specs is None:  # noqa: E501
             raise ValueError("Invalid value for `mpi_replica_specs`, must not be `None`")  # noqa: E501

@@ -15,7 +15,6 @@
 package v2beta1
 
 import (
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -160,7 +159,7 @@ type MPIJobSpec struct {
 
 	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
 	// specify the MPI replicas to run.
-	MPIReplicaSpecs map[MPIReplicaType]*common.ReplicaSpec `json:"mpiReplicaSpecs"`
+	MPIReplicaSpecs map[MPIReplicaType]*ReplicaSpec `json:"mpiReplicaSpecs"`
 
 	// SSHAuthMountPath is the directory where SSH keys are mounted.
 	// Defaults to "/root/.ssh".
@@ -313,4 +312,46 @@ const (
 	// reached phase failed with no restarting.
 	// The training has failed its execution.
 	JobFailed JobConditionType = "Failed"
+)
+
+// Following is merge from common.v1
+// reference https://github.com/kubeflow/training-operator/blob/master/pkg/apis/kubeflow.org/v1/common_types.go
+
+// +k8s:openapi-gen=true
+// +k8s:deepcopy-gen=true
+// ReplicaSpec is a description of the replica
+type ReplicaSpec struct {
+	// Replicas is the desired number of replicas of the given template.
+	// If unspecified, defaults to 1.
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Template is the object that describes the pod that
+	// will be created for this replica. RestartPolicy in PodTemplateSpec
+	// will be overide by RestartPolicy in ReplicaSpec
+	Template v1.PodTemplateSpec `json:"template,omitempty"`
+
+	// Restart policy for all replicas within the job.
+	// One of Always, OnFailure, Never and ExitCode.
+	// Default to Never.
+	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+// RestartPolicy describes how the replicas should be restarted.
+// Only one of the following restart policies may be specified.
+// If none of the following policies is specified, the default one
+// is RestartPolicyAlways.
+type RestartPolicy string
+
+const (
+	RestartPolicyAlways    RestartPolicy = "Always"
+	RestartPolicyOnFailure RestartPolicy = "OnFailure"
+	RestartPolicyNever     RestartPolicy = "Never"
+
+	// RestartPolicyExitCode policy means that user should add exit code by themselves,
+	// The job operator will check these exit codes to
+	// determine the behavior when an error occurs:
+	// - 1-127: permanent error, do not restart.
+	// - 128-255: retryable error, will restart the pod.
+	RestartPolicyExitCode RestartPolicy = "ExitCode"
 )

@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -110,7 +109,7 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: &cleanPodPolicyAll,
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeWorker: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -1212,7 +1211,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Namespace: "bar",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
@@ -1242,9 +1241,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								common.OperatorNameLabel: kubeflow.OperatorName,
-								common.JobNameLabel:      "foo",
-								common.JobRoleLabel:      "launcher",
+								kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+								kubeflow.JobNameLabel:      "foo",
+								kubeflow.JobRoleLabel:      "launcher",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1296,10 +1295,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Name:      "foo-worker-0",
 					Namespace: "bar",
 					Labels: map[string]string{
-						common.OperatorNameLabel: kubeflow.OperatorName,
-						common.JobNameLabel:      "foo",
-						common.JobRoleLabel:      "worker",
-						common.ReplicaIndexLabel: "0",
+						kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+						kubeflow.JobNameLabel:      "foo",
+						kubeflow.JobRoleLabel:      "worker",
+						kubeflow.ReplicaIndexLabel: "0",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -1345,9 +1344,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						ActiveDeadlineSeconds:   newInt64(2),
 						BackoffLimit:            newInt32(3),
 					},
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							RestartPolicy: common.RestartPolicyOnFailure,
+							RestartPolicy: kubeflow.RestartPolicyOnFailure,
 							Template: corev1.PodTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{"foo": "bar"},
@@ -1408,10 +1407,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"foo":                    "bar",
-								common.OperatorNameLabel: kubeflow.OperatorName,
-								common.JobNameLabel:      "bar",
-								common.JobRoleLabel:      "launcher",
+								"foo":                      "bar",
+								kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+								kubeflow.JobNameLabel:      "bar",
+								kubeflow.JobRoleLabel:      "launcher",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1471,10 +1470,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Name:      "bar-worker-12",
 					Namespace: "foo",
 					Labels: map[string]string{
-						common.OperatorNameLabel: kubeflow.OperatorName,
-						common.JobNameLabel:      "bar",
-						common.JobRoleLabel:      "worker",
-						common.ReplicaIndexLabel: "12",
+						kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+						kubeflow.JobNameLabel:      "bar",
+						kubeflow.JobRoleLabel:      "worker",
+						kubeflow.ReplicaIndexLabel: "12",
 					},
 				},
 				Spec: corev1.PodSpec{

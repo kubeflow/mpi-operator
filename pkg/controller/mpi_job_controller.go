@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"time"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/ssh"
@@ -919,7 +918,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 	}
 	if len(podFullList) > int(*worker.Replicas) {
 		for _, pod := range podFullList {
-			indexStr, ok := pod.Labels[common.ReplicaIndexLabel]
+			indexStr, ok := pod.Labels[kubeflow.ReplicaIndexLabel]
 			if !ok {
 				return nil, err
 			}
@@ -1371,7 +1370,7 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	for key, value := range defaultLabels(mpiJob.Name, worker) {
 		podTemplate.Labels[key] = value
 	}
-	podTemplate.Labels[common.ReplicaIndexLabel] = strconv.Itoa(index)
+	podTemplate.Labels[kubeflow.ReplicaIndexLabel] = strconv.Itoa(index)
 	podTemplate.Spec.Hostname = name
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
 	if podTemplate.Spec.HostNetwork {
@@ -1550,8 +1549,8 @@ func countRunningPods(pods []*corev1.Pod) int {
 	return running
 }
 
-func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *common.ReplicaSpec) {
-	if spec.RestartPolicy == common.RestartPolicyExitCode {
+func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *kubeflow.ReplicaSpec) {
+	if spec.RestartPolicy == kubeflow.RestartPolicyExitCode {
 		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicyNever
 	} else {
 		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
@@ -1602,9 +1601,9 @@ func isCleanUpPods(cleanPodPolicy *kubeflow.CleanPodPolicy) bool {
 
 func defaultLabels(jobName, role string) map[string]string {
 	return map[string]string{
-		common.OperatorNameLabel: kubeflow.OperatorName,
-		common.JobNameLabel:      jobName,
-		common.JobRoleLabel:      role,
+		kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+		kubeflow.JobNameLabel:      jobName,
+		kubeflow.JobRoleLabel:      role,
 	}
 }
 
