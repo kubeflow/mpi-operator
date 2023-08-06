@@ -117,11 +117,11 @@ test_images:
 
 .PHONY: tidy
 tidy:
-	go mod tidy -go 1.19
+	go mod tidy -go 1.20
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run --new-from-rev=origin/master --go 1.19
+	$(GOLANGCI_LINT) run --new-from-rev=origin/master --go 1.20
 
 # Generate deploy/v2beta1/mpi-operator.yaml
 manifest: kustomize crd
@@ -138,7 +138,7 @@ bin:
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: bin/golangci-lint
 bin/golangci-lint: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
+	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
