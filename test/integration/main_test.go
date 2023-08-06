@@ -191,7 +191,7 @@ func (c *eventChecker) run() {
 
 func (c *eventChecker) verify(t *testing.T) {
 	t.Helper()
-	err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		c.Lock()
 		defer c.Unlock()
 		return c.expected.Len() == 0, nil

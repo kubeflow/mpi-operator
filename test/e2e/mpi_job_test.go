@@ -518,7 +518,7 @@ func waitForCompletion(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.M
 	var err error
 
 	ginkgo.By("Waiting for MPIJob to finish")
-	err = wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

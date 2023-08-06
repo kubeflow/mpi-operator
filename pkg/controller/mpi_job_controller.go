@@ -272,7 +272,7 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	namespace, gangSchedulingName string) *MPIJobController {
+	namespace, gangSchedulingName string) (*MPIJobController, error) {
 	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
 		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
 		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName)
@@ -292,7 +292,7 @@ func NewMPIJobControllerWithClock(
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	clock clock.WithTicker,
-	namespace, gangSchedulingName string) *MPIJobController {
+	namespace, gangSchedulingName string) (*MPIJobController, error) {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -339,7 +339,7 @@ func NewMPIJobControllerWithClock(
 		priorityClassSynced: priorityClassSynced,
 		mpiJobLister:        mpiJobInformer.Lister(),
 		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
-		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
+		queue:               workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "MPIJobs"}),
 		recorder:            recorder,
 		clock:               clock,
 	}
@@ -348,12 +348,14 @@ func NewMPIJobControllerWithClock(
 
 	klog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
-	mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.addMPIJob,
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueMPIJob(new)
 		},
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	// Set up an event handler for when dependent resources change. This
 	// handler will lookup the owner of the given resource, and if it is
@@ -361,44 +363,58 @@ func NewMPIJobControllerWithClock(
 	// processing. This way, we don't need to implement custom logic for
 	// handling dependent resources. More info on this pattern:
 	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
-	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.handleObject,
 		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
-	})
-	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	if podGroupCtrl != nil {
-		podGroupCtrl.PodGroupSharedIndexInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    controller.handleObject,
-			UpdateFunc: controller.handleObjectUpdate,
-			DeleteFunc: controller.handleObject,
-		})
-		priorityClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    controller.handleObject,
-			UpdateFunc: controller.handleObjectUpdate,
-			DeleteFunc: controller.handleObject,
-		})
+	}); err != nil {
+		return nil, err
 	}
-	return controller
+	if _, err := secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if podGroupCtrl != nil {
+		if _, err := podGroupCtrl.PodGroupSharedIndexInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.handleObject,
+			UpdateFunc: controller.handleObjectUpdate,
+			DeleteFunc: controller.handleObject,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := priorityClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.handleObject,
+			UpdateFunc: controller.handleObjectUpdate,
+			DeleteFunc: controller.handleObject,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return controller, nil
 }
 
 // Run will set up the event handlers for types we are interested in, as well
