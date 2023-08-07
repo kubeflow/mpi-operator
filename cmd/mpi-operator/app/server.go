@@ -141,7 +141,7 @@ func Run(opt *options.ServerOption) error {
 		kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeInformerFactoryOpts...)
 		kubeflowInformerFactory := informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, kubeflowInformerFactoryOpts...)
 
-		controller := controllersv1.NewMPIJobController(
+		controller, err := controllersv1.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
 			volcanoClientSet,
@@ -154,6 +154,9 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Scheduling().V1().PriorityClasses(),
 			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
 			namespace, opt.GangSchedulingName)
+		if err != nil {
+			klog.Fatalf("Failed to setup the controller")
+		}
 
 		go kubeInformerFactory.Start(ctx.Done())
 		go kubeflowInformerFactory.Start(ctx.Done())

@@ -47,7 +47,7 @@ const (
 	envVolcanoSchedulerVersion = "VOLCANO_SCHEDULER_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.25.8"
+	defaultKindImage        = "kindest/node:v1.27.3"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
 	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
@@ -176,8 +176,7 @@ func installOperator() error {
 	if err != nil {
 		return fmt.Errorf("applying operator YAMLs: %w", err)
 	}
-	ctx := context.Background()
-	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		return ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
 	})
 }
@@ -193,8 +192,7 @@ func installSchedulerPlugins() error {
 	if err != nil {
 		return fmt.Errorf("installing scheduler-plugins Helm Chart: %w", err)
 	}
-	ctx := context.Background()
-	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		controllerName := fmt.Sprintf("%s-controller", schedulerPlugins)
 		if ok, err := ensureDeploymentAvailableReplicas(ctx, schedulerPlugins, controllerName); !ok || err != nil {
 			return false, err
@@ -214,8 +212,7 @@ func installVolcanoScheduler() error {
 	}
 
 	volcanoNamespace := "volcano-system"
-	ctx := context.Background()
-	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		if ok, err := ensureDeploymentAvailableReplicas(ctx, volcanoNamespace, "volcano-scheduler"); !ok || err != nil {
 			return false, err
 		}
