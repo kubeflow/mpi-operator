@@ -39,7 +39,7 @@ PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
 # Use go.mod go version as a single source of truth of scheduler-plugins version.
-SCHEDULER_PLUGINS_VERSION?=$(shell awk '/scheduler-plugins/{print $$2}' go.mod|head -n1)
+SCHEDULER_PLUGINS_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/scheduler-plugins)
 VOLCANO_SCHEDULER_VERSION?=$(shell go list -m -f "{{.Version}}" volcano.sh/apis)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"

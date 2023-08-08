@@ -61,7 +61,7 @@ const (
 	volcanoSchedulerManifestPath   = rootPath + "/dep-manifests/volcano-scheduler/" // all in one yaml of volcano-development.yaml
 	envUseExistingSchedulerPlugins = "USE_EXISTING_SCHEDULER_PLUGINS"
 	envUseExistingVolcanoScheduler = "USE_EXISTING_VOLCANO_SCHEDULER"
-	defaultSchedulerPluginsVersion = "v0.25.7"
+	defaultSchedulerPluginsVersion = "v0.26.7"
 	defaultVolcanoSchedulerVersion = "v1.7.0"
 
 	mpiOperator      = "mpi-operator"
@@ -183,7 +183,7 @@ func installOperator() error {
 
 func installSchedulerPlugins() error {
 	// TODO: Remove flags to overwrite images once the scheduler-plugins with the appropriate helm charts is released.
-	// In the specific scheudler-plugins version such as v0.25.7, manifests are incorrect.
+	// In the specific scheudler-plugins version such as v0.26.7, manifests are incorrect.
 	// So we overwrite images.
 	overwriteControllerImage := fmt.Sprintf("controller.image=registry.k8s.io/scheduler-plugins/controller:%s", schedulerPluginsVersion)
 	overwriteSchedulerImage := fmt.Sprintf("scheduler.image=registry.k8s.io/scheduler-plugins/kube-scheduler:%s", schedulerPluginsVersion)
