@@ -1,0 +1,55 @@
+# Reusable workflows for publishing MPI Operator images.
+name: Build And Publish Images
+
+on:
+  workflow_call:
+    inputs:
+      component-name:
+        required: true
+        type: string
+      platforms:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      suffix:
+        required: false
+        type: string
+      context:
+        required: false
+        type: string
+      load-artifact-name:
+        required: false
+        type: string
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+
+jobs:
+  build-and-publish:
+    name: Publish Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build for Component ${{ inputs.component-name }}
+        uses: ./.github/workflows/template-publish-image
+        with:
+          image: docker.io/mpioperator/${{ inputs.component-name }}
+          dockerfile: ${{ inputs.dockerfile }}
+          platforms: ${{ inputs.platforms }}
+          suffix: ${{ inputs.suffix }}
+          context: ${{ inputs.context }}
+          output-artifact-name: ${{ inputs.component-name }}${{ inputs.suffix }}
+          load-artifact-name: ${{ inputs.load-artifact-name }}
