@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -110,7 +109,7 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: &cleanPodPolicyAll,
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeWorker: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -162,7 +161,7 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
-	c := NewMPIJobControllerWithClock(
+	c, err := NewMPIJobControllerWithClock(
 		f.kubeClient,
 		f.client,
 		f.volcanoClient,
@@ -178,6 +177,9 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 		metav1.NamespaceAll,
 		f.gangSchedulingName,
 	)
+	if err != nil {
+		fmt.Println("Failed to setup the controller")
+	}
 
 	c.configMapSynced = alwaysReady
 	c.serviceSynced = alwaysReady
@@ -188,35 +190,35 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	c.recorder = &record.FakeRecorder{}
 
 	for _, configMap := range f.configMapLister {
-		err := k8sI.Core().V1().ConfigMaps().Informer().GetIndexer().Add(configMap)
+		err = k8sI.Core().V1().ConfigMaps().Informer().GetIndexer().Add(configMap)
 		if err != nil {
 			fmt.Println("Failed to create config map")
 		}
 	}
 
 	for _, service := range f.serviceLister {
-		err := k8sI.Core().V1().Services().Informer().GetIndexer().Add(service)
+		err = k8sI.Core().V1().Services().Informer().GetIndexer().Add(service)
 		if err != nil {
 			fmt.Println("Failed to create service account")
 		}
 	}
 
 	for _, secret := range f.secretLister {
-		err := k8sI.Core().V1().Secrets().Informer().GetIndexer().Add(secret)
+		err = k8sI.Core().V1().Secrets().Informer().GetIndexer().Add(secret)
 		if err != nil {
 			fmt.Println("Failed to create role")
 		}
 	}
 
 	for _, job := range f.jobLister {
-		err := k8sI.Batch().V1().Jobs().Informer().GetIndexer().Add(job)
+		err = k8sI.Batch().V1().Jobs().Informer().GetIndexer().Add(job)
 		if err != nil {
 			fmt.Println("Failed to create job")
 		}
 	}
 
 	for _, pod := range f.podLister {
-		err := k8sI.Core().V1().Pods().Informer().GetIndexer().Add(pod)
+		err = k8sI.Core().V1().Pods().Informer().GetIndexer().Add(pod)
 		if err != nil {
 			fmt.Println("Failed to create pod")
 		}
@@ -224,19 +226,19 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 
 	if c.PodGroupCtrl != nil {
 		for _, podGroup := range f.volcanoPodGroupLister {
-			err := c.PodGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
+			err = c.PodGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
 			if err != nil {
 				fmt.Println("Failed to create volcano pod group")
 			}
 		}
 		for _, podGroup := range f.schedPodGroupLister {
-			err := c.PodGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
+			err = c.PodGroupCtrl.PodGroupSharedIndexInformer().GetIndexer().Add(podGroup)
 			if err != nil {
 				fmt.Println("Failed to create scheduler-plugins pod group")
 			}
 		}
 		for _, priorityClass := range f.priorityClassLister {
-			err := k8sI.Scheduling().V1().PriorityClasses().Informer().GetIndexer().Add(priorityClass)
+			err = k8sI.Scheduling().V1().PriorityClasses().Informer().GetIndexer().Add(priorityClass)
 			if err != nil {
 				fmt.Println("Failed to create priorityClass")
 			}
@@ -244,7 +246,7 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	}
 
 	for _, mpiJob := range f.mpiJobLister {
-		err := i.Kubeflow().V2beta1().MPIJobs().Informer().GetIndexer().Add(mpiJob)
+		err = i.Kubeflow().V2beta1().MPIJobs().Informer().GetIndexer().Add(mpiJob)
 		if err != nil {
 			fmt.Println("Failed to create mpijob")
 		}
@@ -1212,7 +1214,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Namespace: "bar",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
@@ -1242,9 +1244,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								common.OperatorNameLabel: kubeflow.OperatorName,
-								common.JobNameLabel:      "foo",
-								common.JobRoleLabel:      "launcher",
+								kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+								kubeflow.JobNameLabel:      "foo",
+								kubeflow.JobRoleLabel:      "launcher",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1296,10 +1298,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Name:      "foo-worker-0",
 					Namespace: "bar",
 					Labels: map[string]string{
-						common.OperatorNameLabel: kubeflow.OperatorName,
-						common.JobNameLabel:      "foo",
-						common.JobRoleLabel:      "worker",
-						common.ReplicaIndexLabel: "0",
+						kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+						kubeflow.JobNameLabel:      "foo",
+						kubeflow.JobRoleLabel:      "worker",
+						kubeflow.ReplicaIndexLabel: "0",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -1345,9 +1347,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						ActiveDeadlineSeconds:   newInt64(2),
 						BackoffLimit:            newInt32(3),
 					},
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							RestartPolicy: common.RestartPolicyOnFailure,
+							RestartPolicy: kubeflow.RestartPolicyOnFailure,
 							Template: corev1.PodTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{"foo": "bar"},
@@ -1408,10 +1410,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"foo":                    "bar",
-								common.OperatorNameLabel: kubeflow.OperatorName,
-								common.JobNameLabel:      "bar",
-								common.JobRoleLabel:      "launcher",
+								"foo":                      "bar",
+								kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+								kubeflow.JobNameLabel:      "bar",
+								kubeflow.JobRoleLabel:      "launcher",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1471,10 +1473,10 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					Name:      "bar-worker-12",
 					Namespace: "foo",
 					Labels: map[string]string{
-						common.OperatorNameLabel: kubeflow.OperatorName,
-						common.JobNameLabel:      "bar",
-						common.JobRoleLabel:      "worker",
-						common.ReplicaIndexLabel: "12",
+						kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+						kubeflow.JobNameLabel:      "bar",
+						kubeflow.JobRoleLabel:      "worker",
+						kubeflow.ReplicaIndexLabel: "12",
 					},
 				},
 				Spec: corev1.PodSpec{

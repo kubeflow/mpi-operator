@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "manifests", "base"),
 			filepath.Join("..", "..", "dep-crds", "scheduler-plugins"),
+			filepath.Join("..", "..", "dep-crds", "volcano-scheduler"),
 		},
 	}
 	var err error
@@ -190,7 +191,7 @@ func (c *eventChecker) run() {
 
 func (c *eventChecker) verify(t *testing.T) {
 	t.Helper()
-	err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		c.Lock()
 		defer c.Unlock()
 		return c.expected.Len() == 0, nil

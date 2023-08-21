@@ -15,7 +15,6 @@
 package v2beta1
 
 import (
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -24,7 +23,7 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 }
 
 // setDefaultsTypeLauncher sets the default value to launcher.
-func setDefaultsTypeLauncher(spec *common.ReplicaSpec) {
+func setDefaultsTypeLauncher(spec *ReplicaSpec) {
 	if spec == nil {
 		return
 	}
@@ -37,7 +36,7 @@ func setDefaultsTypeLauncher(spec *common.ReplicaSpec) {
 }
 
 // setDefaultsTypeWorker sets the default value to worker.
-func setDefaultsTypeWorker(spec *common.ReplicaSpec) {
+func setDefaultsTypeWorker(spec *ReplicaSpec) {
 	if spec == nil {
 		return
 	}
@@ -67,6 +66,9 @@ func SetDefaults_MPIJob(mpiJob *MPIJob) {
 	}
 	if mpiJob.Spec.MPIImplementation == "" {
 		mpiJob.Spec.MPIImplementation = MPIImplementationOpenMPI
+	}
+	if mpiJob.Spec.LauncherCreationPolicy == "" {
+		mpiJob.Spec.LauncherCreationPolicy = LauncherCreationPolicyAtStartup
 	}
 
 	// set default to Launcher

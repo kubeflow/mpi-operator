@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 )
 
 func TestSetDefaults_MPIJob(t *testing.T) {
@@ -33,8 +32,9 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 					RunPolicy: RunPolicy{
 						CleanPodPolicy: NewCleanPodPolicy(CleanPodPolicyNone),
 					},
-					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: MPIImplementationOpenMPI,
+					SSHAuthMountPath:       "/root/.ssh",
+					MPIImplementation:      MPIImplementationOpenMPI,
+					LauncherCreationPolicy: "AtStartup",
 				},
 			},
 		},
@@ -48,8 +48,9 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
 					},
-					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: MPIImplementationIntel,
+					SSHAuthMountPath:       "/home/mpiuser/.ssh",
+					MPIImplementation:      MPIImplementationIntel,
+					LauncherCreationPolicy: "AtStartup",
 				},
 			},
 			want: MPIJob{
@@ -61,8 +62,9 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
 					},
-					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: MPIImplementationIntel,
+					SSHAuthMountPath:       "/home/mpiuser/.ssh",
+					MPIImplementation:      MPIImplementationIntel,
+					LauncherCreationPolicy: "AtStartup",
 				},
 			},
 		},
@@ -76,8 +78,9 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
 					},
-					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: MPIImplementationMPICH,
+					SSHAuthMountPath:       "/home/mpiuser/.ssh",
+					MPIImplementation:      MPIImplementationMPICH,
+					LauncherCreationPolicy: "AtStartup",
 				},
 			},
 			want: MPIJob{
@@ -89,15 +92,16 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 						ActiveDeadlineSeconds:   newInt64(3),
 						BackoffLimit:            newInt32(4),
 					},
-					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					MPIImplementation: MPIImplementationMPICH,
+					SSHAuthMountPath:       "/home/mpiuser/.ssh",
+					MPIImplementation:      MPIImplementationMPICH,
+					LauncherCreationPolicy: "AtStartup",
 				},
 			},
 		},
 		"launcher defaults": {
 			job: MPIJob{
 				Spec: MPIJobSpec{
-					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[MPIReplicaType]*ReplicaSpec{
 						MPIReplicaTypeLauncher: {},
 					},
 				},
@@ -108,9 +112,10 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 					RunPolicy: RunPolicy{
 						CleanPodPolicy: NewCleanPodPolicy(CleanPodPolicyNone),
 					},
-					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: MPIImplementationOpenMPI,
-					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
+					SSHAuthMountPath:       "/root/.ssh",
+					MPIImplementation:      MPIImplementationOpenMPI,
+					LauncherCreationPolicy: "AtStartup",
+					MPIReplicaSpecs: map[MPIReplicaType]*ReplicaSpec{
 						MPIReplicaTypeLauncher: {
 							Replicas:      newInt32(1),
 							RestartPolicy: DefaultLauncherRestartPolicy,
@@ -122,7 +127,7 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 		"worker defaults": {
 			job: MPIJob{
 				Spec: MPIJobSpec{
-					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[MPIReplicaType]*ReplicaSpec{
 						MPIReplicaTypeWorker: {},
 					},
 				},
@@ -133,9 +138,10 @@ func TestSetDefaults_MPIJob(t *testing.T) {
 					RunPolicy: RunPolicy{
 						CleanPodPolicy: NewCleanPodPolicy(CleanPodPolicyNone),
 					},
-					SSHAuthMountPath:  "/root/.ssh",
-					MPIImplementation: MPIImplementationOpenMPI,
-					MPIReplicaSpecs: map[MPIReplicaType]*common.ReplicaSpec{
+					SSHAuthMountPath:       "/root/.ssh",
+					MPIImplementation:      MPIImplementationOpenMPI,
+					LauncherCreationPolicy: "AtStartup",
+					MPIReplicaSpecs: map[MPIReplicaType]*ReplicaSpec{
 						MPIReplicaTypeWorker: {
 							Replicas:      newInt32(0),
 							RestartPolicy: DefaultRestartPolicy,

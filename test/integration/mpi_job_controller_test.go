@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -65,7 +65,7 @@ func TestMPIJobSuccess(t *testing.T) {
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -175,6 +175,137 @@ func TestMPIJobSuccess(t *testing.T) {
 	}
 }
 
+func TestMPIJobWaitWorkers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	s := newTestSetup(ctx, t)
+	startController(ctx, s.kClient, s.mpiClient, nil)
+
+	mpiJob := &kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "job",
+			Namespace: s.namespace,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			SlotsPerWorker:         newInt32(1),
+			LauncherCreationPolicy: "WaitForWorkersReady",
+			RunPolicy: kubeflow.RunPolicy{
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+			},
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+				kubeflow.MPIReplicaTypeWorker: {
+					Replicas: newInt32(2),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	var err error
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending job to apiserver: %v", err)
+	}
+
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobCreated",
+	}, mpiJob))
+
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeWorker: {},
+	})
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
+		t.Errorf("MPIJob missing Created condition")
+	}
+	s.events.verify(t)
+
+	workerPods, err := getPodsForJob(ctx, s.kClient, mpiJob)
+	if err != nil {
+		t.Fatalf("Cannot get worker pods from job: %v", err)
+	}
+
+	err = updatePodsToPhase(ctx, s.kClient, workerPods, corev1.PodRunning)
+	if err != nil {
+		t.Fatalf("Updating worker Pods to Running phase: %v", err)
+	}
+
+	// No launcher here, workers are running, but not ready yet
+	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeWorker: {
+			Active: 2,
+		},
+	})
+
+	_, err = s.kClient.BatchV1().Jobs(s.namespace).Get(ctx, "job-launcher", metav1.GetOptions{})
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("Launcher is running before workers")
+	}
+
+	err = updatePodsCondition(ctx, s.kClient, workerPods, corev1.PodCondition{
+		Type:   corev1.PodReady,
+		Status: corev1.ConditionTrue,
+	})
+	if err != nil {
+		t.Fatalf("Updating worker Pods to Ready: %v", err)
+	}
+
+	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker: {
+			Active: 2,
+		},
+	})
+
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobRunning",
+	}, mpiJob))
+
+	launcherJob, err := getLauncherJobForMPIJob(ctx, s.kClient, mpiJob)
+	if err != nil {
+		t.Fatalf("Cannot get launcher job from job: %v", err)
+	}
+
+	launcherPod, err := createPodForJob(ctx, s.kClient, launcherJob)
+	if err != nil {
+		t.Fatalf("Failed to create mock pod for launcher Job: %v", err)
+	}
+	err = updatePodsToPhase(ctx, s.kClient, []corev1.Pod{*launcherPod}, corev1.PodRunning)
+	if err != nil {
+		t.Fatalf("Updating launcher Pods to Running phase: %v", err)
+	}
+	validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
+			Active: 1,
+		},
+		kubeflow.MPIReplicaTypeWorker: {
+			Active: 2,
+		},
+	})
+	s.events.verify(t)
+}
+
 func TestMPIJobResumingAndSuspending(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -192,7 +323,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 				Suspend:        pointer.Bool(true),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -355,7 +486,7 @@ func TestMPIJobFailure(t *testing.T) {
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -486,7 +617,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 					ScheduleTimeoutSeconds: pointer.Int32(900),
 				},
 			},
-			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -561,7 +692,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed sending job to apiserver: %v", err)
 	}
-	if err = wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
+	if err = wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		pg, err := getSchedPodGroup(ctx, gangSchedulerCfg.schedClient, mpiJob)
 		if err != nil {
 			return false, err
@@ -572,6 +703,122 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 		return *pg.Spec.ScheduleTimeoutSeconds == updatedScheduleTimeSeconds, nil
 	}); err != nil {
 		t.Errorf("Failed updating scheduler-plugins PodGroup: %v", err)
+	}
+}
+
+func TestMPIJobWithVolcanoScheduler(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	s := newTestSetup(ctx, t)
+	gangSchedulerCfg := &gangSchedulerConfig{
+		schedulerName: "volcano",
+		volcanoClient: s.gangSchedulerCfg.volcanoClient,
+	}
+	startController(ctx, s.kClient, s.mpiClient, gangSchedulerCfg)
+
+	prioClass := "test-pc-volcano"
+	mpiJob := &kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "job-by-volcano",
+			Namespace: s.namespace,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			SlotsPerWorker: newInt32(1),
+			RunPolicy: kubeflow.RunPolicy{
+				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				SchedulingPolicy: &kubeflow.SchedulingPolicy{
+					Queue:         "default",
+					PriorityClass: prioClass,
+				},
+			},
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							PriorityClassName: prioClass,
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+				kubeflow.MPIReplicaTypeWorker: {
+					Replicas: newInt32(2),
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	priorityClass := &schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: schedulingv1.SchemeGroupVersion.String(),
+			Kind:       "PriorityClass",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: prioClass,
+		},
+		Value: 100_000,
+	}
+	// 1. Create PriorityClass
+	var err error
+	_, err = s.kClient.SchedulingV1().PriorityClasses().Create(ctx, priorityClass, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending priorityClass to apiserver: %v", err)
+	}
+
+	// 2. Create MPIJob
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending job to apiserver: %v", err)
+	}
+
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobCreated",
+	}, mpiJob))
+
+	validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2, gangSchedulerCfg)
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	})
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
+		t.Errorf("MPIJob missing Created condition")
+	}
+	s.events.verify(t)
+
+	// 3. Update SchedulingPolicy of MPIJob
+	updatedMinAvaiable := int32(2)
+	updatedQueueName := "queue-for-mpijob"
+	mpiJob.Spec.RunPolicy.SchedulingPolicy.MinAvailable = &updatedMinAvaiable
+	mpiJob.Spec.RunPolicy.SchedulingPolicy.Queue = updatedQueueName
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Errorf("Failed sending job to apiserver: %v", err)
+	}
+	if err = wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+		pg, err := getVolcanoPodGroup(ctx, gangSchedulerCfg.volcanoClient, mpiJob)
+		if err != nil {
+			return false, err
+		}
+		if pg == nil {
+			return false, nil
+		}
+		return pg.Spec.MinMember == updatedMinAvaiable && pg.Spec.Queue == updatedQueueName, nil
+	}); err != nil {
+		t.Errorf("Failed updating volcano PodGroup: %v", err)
 	}
 }
 
@@ -596,7 +843,7 @@ func startController(
 			schedClient = gangSchedulerCfg.schedClient
 		}
 	}
-	ctrl := controller.NewMPIJobController(
+	ctrl, err := controller.NewMPIJobController(
 		kClient,
 		mpiClient,
 		volcanoClient,
@@ -610,6 +857,9 @@ func startController(
 		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
 		metav1.NamespaceAll, schedulerName,
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	go kubeInformerFactory.Start(ctx.Done())
 	go mpiInformerFactory.Start(ctx.Done())
@@ -642,7 +892,7 @@ func validateMPIJobDependencies(
 		podGroup    metav1.Object
 	)
 	var problems []string
-	if err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		problems = nil
 		var err error
 		svc, err = getServiceForJob(ctx, kubeClient, job)
@@ -738,7 +988,7 @@ func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.In
 		err    error
 		got    map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus
 	)
-	if err := wait.Poll(waitInterval, wait.ForeverTestTimeout, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		newJob, err = client.KubeflowV2beta1().MPIJobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -755,6 +1005,18 @@ func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.In
 func updatePodsToPhase(ctx context.Context, client kubernetes.Interface, pods []corev1.Pod, phase corev1.PodPhase) error {
 	for i, p := range pods {
 		p.Status.Phase = phase
+		newPod, err := client.CoreV1().Pods(p.Namespace).UpdateStatus(ctx, &p, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		pods[i] = *newPod
+	}
+	return nil
+}
+
+func updatePodsCondition(ctx context.Context, client kubernetes.Interface, pods []corev1.Pod, condition corev1.PodCondition) error {
+	for i, p := range pods {
+		p.Status.Conditions = append(p.Status.Conditions, condition)
 		newPod, err := client.CoreV1().Pods(p.Namespace).UpdateStatus(ctx, &p, metav1.UpdateOptions{})
 		if err != nil {
 			return err

@@ -19,7 +19,6 @@ import (
 	"sort"
 
 	"github.com/google/go-cmp/cmp"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -399,7 +398,7 @@ func calculateMinAvailable(mpiJob *kubeflow.MPIJob) *int32 {
 //  2. .spec.mpiReplicaSecs[Launcher].template.spec.priorityClassName
 //  3. .spec.mpiReplicaSecs[Worker].template.spec.priorityClassName
 func calculatePriorityClassName(
-	replicas map[kubeflow.MPIReplicaType]*common.ReplicaSpec,
+	replicas map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec,
 	schedulingPolicy *kubeflow.SchedulingPolicy,
 ) string {
 	if schedulingPolicy != nil && len(schedulingPolicy.PriorityClass) != 0 {
@@ -443,7 +442,7 @@ type replicaPriority struct {
 	priority    int32
 	replicaType kubeflow.MPIReplicaType
 
-	common.ReplicaSpec
+	kubeflow.ReplicaSpec
 }
 
 type replicasOrder []replicaPriority

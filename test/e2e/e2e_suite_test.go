@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
+	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 )
@@ -43,9 +44,10 @@ const (
 	envTestMPICHImage          = "TEST_MPICH_IMAGE"
 	envTestKindImage           = "TEST_KIND_IMAGE"
 	envSchedulerPluginsVersion = "SCHEDULER_PLUGINS_VERSION"
+	envVolcanoSchedulerVersion = "VOLCANO_SCHEDULER_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.25.8"
+	defaultKindImage        = "kindest/node:v1.27.3"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
 	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
@@ -56,8 +58,11 @@ const (
 	operatorManifestsPath   = rootPath + "/manifests/overlays/dev"
 
 	schedulerPluginsManifestPath   = rootPath + "/dep-manifests/scheduler-plugins/"
+	volcanoSchedulerManifestPath   = rootPath + "/dep-manifests/volcano-scheduler/" // all in one yaml of volcano-development.yaml
 	envUseExistingSchedulerPlugins = "USE_EXISTING_SCHEDULER_PLUGINS"
-	defaultSchedulerPluginsVersion = "v0.25.7"
+	envUseExistingVolcanoScheduler = "USE_EXISTING_VOLCANO_SCHEDULER"
+	defaultSchedulerPluginsVersion = "v0.26.7"
+	defaultVolcanoSchedulerVersion = "v1.7.0"
 
 	mpiOperator      = "mpi-operator"
 	schedulerPlugins = "scheduler-plugins"
@@ -70,28 +75,33 @@ var (
 	useExistingCluster          bool
 	useExistingOperator         bool
 	useExistingSchedulerPlugins bool
+	useExistingVolcanoScheduler bool
 	mpiOperatorImage            string
 	openMPIImage                string
 	intelMPIImage               string
 	mpichImage                  string
 	kindImage                   string
 	schedulerPluginsVersion     string
+	volcanoSchedulerVersion     string
 
-	k8sClient   kubernetes.Interface
-	mpiClient   clientset.Interface
-	schedClient schedclientset.Interface
+	k8sClient     kubernetes.Interface
+	mpiClient     clientset.Interface
+	schedClient   schedclientset.Interface
+	volcanoClient volcanoclient.Interface
 )
 
 func init() {
 	useExistingCluster = getEnvDefault(envUseExistingCluster, "false") == "true"
 	useExistingOperator = getEnvDefault(envUseExistingOperator, "false") == "true"
 	useExistingSchedulerPlugins = getEnvDefault(envUseExistingSchedulerPlugins, "false") == "true"
+	useExistingVolcanoScheduler = getEnvDefault(envUseExistingVolcanoScheduler, "false") == "true"
 	mpiOperatorImage = getEnvDefault(envTestMPIOperatorImage, defaultMPIOperatorImage)
 	openMPIImage = getEnvDefault(envTestOpenMPIImage, defaultOpenMPIImage)
 	intelMPIImage = getEnvDefault(envTestIntelMPIImage, defaultIntelMPIImage)
 	mpichImage = getEnvDefault(envTestMPICHImage, defaultMPICHImage)
 	kindImage = getEnvDefault(envTestKindImage, defaultKindImage)
 	schedulerPluginsVersion = getEnvDefault(envSchedulerPluginsVersion, defaultSchedulerPluginsVersion)
+	volcanoSchedulerVersion = getEnvDefault(envVolcanoSchedulerVersion, defaultVolcanoSchedulerVersion)
 }
 
 func TestE2E(t *testing.T) {
@@ -117,6 +127,9 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 
 	schedClient, err = schedclientset.NewForConfig(restConfig)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	volcanoClient, err = volcanoclient.NewForConfig(restConfig)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	if !useExistingOperator {
 		ginkgo.By("Installing operator")
@@ -163,15 +176,14 @@ func installOperator() error {
 	if err != nil {
 		return fmt.Errorf("applying operator YAMLs: %w", err)
 	}
-	ctx := context.Background()
-	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		return ensureDeploymentAvailableReplicas(ctx, mpiOperator, mpiOperator)
 	})
 }
 
 func installSchedulerPlugins() error {
 	// TODO: Remove flags to overwrite images once the scheduler-plugins with the appropriate helm charts is released.
-	// In the specific scheudler-plugins version such as v0.25.7, manifests are incorrect.
+	// In the specific scheudler-plugins version such as v0.26.7, manifests are incorrect.
 	// So we overwrite images.
 	overwriteControllerImage := fmt.Sprintf("controller.image=registry.k8s.io/scheduler-plugins/controller:%s", schedulerPluginsVersion)
 	overwriteSchedulerImage := fmt.Sprintf("scheduler.image=registry.k8s.io/scheduler-plugins/kube-scheduler:%s", schedulerPluginsVersion)
@@ -180,14 +192,34 @@ func installSchedulerPlugins() error {
 	if err != nil {
 		return fmt.Errorf("installing scheduler-plugins Helm Chart: %w", err)
 	}
-	ctx := context.Background()
-	return wait.Poll(waitInterval, foreverTimeout, func() (bool, error) {
+	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		controllerName := fmt.Sprintf("%s-controller", schedulerPlugins)
 		if ok, err := ensureDeploymentAvailableReplicas(ctx, schedulerPlugins, controllerName); !ok || err != nil {
 			return false, err
 		}
 		schedulerName := fmt.Sprintf("%s-scheduler", schedulerPlugins)
 		if ok, err := ensureDeploymentAvailableReplicas(ctx, schedulerPlugins, schedulerName); !ok || err != nil {
+			return false, err
+		}
+		return true, nil
+	})
+}
+
+func installVolcanoScheduler() error {
+	err := runCommand(kubectlPath, "apply", "-f", volcanoSchedulerManifestPath)
+	if err != nil {
+		return fmt.Errorf("failed to install volcano scheduler : %w", err)
+	}
+
+	volcanoNamespace := "volcano-system"
+	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
+		if ok, err := ensureDeploymentAvailableReplicas(ctx, volcanoNamespace, "volcano-scheduler"); !ok || err != nil {
+			return false, err
+		}
+		if ok, err := ensureDeploymentAvailableReplicas(ctx, volcanoNamespace, "volcano-controllers"); !ok || err != nil {
+			return false, err
+		}
+		if ok, err := ensureDeploymentAvailableReplicas(ctx, volcanoNamespace, "volcano-admission"); !ok || err != nil {
 			return false, err
 		}
 		return true, nil

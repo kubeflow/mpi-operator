@@ -18,11 +18,13 @@ package fake
 
 import (
 	"context"
+	json "encoding/json"
+	"fmt"
 
 	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/client/applyconfiguration/kubeflow/v2beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -34,9 +36,9 @@ type FakeMPIJobs struct {
 	ns   string
 }
 
-var mpijobsResource = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v2beta1", Resource: "mpijobs"}
+var mpijobsResource = v2beta1.SchemeGroupVersion.WithResource("mpijobs")
 
-var mpijobsKind = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v2beta1", Kind: "MPIJob"}
+var mpijobsKind = v2beta1.SchemeGroupVersion.WithKind("MPIJob")
 
 // Get takes name of the mPIJob, and returns the corresponding mPIJob object, and an error if there is any.
 func (c *FakeMPIJobs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2beta1.MPIJob, err error) {
@@ -132,6 +134,51 @@ func (c *FakeMPIJobs) DeleteCollection(ctx context.Context, opts v1.DeleteOption
 func (c *FakeMPIJobs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.MPIJob, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(mpijobsResource, c.ns, name, pt, data, subresources...), &v2beta1.MPIJob{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2beta1.MPIJob), err
+}
+
+// Apply takes the given apply declarative configuration, applies it and returns the applied mPIJob.
+func (c *FakeMPIJobs) Apply(ctx context.Context, mPIJob *kubeflowv2beta1.MPIJobApplyConfiguration, opts v1.ApplyOptions) (result *v2beta1.MPIJob, err error) {
+	if mPIJob == nil {
+		return nil, fmt.Errorf("mPIJob provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(mPIJob)
+	if err != nil {
+		return nil, err
+	}
+	name := mPIJob.Name
+	if name == nil {
+		return nil, fmt.Errorf("mPIJob.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewPatchSubresourceAction(mpijobsResource, c.ns, *name, types.ApplyPatchType, data), &v2beta1.MPIJob{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2beta1.MPIJob), err
+}
+
+// ApplyStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+func (c *FakeMPIJobs) ApplyStatus(ctx context.Context, mPIJob *kubeflowv2beta1.MPIJobApplyConfiguration, opts v1.ApplyOptions) (result *v2beta1.MPIJob, err error) {
+	if mPIJob == nil {
+		return nil, fmt.Errorf("mPIJob provided to Apply must not be nil")
+	}
+	data, err := json.Marshal(mPIJob)
+	if err != nil {
+		return nil, err
+	}
+	name := mPIJob.Name
+	if name == nil {
+		return nil, fmt.Errorf("mPIJob.Name must be provided to Apply")
+	}
+	obj, err := c.Fake.
+		Invokes(testing.NewPatchSubresourceAction(mpijobsResource, c.ns, *name, types.ApplyPatchType, data, "status"), &v2beta1.MPIJob{})
 
 	if obj == nil {
 		return nil, err
