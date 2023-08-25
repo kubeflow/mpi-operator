@@ -201,7 +201,7 @@ volcano-scheduler:
 .PHONY: volcano-scheduler-crd
 volcano-scheduler-crd: volcano-scheduler
 	mkdir -p $(PROJECT_DIR)/dep-crds/volcano-scheduler/
-	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/config/crd/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
+	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/config/crd/volcano/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
 
 .PHONY: volcano-scheduler-deploy
 volcano-scheduler-deploy: volcano-scheduler-crd
