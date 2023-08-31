@@ -578,19 +578,36 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// cleanup and stop retrying the MPIJob.
 	if isFinished(mpiJob.Status) && mpiJob.Status.CompletionTime != nil {
 		if isFailed(mpiJob.Status) {
-			newMPIJob := &kubeflow.MPIJob{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      mpiJob.Name + "-new",
-					Namespace: mpiJob.Namespace,
-				},
-				Spec: mpiJob.Spec,
-			}
-			scheme.Scheme.Default(newMPIJob)
-			klog.V(4).Infof("Creating new MPIJob: %s", newMPIJob.Name)
-			_, err := c.kubeflowClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Create(context.TODO(), newMPIJob, metav1.CreateOptions{})
-			if err != nil {
-				klog.V(4).Infof("Failed to create a new MPIJob: %v", err)
-				return err
+			restartCount := 0
+			maxRestart := 3
+			if val, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLabel]; ok {
+				if val == "" {
+					val = "0"
+				}
+				i, err := strconv.Atoi(val)
+				if err != nil {
+					klog.V(4).Infof("failed to convert %s to integer: %s", kubeflow.MPIJobRestartCountLabel, val)
+					return err
+				}
+				restartCount = i + 1
+				if restartCount <= maxRestart {
+					newMPIJob := &kubeflow.MPIJob{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      fmt.Sprintf("%s-%s", mpiJob.Name, string(int32(restartCount))),
+							Namespace: mpiJob.Namespace,
+						},
+						Spec: mpiJob.Spec,
+					}
+					scheme.Scheme.Default(newMPIJob)
+					klog.V(4).Infof("Creating new MPIJob: %s", newMPIJob.Name)
+					_, err := c.kubeflowClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Create(context.TODO(), newMPIJob, metav1.CreateOptions{})
+					if err != nil {
+						klog.V(4).Infof("Failed to create a new MPIJob: %v", err)
+						return err
+					}
+				} else {
+					klog.V(4).Infof("Skipping restart of MPIJob since it exceeded maximum of %s restarts", maxRestart)
+				}
 			}
 		}
 		if isCleanUpPods(mpiJob.Spec.RunPolicy.CleanPodPolicy) {

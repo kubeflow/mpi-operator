@@ -43,4 +43,7 @@ const (
 
 	// JobRoleLabel represents the label key for the job role, e.g. master.
 	JobRoleLabel = "training.kubeflow.org/job-role"
+
+	// MPIJobRestartCountLabel represents the number of times we have restarted this MPIJob upon failures.
+	MPIJobRestartCountLabel = "training.kubeflow.org/restart-count"
 )
