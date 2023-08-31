@@ -2,6 +2,8 @@ apiVersion: kubeflow.org/v2beta1
 kind: MPIJob
 metadata:
   name: pi
+  labels:
+    training.kubeflow.org/restart-count: ""
 spec:
   slotsPerWorker: 1
   runPolicy:
@@ -23,7 +25,7 @@ spec:
             args:
             - -n
             - "2"
-            - /home/mpiuser/pi
+            - /unknown
             resources:
               limits:
                 cpu: 1

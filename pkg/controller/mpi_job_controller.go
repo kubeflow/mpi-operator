@@ -573,11 +573,8 @@ func (c *MPIJobController) syncHandler(key string) error {
 		mpiJobsCreatedCount.Inc()
 	}
 
-	// CompletionTime is only filled when the launcher Job succeeded or stopped
-	// retrying (it reached .spec.backoffLimit). If it's filled, we want to
-	// cleanup and stop retrying the MPIJob.
-	if isFinished(mpiJob.Status) && mpiJob.Status.CompletionTime != nil {
-		if isFailed(mpiJob.Status) {
+	if mpiJob.Status.ReplicaStatuses != nil {
+		if mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Failed >= 0 || mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher].Failed >= 0 {
 			restartCount := 0
 			maxRestart := 3
 			if val, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLabel]; ok {
@@ -610,6 +607,12 @@ func (c *MPIJobController) syncHandler(key string) error {
 				}
 			}
 		}
+	}
+
+	// CompletionTime is only filled when the launcher Job succeeded or stopped
+	// retrying (it reached .spec.backoffLimit). If it's filled, we want to
+	// cleanup and stop retrying the MPIJob.
+	if isFinished(mpiJob.Status) && mpiJob.Status.CompletionTime != nil {
 		if isCleanUpPods(mpiJob.Spec.RunPolicy.CleanPodPolicy) {
 			if err := cleanUpWorkerPods(mpiJob, c); err != nil {
 				return err
