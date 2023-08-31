@@ -18,5 +18,6 @@ spec:
       - args:
         - -alsologtostderr
         image: mpioperator/mpi-operator:latest
+        imagePullPolicy: Always
         name: mpi-operator
       serviceAccountName: mpi-operator

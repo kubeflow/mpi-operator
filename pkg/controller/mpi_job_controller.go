@@ -592,6 +592,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("%s-%d", mpiJob.Name, restartCount),
 							Namespace: mpiJob.Namespace,
+							Labels:    map[string]string{kubeflow.MPIJobRestartCountLabel: string(restartCount)},
 						},
 						Spec: mpiJob.Spec,
 					}
