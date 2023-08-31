@@ -590,7 +590,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 				if restartCount <= maxRestart {
 					newMPIJob := &kubeflow.MPIJob{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("%s-%s", mpiJob.Name, string(int32(restartCount))),
+							Name:      fmt.Sprintf("%s-%d", mpiJob.Name, restartCount),
 							Namespace: mpiJob.Namespace,
 						},
 						Spec: mpiJob.Spec,
