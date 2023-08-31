@@ -577,22 +577,32 @@ func (c *MPIJobController) syncHandler(key string) error {
 		if mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Failed >= 0 || mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher].Failed >= 0 {
 			restartCount := 0
 			maxRestart := 3
-			if val, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLabel]; ok {
-				if val == "" {
-					val = "0"
+			if count, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLabel]; ok {
+				if count == "" {
+					count = "0"
 				}
-				i, err := strconv.Atoi(val)
+				countInt, err := strconv.Atoi(count)
 				if err != nil {
-					klog.V(4).Infof("failed to convert %s to integer: %s", kubeflow.MPIJobRestartCountLabel, val)
+					klog.V(4).Infof("failed to convert %s to integer: %s", kubeflow.MPIJobRestartCountLabel, count)
 					return err
 				}
-				restartCount = i + 1
+				restartCount = countInt + 1
+				if limit, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLimitLabel]; ok {
+					if limit != "" {
+						limitInt, err := strconv.Atoi(limit)
+						if err != nil {
+							klog.V(4).Infof("failed to convert %s to integer: %s", kubeflow.MPIJobRestartCountLimitLabel, count)
+							return err
+						}
+						maxRestart = limitInt
+					}
+				}
 				if restartCount <= maxRestart {
 					newMPIJob := &kubeflow.MPIJob{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("%s-%d", mpiJob.Name, restartCount),
 							Namespace: mpiJob.Namespace,
-							Labels:    map[string]string{kubeflow.MPIJobRestartCountLabel: string(restartCount)},
+							Labels:    map[string]string{kubeflow.MPIJobRestartCountLabel: fmt.Sprintf("%d", restartCount)},
 						},
 						Spec: mpiJob.Spec,
 					}
