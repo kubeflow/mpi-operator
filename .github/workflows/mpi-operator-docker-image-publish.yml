@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "test-recreate"
     tags:
       - "v*"
   pull_request:

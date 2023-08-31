@@ -577,6 +577,22 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// retrying (it reached .spec.backoffLimit). If it's filled, we want to
 	// cleanup and stop retrying the MPIJob.
 	if isFinished(mpiJob.Status) && mpiJob.Status.CompletionTime != nil {
+		if isFailed(mpiJob.Status) {
+			newMPIJob := &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      mpiJob.Name + "-new",
+					Namespace: mpiJob.Namespace,
+				},
+				Spec: mpiJob.Spec,
+			}
+			scheme.Scheme.Default(newMPIJob)
+			klog.V(4).Infof("Creating new MPIJob: %s", newMPIJob.Name)
+			_, err := c.kubeflowClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Create(context.TODO(), newMPIJob, metav1.CreateOptions{})
+			if err != nil {
+				klog.V(4).Infof("Failed to create a new MPIJob: %v", err)
+				return err
+			}
+		}
 		if isCleanUpPods(mpiJob.Spec.RunPolicy.CleanPodPolicy) {
 			if err := cleanUpWorkerPods(mpiJob, c); err != nil {
 				return err
