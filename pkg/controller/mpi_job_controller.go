@@ -587,15 +587,14 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 			if limitInt != 0 {
 				countInt := 0
-				count, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLabel]
-				if ok {
+				if count, ok := mpiJob.GetLabels()[kubeflow.MPIJobRestartCountLabel]; ok {
 					countInt, err = strconv.Atoi(count)
 					if err != nil {
 						klog.V(4).Infof("failed to convert %s to integer: %s", kubeflow.MPIJobRestartCountLabel, count)
 						return err
 					}
-					countInt = countInt + 1
 				}
+				countInt = countInt + 1
 				if countInt <= limitInt {
 					newMPIJob := &kubeflow.MPIJob{
 						ObjectMeta: metav1.ObjectMeta{
