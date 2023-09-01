@@ -44,8 +44,8 @@ const (
 	// JobRoleLabel represents the label key for the job role, e.g. master.
 	JobRoleLabel = "training.kubeflow.org/job-role"
 
-	// MPIJobRestartCountLabel represents the number of times we have restarted a MPIJob upon failures.
-	MPIJobRestartCountLabel = "training.kubeflow.org/restart-count"
-	// MPIJobRestartCountLimitLabel represents the maximum number of times we can restart a MPIJob upon failures.
-	MPIJobRestartCountLimitLabel = "training.kubeflow.org/restart-count-limit"
+	// MPIJobRetryCountLabel represents the number of times we have restarted a MPIJob upon failures.
+	MPIJobRetryCountLabel = "training.kubeflow.org/retry-count"
+	// MPIJobRetryCountLimitLabel represents the maximum number of times we can restart a MPIJob upon failures.
+	MPIJobRetryCountLimitLabel = "training.kubeflow.org/retry-count-limit"
 )
