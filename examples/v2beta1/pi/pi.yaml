@@ -3,7 +3,7 @@ kind: MPIJob
 metadata:
   name: pi
   labels:
-    training.kubeflow.org/restart-count: ""
+    training.kubeflow.org/restart-count-limit: "3"
 spec:
   slotsPerWorker: 1
   runPolicy:
