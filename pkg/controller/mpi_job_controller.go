@@ -26,7 +26,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -597,11 +596,11 @@ func (c *MPIJobController) syncHandler(key string) error {
 				}
 				countInt = countInt + 1
 				if countInt <= limitInt {
-					parts := strings.Split(mpiJob.Name, "-")
-					parts[len(parts)-1] = fmt.Sprintf("%d", countInt)
+					//parts := strings.Split(mpiJob.Name, "-")
+					//parts[len(parts)-1] = fmt.Sprintf("%d", countInt)
 					newMPIJob := &kubeflow.MPIJob{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      strings.Join(parts, "-"),
+							Name:      fmt.Sprintf("%s-%d", mpiJob.Name, countInt), // strings.Join(parts, "-"),
 							Namespace: mpiJob.Namespace,
 							Labels: map[string]string{
 								kubeflow.MPIJobRetryCountLabel:      fmt.Sprintf("%d", countInt),

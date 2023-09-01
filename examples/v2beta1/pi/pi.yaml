@@ -6,12 +6,14 @@ metadata:
     training.kubeflow.org/retry-count-limit: "3"
 spec:
   slotsPerWorker: 1
+  backoffLimit: 0
   runPolicy:
     cleanPodPolicy: Running
     ttlSecondsAfterFinished: 60
   sshAuthMountPath: /home/mpiuser/.ssh
   mpiReplicaSpecs:
     Launcher:
+      restartPolicy: Never
       replicas: 1
       template:
         spec:
@@ -31,6 +33,7 @@ spec:
                 cpu: 1
                 memory: 1Gi
     Worker:
+      restartPolicy: Never
       replicas: 2
       template:
         spec:
