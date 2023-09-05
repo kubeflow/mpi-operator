@@ -16,6 +16,7 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [Mellanox Technologies](https://www.mellanox.com/) | [Vitaliy Razinkov](https://github.com/vtlrazin) |
 | [NVIDIA](https://www.nvidia.com/) | [Rong Ou](https://github.com/rongou) |
 | [Pinduoduo](https://en.pinduoduo.com/) | [Shuwen Wang](https://github.com/antshuwen) |
+| [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/) | [Benjamin Trudeau](https://github.com/benjx1990) |
 | [Polyaxon](https://polyaxon.com/) | [Mourad Mourafiq](https://github.com/mouradmourafiq) |
 | [Qutoutiao](https://www.qutoutiao.net/) | [Zhaojing Yu](https://github.com/yuzhaojing) |
 | [Tencent](http://tencent.com/en-us/) | [Lei Xue](https://github.com/carmark) |
