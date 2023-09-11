@@ -19,7 +19,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.15.1
 	sigs.k8s.io/scheduler-plugins v0.26.7
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
-	volcano.sh/apis v1.7.0
+	volcano.sh/apis v1.8.0
 )
 
 require (
