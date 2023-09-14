@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"time"
 
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/ssh"
@@ -273,7 +272,7 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	namespace, gangSchedulingName string) *MPIJobController {
+	namespace, gangSchedulingName string) (*MPIJobController, error) {
 	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
 		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
 		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName)
@@ -293,7 +292,7 @@ func NewMPIJobControllerWithClock(
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	clock clock.WithTicker,
-	namespace, gangSchedulingName string) *MPIJobController {
+	namespace, gangSchedulingName string) (*MPIJobController, error) {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -340,7 +339,7 @@ func NewMPIJobControllerWithClock(
 		priorityClassSynced: priorityClassSynced,
 		mpiJobLister:        mpiJobInformer.Lister(),
 		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
-		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "MPIJobs"),
+		queue:               workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "MPIJobs"}),
 		recorder:            recorder,
 		clock:               clock,
 	}
@@ -349,12 +348,14 @@ func NewMPIJobControllerWithClock(
 
 	klog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
-	mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.addMPIJob,
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueMPIJob(new)
 		},
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	// Set up an event handler for when dependent resources change. This
 	// handler will lookup the owner of the given resource, and if it is
@@ -362,44 +363,58 @@ func NewMPIJobControllerWithClock(
 	// processing. This way, we don't need to implement custom logic for
 	// handling dependent resources. More info on this pattern:
 	// https://github.com/kubernetes/community/blob/8cafef897a22026d42f5e5bb3f104febe7e29830/contributors/devel/controllers.md
-	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.handleObject,
 		UpdateFunc: controller.handleObjectUpdate,
 		DeleteFunc: controller.handleObject,
-	})
-	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.handleObject,
-		UpdateFunc: controller.handleObjectUpdate,
-		DeleteFunc: controller.handleObject,
-	})
-	if podGroupCtrl != nil {
-		podGroupCtrl.PodGroupSharedIndexInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    controller.handleObject,
-			UpdateFunc: controller.handleObjectUpdate,
-			DeleteFunc: controller.handleObject,
-		})
-		priorityClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    controller.handleObject,
-			UpdateFunc: controller.handleObjectUpdate,
-			DeleteFunc: controller.handleObject,
-		})
+	}); err != nil {
+		return nil, err
 	}
-	return controller
+	if _, err := secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.handleObject,
+		UpdateFunc: controller.handleObjectUpdate,
+		DeleteFunc: controller.handleObject,
+	}); err != nil {
+		return nil, err
+	}
+	if podGroupCtrl != nil {
+		if _, err := podGroupCtrl.PodGroupSharedIndexInformer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.handleObject,
+			UpdateFunc: controller.handleObjectUpdate,
+			DeleteFunc: controller.handleObject,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := priorityClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.handleObject,
+			UpdateFunc: controller.handleObjectUpdate,
+			DeleteFunc: controller.handleObject,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return controller, nil
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -624,10 +639,14 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if launcher == nil {
-			launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
-			if err != nil {
-				c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
-				return fmt.Errorf("creating launcher Pod: %w", err)
+			if mpiJob.Spec.LauncherCreationPolicy == kubeflow.LauncherCreationPolicyAtStartup || c.countReadyWorkerPods(worker) == len(worker) {
+				launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
+				if err != nil {
+					c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
+					return fmt.Errorf("creating launcher Pod: %w", err)
+				}
+			} else {
+				klog.V(4).Infof("Waiting for workers %s/%s to start.", mpiJob.Namespace, mpiJob.Name)
 			}
 		}
 	}
@@ -776,6 +795,19 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 	return podList, nil
 }
 
+func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) int {
+	ready := 0
+	for _, pod := range workers {
+		for _, c := range pod.Status.Conditions {
+			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+				ready++
+				break
+			}
+		}
+	}
+	return ready
+}
+
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev1.ConfigMap, error) {
@@ -902,7 +934,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 	}
 	if len(podFullList) > int(*worker.Replicas) {
 		for _, pod := range podFullList {
-			indexStr, ok := pod.Labels[common.ReplicaIndexLabel]
+			indexStr, ok := pod.Labels[kubeflow.ReplicaIndexLabel]
 			if !ok {
 				return nil, err
 			}
@@ -1011,14 +1043,15 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 			mpiJob.Status.StartTime = &now
 		}
 	}
-	launcherPods, err := c.jobPods(launcher)
-	if err != nil {
-		return fmt.Errorf("checking launcher pods running: %w", err)
-	}
-	// Job.status.Active accounts for Pending and Running pods. Count running pods
-	// from the lister instead.
-	launcherPodsCnt := countRunningPods(launcherPods)
+	launcherPodsCnt := 0
 	if launcher != nil {
+		launcherPods, err := c.jobPods(launcher)
+		if err != nil {
+			return fmt.Errorf("checking launcher pods running: %w", err)
+		}
+		// Job.status.Active accounts for Pending and Running pods. Count running pods
+		// from the lister instead.
+		launcherPodsCnt = countRunningPods(launcherPods)
 		initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeLauncher)
 		launcherStatus := mpiJob.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeLauncher]
 		launcherStatus.Failed = launcher.Status.Failed
@@ -1353,7 +1386,7 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	for key, value := range defaultLabels(mpiJob.Name, worker) {
 		podTemplate.Labels[key] = value
 	}
-	podTemplate.Labels[common.ReplicaIndexLabel] = strconv.Itoa(index)
+	podTemplate.Labels[kubeflow.ReplicaIndexLabel] = strconv.Itoa(index)
 	podTemplate.Spec.Hostname = name
 	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
 	if podTemplate.Spec.HostNetwork {
@@ -1532,8 +1565,8 @@ func countRunningPods(pods []*corev1.Pod) int {
 	return running
 }
 
-func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *common.ReplicaSpec) {
-	if spec.RestartPolicy == common.RestartPolicyExitCode {
+func setRestartPolicy(podTemplateSpec *corev1.PodTemplateSpec, spec *kubeflow.ReplicaSpec) {
+	if spec.RestartPolicy == kubeflow.RestartPolicyExitCode {
 		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicyNever
 	} else {
 		podTemplateSpec.Spec.RestartPolicy = corev1.RestartPolicy(spec.RestartPolicy)
@@ -1584,9 +1617,9 @@ func isCleanUpPods(cleanPodPolicy *kubeflow.CleanPodPolicy) bool {
 
 func defaultLabels(jobName, role string) map[string]string {
 	return map[string]string{
-		common.OperatorNameLabel: kubeflow.OperatorName,
-		common.JobNameLabel:      jobName,
-		common.JobRoleLabel:      role,
+		kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+		kubeflow.JobNameLabel:      jobName,
+		kubeflow.JobRoleLabel:      role,
 	}
 }
 

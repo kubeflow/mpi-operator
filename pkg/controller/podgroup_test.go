@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	common "github.com/kubeflow/common/pkg/apis/common/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,7 +64,7 @@ func TestNewPodGroup(t *testing.T) {
 							ScheduleTimeoutSeconds: pointer.Int32(100),
 						},
 					},
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 							Template: corev1.PodTemplateSpec{
@@ -138,7 +137,7 @@ func TestNewPodGroup(t *testing.T) {
 					},
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 							Template: corev1.PodTemplateSpec{
@@ -238,19 +237,19 @@ func TestNewPodGroup(t *testing.T) {
 
 func TestCalcPriorityClassName(t *testing.T) {
 	testCases := map[string]struct {
-		replicas   map[kubeflow.MPIReplicaType]*common.ReplicaSpec
+		replicas   map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec
 		sp         *kubeflow.SchedulingPolicy
 		wantPCName string
 	}{
 		"use schedulingPolicy": {
-			replicas: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{},
+			replicas: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{},
 			sp: &kubeflow.SchedulingPolicy{
 				PriorityClass: "high",
 			},
 			wantPCName: "high",
 		},
 		"use launcher": {
-			replicas: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			replicas: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -269,7 +268,7 @@ func TestCalcPriorityClassName(t *testing.T) {
 			wantPCName: "high",
 		},
 		"use worker": {
-			replicas: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			replicas: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{},
@@ -286,7 +285,7 @@ func TestCalcPriorityClassName(t *testing.T) {
 			wantPCName: "low",
 		},
 		"nothing": {
-			replicas: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+			replicas: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{},
@@ -405,7 +404,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 					Name: "test",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 							Template: corev1.PodTemplateSpec{
@@ -502,7 +501,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 					Name: "test",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 							Template: corev1.PodTemplateSpec{
@@ -560,7 +559,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 					Name: "test",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 							Template: corev1.PodTemplateSpec{
@@ -626,7 +625,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 					Name: "test",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 							Template: corev1.PodTemplateSpec{
@@ -778,7 +777,7 @@ func TestCalculateMinAvailable(t *testing.T) {
 							MinAvailable: pointer.Int32(2),
 						},
 					},
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 						},
@@ -796,7 +795,7 @@ func TestCalculateMinAvailable(t *testing.T) {
 					Name: "test",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*common.ReplicaSpec{
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
 							Replicas: pointer.Int32(1),
 						},
@@ -827,22 +826,22 @@ func TestReplicasOrder(t *testing.T) {
 	}{
 		"1-lancher, 2-worker, lancher higher priority": {
 			original: replicasOrder{
-				{priority: 1, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
-				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
+				{priority: 1, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &lancherReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &wokerReplic}},
 			},
 			expected: replicasOrder{
-				{priority: 1, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
-				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
+				{priority: 1, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &lancherReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &wokerReplic}},
 			},
 		},
 		"1-lancher, 2-worker, equal priority": {
 			original: replicasOrder{
-				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
-				{priority: 0, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &wokerReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &lancherReplic}},
 			},
 			expected: replicasOrder{
-				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: common.ReplicaSpec{Replicas: &wokerReplic}},
-				{priority: 0, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: common.ReplicaSpec{Replicas: &lancherReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeWorker, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &wokerReplic}},
+				{priority: 0, replicaType: kubeflow.MPIReplicaTypeLauncher, ReplicaSpec: kubeflow.ReplicaSpec{Replicas: &lancherReplic}},
 			},
 		},
 	}

@@ -28,21 +28,19 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubeflow/common/pkg/apis/common/v1.JobCondition":                  schema_pkg_apis_common_v1_JobCondition(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus":                     schema_pkg_apis_common_v1_JobStatus(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec":                   schema_pkg_apis_common_v1_ReplicaSpec(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaStatus":                 schema_pkg_apis_common_v1_ReplicaStatus(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.RunPolicy":                     schema_pkg_apis_common_v1_RunPolicy(ref),
-		"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy":              schema_pkg_apis_common_v1_SchedulingPolicy(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.JobCondition":     schema_pkg_apis_kubeflow_v2beta1_JobCondition(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.JobStatus":        schema_pkg_apis_kubeflow_v2beta1_JobStatus(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJob":           schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobList":       schema_pkg_apis_kubeflow_v2beta1_MPIJobList(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec":       schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.ReplicaSpec":      schema_pkg_apis_kubeflow_v2beta1_ReplicaSpec(ref),
+		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.ReplicaStatus":    schema_pkg_apis_kubeflow_v2beta1_ReplicaStatus(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy":        schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref),
 		"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.SchedulingPolicy": schema_pkg_apis_kubeflow_v2beta1_SchedulingPolicy(ref),
 	}
 }
 
-func schema_pkg_apis_common_v1_JobCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_kubeflow_v2beta1_JobCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -51,7 +49,7 @@ func schema_pkg_apis_common_v1_JobCondition(ref common.ReferenceCallback) common
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Type of job condition.",
+							Description: "type of job condition.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -59,7 +57,7 @@ func schema_pkg_apis_common_v1_JobCondition(ref common.ReferenceCallback) common
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Status of the condition, one of True, False, Unknown.",
+							Description: "status of the condition, one of True, False, Unknown.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -74,7 +72,7 @@ func schema_pkg_apis_common_v1_JobCondition(ref common.ReferenceCallback) common
 					},
 					"message": {
 						SchemaProps: spec.SchemaProps{
-							Description: "A human readable message indicating details about the transition.",
+							Description: "A human-readable message indicating details about the transition.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -102,7 +100,7 @@ func schema_pkg_apis_common_v1_JobCondition(ref common.ReferenceCallback) common
 	}
 }
 
-func schema_pkg_apis_common_v1_JobStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_kubeflow_v2beta1_JobStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -110,14 +108,22 @@ func schema_pkg_apis_common_v1_JobStatus(ref common.ReferenceCallback) common.Op
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Conditions is an array of current observed job conditions.",
+							Description: "conditions is a list of current observed job conditions.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kubeflow/common/pkg/apis/common/v1.JobCondition"),
+										Ref:     ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.JobCondition"),
 									},
 								},
 							},
@@ -125,13 +131,13 @@ func schema_pkg_apis_common_v1_JobStatus(ref common.ReferenceCallback) common.Op
 					},
 					"replicaStatuses": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ReplicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.",
+							Description: "replicaStatuses is map of ReplicaType and ReplicaStatus, specifies the status of each replica.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubeflow/common/pkg/apis/common/v1.ReplicaStatus"),
+										Ref: ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.ReplicaStatus"),
 									},
 								},
 							},
@@ -156,198 +162,10 @@ func schema_pkg_apis_common_v1_JobStatus(ref common.ReferenceCallback) common.Op
 						},
 					},
 				},
-				Required: []string{"conditions", "replicaStatuses"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.JobCondition", "github.com/kubeflow/common/pkg/apis/common/v1.ReplicaStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
-func schema_pkg_apis_common_v1_ReplicaSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ReplicaSpec is a description of the replica",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"replicas": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Replicas is the desired number of replicas of the given template. If unspecified, defaults to 1.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"template": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Template is the object that describes the pod that will be created for this replica. RestartPolicy in PodTemplateSpec will be overide by RestartPolicy in ReplicaSpec",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
-						},
-					},
-					"restartPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Restart policy for all replicas within the job. One of Always, OnFailure, Never and ExitCode. Default to Never.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/api/core/v1.PodTemplateSpec"},
-	}
-}
-
-func schema_pkg_apis_common_v1_ReplicaStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ReplicaStatus represents the current observed state of the replica.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"active": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of actively running pods.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"succeeded": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of pods which reached phase Succeeded.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"failed": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of pods which reached phase Failed.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"labelSelector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: Use Selector instead",
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A Selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty Selector matches all objects. A null Selector matches no objects.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
-	}
-}
-
-func schema_pkg_apis_common_v1_RunPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "RunPolicy encapsulates various runtime policies of the distributed training job, for example how to clean up resources and how long the job can stay active.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"cleanPodPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CleanPodPolicy defines the policy to kill pods after the job completes. Default to Running.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"ttlSecondsAfterFinished": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TTLSecondsAfterFinished is the TTL to clean up jobs. It may take extra ReconcilePeriod seconds for the cleanup, since reconcile gets called periodically. Default to infinite.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"activeDeadlineSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the duration in seconds relative to the startTime that the job may be active before the system tries to terminate it; value must be positive integer.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"backoffLimit": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional number of retries before marking this job failed.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"schedulingPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling",
-							Ref:         ref("github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.SchedulingPolicy"},
-	}
-}
-
-func schema_pkg_apis_common_v1_SchedulingPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "SchedulingPolicy encapsulates various scheduling policies of the distributed training job, for example `minAvailable` for gang-scheduling.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"minAvailable": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"queue": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"minResources": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-									},
-								},
-							},
-						},
-					},
-					"priorityClass": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"scheduleTimeoutSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.JobCondition", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.ReplicaStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -386,14 +204,14 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJob(ref common.ReferenceCallback) commo
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kubeflow/common/pkg/apis/common/v1.JobStatus"),
+							Ref:     ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.JobStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.JobStatus", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.JobStatus", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.MPIJobSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -473,7 +291,7 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec"),
+										Ref: ref("github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.ReplicaSpec"),
 									},
 								},
 							},
@@ -482,6 +300,13 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 					"sshAuthMountPath": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SSHAuthMountPath is the directory where SSH keys are mounted. Defaults to \"/root/.ssh\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"launcherCreationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -498,7 +323,92 @@ func schema_pkg_apis_kubeflow_v2beta1_MPIJobSpec(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubeflow/common/pkg/apis/common/v1.ReplicaSpec", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy"},
+			"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.ReplicaSpec", "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1.RunPolicy"},
+	}
+}
+
+func schema_pkg_apis_kubeflow_v2beta1_ReplicaSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReplicaSpec is a description of the replica",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"replicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Replicas is the desired number of replicas of the given template. If unspecified, defaults to 1.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template is the object that describes the pod that will be created for this replica. RestartPolicy in PodTemplateSpec will be overide by RestartPolicy in ReplicaSpec",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
+						},
+					},
+					"restartPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Restart policy for all replicas within the job. One of Always, OnFailure, Never and ExitCode. Default to Never.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.PodTemplateSpec"},
+	}
+}
+
+func schema_pkg_apis_kubeflow_v2beta1_ReplicaStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ReplicaStatus represents the current observed state of the replica.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"active": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The number of actively running pods.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"succeeded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The number of pods which reached phase succeeded.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"failed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The number of pods which reached phase failed.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: Use selector instead",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty selector matches all objects. A null selector matches no objects.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
@@ -562,24 +472,27 @@ func schema_pkg_apis_kubeflow_v2beta1_SchedulingPolicy(ref common.ReferenceCallb
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SchedulingPolicy encapsulates various scheduling policies of the distributed training job, for example `minAvailable` for gang-scheduling.",
+				Description: "SchedulingPolicy encapsulates various scheduling policies of the distributed training job, for example `minAvailable` for gang-scheduling. Now, it supports only for volcano and scheduler-plugins.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"minAvailable": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "MinAvailable defines the minimal number of member to run the PodGroup. If the gang-scheduling isn't empty, input is passed to `.spec.minMember` in PodGroup. Note that, when using this field, you need to make sure the application supports resizing (e.g., Elastic Horovod).\n\nIf not set, it defaults to the number of workers.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"queue": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Queue defines the queue name to allocate resource for PodGroup. If the gang-scheduling is set to the volcano, input is passed to `.spec.queue` in PodGroup for the volcano, and if it is set to the scheduler-plugins, input isn't passed to PodGroup.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"minResources": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
+							Description: "MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling isn't empty, input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.",
+							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
 								Schema: &spec.Schema{
@@ -593,14 +506,16 @@ func schema_pkg_apis_kubeflow_v2beta1_SchedulingPolicy(ref common.ReferenceCallb
 					},
 					"priorityClass": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "PriorityClass defines the PodGroup's PriorityClass. If the gang-scheduling is set to the volcano, input is passed to `.spec.priorityClassName` in PodGroup for volcano, and if it is set to the scheduler-plugins, input isn't passed to PodGroup for scheduler-plugins.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"scheduleTimeoutSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "SchedulerTimeoutSeconds defines the maximal time of members to wait before run the PodGroup. If the gang-scheduling is set to the scheduler-plugins, input is passed to `.spec.scheduleTimeoutSeconds` in PodGroup for the scheduler-plugins, and if it is set to the volcano, input isn't passed to PodGroup.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

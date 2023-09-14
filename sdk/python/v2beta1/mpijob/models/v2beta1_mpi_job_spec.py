@@ -33,14 +33,16 @@ class V2beta1MPIJobSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'launcher_creation_policy': 'str',
         'mpi_implementation': 'str',
-        'mpi_replica_specs': 'dict(str, V1ReplicaSpec)',
+        'mpi_replica_specs': 'dict(str, V2beta1ReplicaSpec)',
         'run_policy': 'V2beta1RunPolicy',
         'slots_per_worker': 'int',
         'ssh_auth_mount_path': 'str'
     }
 
     attribute_map = {
+        'launcher_creation_policy': 'launcherCreationPolicy',
         'mpi_implementation': 'mpiImplementation',
         'mpi_replica_specs': 'mpiReplicaSpecs',
         'run_policy': 'runPolicy',
@@ -48,12 +50,13 @@ class V2beta1MPIJobSpec(object):
         'ssh_auth_mount_path': 'sshAuthMountPath'
     }
 
-    def __init__(self, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, launcher_creation_policy=None, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1MPIJobSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration.get_default_copy()
         self.local_vars_configuration = local_vars_configuration
 
+        self._launcher_creation_policy = None
         self._mpi_implementation = None
         self._mpi_replica_specs = None
         self._run_policy = None
@@ -61,6 +64,8 @@ class V2beta1MPIJobSpec(object):
         self._ssh_auth_mount_path = None
         self.discriminator = None
 
+        if launcher_creation_policy is not None:
+            self.launcher_creation_policy = launcher_creation_policy
         if mpi_implementation is not None:
             self.mpi_implementation = mpi_implementation
         self.mpi_replica_specs = mpi_replica_specs
@@ -70,6 +75,29 @@ class V2beta1MPIJobSpec(object):
             self.slots_per_worker = slots_per_worker
         if ssh_auth_mount_path is not None:
             self.ssh_auth_mount_path = ssh_auth_mount_path
+
+    @property
+    def launcher_creation_policy(self):
+        """Gets the launcher_creation_policy of this V2beta1MPIJobSpec.  # noqa: E501
+
+        launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.  # noqa: E501
+
+        :return: The launcher_creation_policy of this V2beta1MPIJobSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._launcher_creation_policy
+
+    @launcher_creation_policy.setter
+    def launcher_creation_policy(self, launcher_creation_policy):
+        """Sets the launcher_creation_policy of this V2beta1MPIJobSpec.
+
+        launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.  # noqa: E501
+
+        :param launcher_creation_policy: The launcher_creation_policy of this V2beta1MPIJobSpec.  # noqa: E501
+        :type launcher_creation_policy: str
+        """
+
+        self._launcher_creation_policy = launcher_creation_policy
 
     @property
     def mpi_implementation(self):
@@ -101,7 +129,7 @@ class V2beta1MPIJobSpec(object):
         MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that specify the MPI replicas to run.  # noqa: E501
 
         :return: The mpi_replica_specs of this V2beta1MPIJobSpec.  # noqa: E501
-        :rtype: dict(str, V1ReplicaSpec)
+        :rtype: dict(str, V2beta1ReplicaSpec)
         """
         return self._mpi_replica_specs
 
@@ -112,7 +140,7 @@ class V2beta1MPIJobSpec(object):
         MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that specify the MPI replicas to run.  # noqa: E501
 
         :param mpi_replica_specs: The mpi_replica_specs of this V2beta1MPIJobSpec.  # noqa: E501
-        :type mpi_replica_specs: dict(str, V1ReplicaSpec)
+        :type mpi_replica_specs: dict(str, V2beta1ReplicaSpec)
         """
         if self.local_vars_configuration.client_side_validation and mpi_replica_specs is None:  # noqa: E501
             raise ValueError("Invalid value for `mpi_replica_specs`, must not be `None`")  # noqa: E501
