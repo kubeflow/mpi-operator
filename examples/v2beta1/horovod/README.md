@@ -4,7 +4,7 @@ This example shows how to run a cpu-only mpijob.
 
 ## How to Build Image
 
-This example dockerfile is based on Horovod cpu only [dockerfile](https://raw.githubusercontent.com/horovod/horovod/master/Dockerfile.cpu), you can build the image as follows:
+This example dockerfile is based on Horovod cpu only [dockerfile](https://raw.githubusercontent.com/horovod/horovod/master/docker/horovod-cpu/Dockerfile), you can build the image as follows:
 
 ```bash
 docker build -t horovod:latest .
