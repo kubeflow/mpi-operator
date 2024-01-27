@@ -29,7 +29,7 @@ if [ -z "${GOPATH:-}" ]; then
 fi
 
 # Backup existing v2 openapi_generated.go
-mv pkg/apis/kubeflow/v2beta1/openapi_generated.go pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup
+cp pkg/apis/kubeflow/v2beta1/openapi_generated.go pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup
 
 CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
 GOBIN="${PWD}/bin" go install "k8s.io/code-generator/cmd/openapi-gen@${CODEGEN_VERSION}"
