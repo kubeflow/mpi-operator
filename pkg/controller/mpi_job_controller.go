@@ -441,9 +441,22 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 	if c.PodGroupCtrl != nil {
 		synced = append(synced, c.podGroupSynced, c.priorityClassSynced)
 	}
-	if ok := cache.WaitForCacheSync(stopCh, synced...); !ok {
+
+	timeout, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if ok := cache.WaitForCacheSync(timeout.Done(), synced...); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
+	cancel()
+
+	go func() {
+		select {
+		case <-stopCh:
+			klog.Info("Shutdown while waiting for caches to sync")
+			cancel()
+		case <-timeout.Done():
+			klog.Infof("Cache sync done (noop)")
+		}
+	}()
 
 	klog.Info("Starting workers")
 	// Launch workers to process MPIJob resources.
