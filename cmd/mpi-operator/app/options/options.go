@@ -17,6 +17,7 @@ package options
 import (
 	"flag"
 	"os"
+	"time"
 
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
@@ -38,6 +39,7 @@ type ServerOption struct {
 	LockNamespace      string
 	QPS                int
 	Burst              int
+	CacheTimeout       time.Duration
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -75,4 +77,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.IntVar(&s.QPS, "kube-api-qps", 5, "QPS indicates the maximum QPS to the master from this client.")
 	fs.IntVar(&s.Burst, "kube-api-burst", 10, "Maximum burst for throttle.")
+
+	fs.DurationVar(&s.CacheTimeout, "cache-timeout", 30*time.Second,
+		`The amount of time to wait for caches to populate. If this timeout is exceeded, the mpi-operator will fail and exit.`)
 }
