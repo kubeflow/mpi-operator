@@ -443,6 +443,8 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	timeout, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	if ok := cache.WaitForCacheSync(timeout.Done(), synced...); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
