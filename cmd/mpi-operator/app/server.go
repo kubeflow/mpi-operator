@@ -166,7 +166,7 @@ func Run(opt *options.ServerOption) error {
 
 		// Set leader election start function.
 		isLeader.Set(1)
-		if err = controller.Run(opt.Threadiness, stopCh); err != nil {
+		if err = controller.Run(opt.Threadiness, stopCh, opt.CacheTimeout); err != nil {
 			klog.Fatalf("Error running controller: %s", err.Error())
 		}
 	}
