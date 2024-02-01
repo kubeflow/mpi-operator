@@ -346,6 +346,34 @@ func NewMPIJobControllerWithClock(
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
 
+	// Set up error handlers for informers
+	klog.Info("Setting up informer error handlers")
+	informers := map[string]cache.SharedInformer{
+		"configMapInformer":     configMapInformer.Informer(),
+		"secretInformer":        secretInformer.Informer(),
+		"serviceInformer":       serviceInformer.Informer(),
+		"jobInformer":           jobInformer.Informer(),
+		"podInformer":           podInformer.Informer(),
+		"priorityClassInformer": priorityClassInformer.Informer(),
+		"mpiJobInformer":        mpiJobInformer.Informer(),
+	}
+
+	for name, informer := range informers {
+		err := informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+			// Pipe to default handler first, which just logs the error
+			cache.DefaultWatchErrorHandler(r, err)
+
+			if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
+				klog.Fatalf("Unable to sync cache for informer %s: %s. Requesting controller to exit.", name, err)
+			}
+		})
+
+		if err != nil {
+			// return NewMPIJobControllerWithClock(...) (nil, error)
+			return nil, fmt.Errorf("unable to set error handler for informer %s: %s", name, err)
+		}
+	}
+
 	klog.Info("Setting up event handlers")
 	// Set up an event handler for when MPIJob resources change.
 	if _, err := mpiJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
