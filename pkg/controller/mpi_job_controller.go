@@ -421,7 +421,7 @@ func NewMPIJobControllerWithClock(
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the work queue and wait for
 // workers to finish processing their current work items.
-func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}, cacheTimeout time.Duration) error {
+func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}, cacheSyncTimeout time.Duration) error {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -442,7 +442,7 @@ func (c *MPIJobController) Run(threadiness int, stopCh <-chan struct{}, cacheTim
 		synced = append(synced, c.podGroupSynced, c.priorityClassSynced)
 	}
 
-	timeout, cancel := context.WithTimeout(context.Background(), cacheTimeout)
+	timeout, cancel := context.WithTimeout(context.Background(), cacheSyncTimeout)
 	defer cancel()
 
 	if ok := cache.WaitForCacheSync(timeout.Done(), synced...); !ok {
