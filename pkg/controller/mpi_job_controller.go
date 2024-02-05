@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubeapiserver "k8s.io/apiserver/pkg/server"
 	batchinformers "k8s.io/client-go/informers/batch/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	schedulinginformers "k8s.io/client-go/informers/scheduling/v1"
@@ -364,7 +365,8 @@ func NewMPIJobControllerWithClock(
 			cache.DefaultWatchErrorHandler(r, err)
 
 			if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
-				klog.Fatalf("Unable to sync cache for informer %s: %s. Requesting controller to exit.", name, err)
+				klog.Errorf("Unable to sync cache for informer %s: %s. Requesting controller to exit.", name, err)
+				kubeapiserver.RequestShutdown()
 			}
 		})
 
