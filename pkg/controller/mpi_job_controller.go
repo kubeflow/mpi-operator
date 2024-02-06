@@ -808,7 +808,7 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 	if err != nil {
 		return nil, err
 	}
-	podFullList, err := c.podLister.List(selector)
+	podFullList, err := c.podLister.Pods(mpiJob.Namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
@@ -956,7 +956,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 	if err != nil {
 		return nil, err
 	}
-	podFullList, err := c.podLister.List(selector)
+	podFullList, err := c.podLister.Pods(mpiJob.Namespace).List(selector)
 	if err != nil {
 		return nil, err
 	}
