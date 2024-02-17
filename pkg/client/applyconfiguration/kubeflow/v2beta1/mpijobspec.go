@@ -24,6 +24,7 @@ import (
 // with apply.
 type MPIJobSpecApplyConfiguration struct {
 	SlotsPerWorker         *int32                                                          `json:"slotsPerWorker,omitempty"`
+	RunLauncherAsWorker    *bool                                                           `json:"runLauncherAsWorker,omitempty"`
 	RunPolicy              *RunPolicyApplyConfiguration                                    `json:"runPolicy,omitempty"`
 	MPIReplicaSpecs        map[kubeflowv2beta1.MPIReplicaType]*kubeflowv2beta1.ReplicaSpec `json:"mpiReplicaSpecs,omitempty"`
 	SSHAuthMountPath       *string                                                         `json:"sshAuthMountPath,omitempty"`
@@ -42,6 +43,14 @@ func MPIJobSpec() *MPIJobSpecApplyConfiguration {
 // If called multiple times, the SlotsPerWorker field is set to the value of the last call.
 func (b *MPIJobSpecApplyConfiguration) WithSlotsPerWorker(value int32) *MPIJobSpecApplyConfiguration {
 	b.SlotsPerWorker = &value
+	return b
+}
+
+// WithRunLauncherAsWorker sets the RunLauncherAsWorker field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RunLauncherAsWorker field is set to the value of the last call.
+func (b *MPIJobSpecApplyConfiguration) WithRunLauncherAsWorker(value bool) *MPIJobSpecApplyConfiguration {
+	b.RunLauncherAsWorker = &value
 	return b
 }
 

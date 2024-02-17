@@ -154,6 +154,12 @@ type MPIJobSpec struct {
 	// +kubebuilder:default:=1
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
+	// RunLauncherAsWorker indicates wether to run worker process in launcher
+	// Defaults to false.
+	// +optional
+	// +kubebuilder:default:=false
+	RunLauncherAsWorker *bool `json:"runLauncherAsWorker,omitempty"`
+
 	// RunPolicy encapsulates various runtime policies of the job.
 	RunPolicy RunPolicy `json:"runPolicy,omitempty"`
 

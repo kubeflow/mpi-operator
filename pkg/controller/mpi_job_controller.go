@@ -656,13 +656,13 @@ func (c *MPIJobController) syncHandler(key string) error {
 				return err
 			}
 		}
-		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
+		// The Intel and MPICH implementations require workers to communicate with the
+		// launcher through its hostname. For that, we create a Service which
+		// has the same name as the launcher's hostname.
+		if (mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker) ||
+			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
 			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
-			// The Intel and MPICH implementations require workers to communicate with the
-			// launcher through its hostname. For that, we create a Service which
-			// has the same name as the launcher's hostname.
-			_, err := c.getOrCreateService(mpiJob, newLauncherService(mpiJob))
-			if err != nil {
+			if _, err = c.getOrCreateService(mpiJob, newLauncherService(mpiJob)); err != nil {
 				return fmt.Errorf("getting or creating Service to front launcher: %w", err)
 			}
 		}
@@ -1284,12 +1284,26 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 	if mpiJob.Spec.SlotsPerWorker != nil {
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
-	for i := 0; i < int(workerReplicas); i++ {
+	// note that pod.spec.dnsConfig also affect the svc resolution
+	// ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
+	// launcher can be reach with hostname or service name
+	if mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker {
+		launcherService := mpiJob.Name + launcherSuffix
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc slots=%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s.%s.svc slots=%d\n", launcherService, mpiJob.Namespace, slots))
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc:%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s.%s.svc:%d\n", launcherService, mpiJob.Namespace, slots))
+		}
+	}
+
+	for i := 0; i < int(workerReplicas); i++ {
+		name := workerName(mpiJob, i)
+		switch mpiJob.Spec.MPIImplementation {
+		case kubeflow.MPIImplementationOpenMPI:
+			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc slots=%d\n", name, workersService, mpiJob.Namespace, slots))
+		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
+			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc:%d\n", name, workersService, mpiJob.Namespace, slots))
 		}
 	}
 
@@ -1319,6 +1333,13 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 
 	var buffer bytes.Buffer
 	buffer.WriteString("#!/bin/sh\n")
+
+	// We don't check if launcher is running here, launcher should always be there or the job failed
+	if mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker {
+		launcherService := mpiJob.Name + launcherSuffix
+		buffer.WriteString(fmt.Sprintf("echo %s.%s.svc\n", launcherService, mpiJob.Namespace))
+	}
+
 	workersService := mpiJob.Name + workerSuffix
 	for _, p := range runningPods {
 		buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", p.Name, workersService, p.Namespace))

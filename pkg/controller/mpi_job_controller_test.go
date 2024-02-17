@@ -110,18 +110,6 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 				CleanPodPolicy: &cleanPodPolicyAll,
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
-				kubeflow.MPIReplicaTypeWorker: {
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:  "foo",
-									Image: "bar",
-								},
-							},
-						},
-					},
-				},
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -151,7 +139,22 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 
 func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
 	mpiJob := newMPIJobCommon(name, startTime, completionTime)
-	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = replicas
+	if *replicas > 0 {
+		mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker] =
+			&kubeflow.ReplicaSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "foo",
+								Image: "bar",
+							},
+						},
+					},
+				},
+				Replicas: replicas,
+			}
+	}
 	return mpiJob
 }
 
@@ -526,7 +529,8 @@ func TestAllResourcesCreated(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
 			}
-			if implementation == kubeflow.MPIImplementationIntel ||
+			if (mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker) ||
+				implementation == kubeflow.MPIImplementationIntel ||
 				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
 			}
@@ -822,7 +826,8 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 				t.Fatalf("Failed creating secret")
 			}
 			f.expectCreateSecretAction(secret)
-			if implementation == kubeflow.MPIImplementationIntel ||
+			if (mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker) ||
+				implementation == kubeflow.MPIImplementationIntel ||
 				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJob))
 			}
@@ -1538,7 +1543,57 @@ func TestNewConfigMap(t *testing.T) {
 		workerReplicas int32
 		wantCM         *corev1.ConfigMap
 	}{
-		"OpenMPI without slots": {
+		"OpenMPI without slots, enable launcher as worker": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots",
+					Namespace: "tenant-a",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIImplementation:   kubeflow.MPIImplementationOpenMPI,
+					RunLauncherAsWorker: pointer.Bool(true),
+				},
+			},
+			workerReplicas: 2,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots-config",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						"app": "openmpi-without-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "openmpi-without-slots-launcher.tenant-a.svc slots=1\nopenmpi-without-slots-worker-0.openmpi-without-slots-worker.tenant-a.svc slots=1\nopenmpi-without-slots-worker-1.openmpi-without-slots-worker.tenant-a.svc slots=1\n",
+				},
+			},
+		},
+		"OpenMPI without slots, zero explicit workers": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots",
+					Namespace: "tenant-a",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIImplementation:   kubeflow.MPIImplementationOpenMPI,
+					RunLauncherAsWorker: pointer.Bool(true),
+				},
+			},
+			workerReplicas: 0,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots-config",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						"app": "openmpi-without-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "openmpi-without-slots-launcher.tenant-a.svc slots=1\n",
+				},
+			},
+		},
+		"OpenMPI without slots, disable launcher as worker": {
 			mpiJob: &kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "openmpi-without-slots",

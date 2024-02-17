@@ -8190,6 +8190,11 @@ spec:
                 description: MPIReplicaSpecs contains maps from `MPIReplicaType` to
                   `ReplicaSpec` that specify the MPI replicas to run.
                 type: object
+              runLauncherAsWorker:
+                default: false
+                description: RunLauncherAsWorker indicates wether to run worker process
+                  in launcher Defaults to false.
+                type: boolean
               runPolicy:
                 description: RunPolicy encapsulates various runtime policies of the
                   job.

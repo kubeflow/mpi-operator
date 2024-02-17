@@ -156,6 +156,10 @@
             "$ref": "#/definitions/v2beta1.ReplicaSpec"
           }
         },
+        "runLauncherAsWorker": {
+          "description": "RunLauncherAsWorker indicates wether to run worker process in launcher Defaults to false.",
+          "type": "boolean"
+        },
         "runPolicy": {
           "description": "RunPolicy encapsulates various runtime policies of the job.",
           "default": {},
