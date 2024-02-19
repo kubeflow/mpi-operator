@@ -157,7 +157,7 @@
           }
         },
         "runLauncherAsWorker": {
-          "description": "RunLauncherAsWorker indicates wether to run worker process in launcher Defaults to false.",
+          "description": "RunLauncherAsWorker indicates whether to run worker process in launcher Defaults to false.",
           "type": "boolean"
         },
         "runPolicy": {

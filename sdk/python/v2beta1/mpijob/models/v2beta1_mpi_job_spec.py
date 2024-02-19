@@ -156,7 +156,7 @@ class V2beta1MPIJobSpec(object):
     def run_launcher_as_worker(self):
         """Gets the run_launcher_as_worker of this V2beta1MPIJobSpec.  # noqa: E501
 
-        RunLauncherAsWorker indicates wether to run worker process in launcher Defaults to false.  # noqa: E501
+        RunLauncherAsWorker indicates whether to run worker process in launcher Defaults to false.  # noqa: E501
 
         :return: The run_launcher_as_worker of this V2beta1MPIJobSpec.  # noqa: E501
         :rtype: bool
@@ -167,7 +167,7 @@ class V2beta1MPIJobSpec(object):
     def run_launcher_as_worker(self, run_launcher_as_worker):
         """Sets the run_launcher_as_worker of this V2beta1MPIJobSpec.
 
-        RunLauncherAsWorker indicates wether to run worker process in launcher Defaults to false.  # noqa: E501
+        RunLauncherAsWorker indicates whether to run worker process in launcher Defaults to false.  # noqa: E501
 
         :param run_launcher_as_worker: The run_launcher_as_worker of this V2beta1MPIJobSpec.  # noqa: E501
         :type run_launcher_as_worker: bool

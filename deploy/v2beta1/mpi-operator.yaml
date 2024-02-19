@@ -8192,7 +8192,7 @@ spec:
                 type: object
               runLauncherAsWorker:
                 default: false
-                description: RunLauncherAsWorker indicates wether to run worker process
+                description: RunLauncherAsWorker indicates whether to run worker process
                   in launcher Defaults to false.
                 type: boolean
               runPolicy:
