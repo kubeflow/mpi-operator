@@ -54,6 +54,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
@@ -656,10 +657,11 @@ func (c *MPIJobController) syncHandler(key string) error {
 				return err
 			}
 		}
+		// If we want to run process in launcher, we should create a service for launcher.
 		// The Intel and MPICH implementations require workers to communicate with the
 		// launcher through its hostname. For that, we create a Service which
 		// has the same name as the launcher's hostname.
-		if (mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker) ||
+		if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) ||
 			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
 			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
 			if _, err = c.getOrCreateService(mpiJob, newLauncherService(mpiJob)); err != nil {
@@ -1335,7 +1337,7 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	buffer.WriteString("#!/bin/sh\n")
 
 	// We don't check if launcher is running here, launcher should always be there or the job failed
-	if mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker {
+	if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) {
 		launcherService := mpiJob.Name + launcherSuffix
 		buffer.WriteString(fmt.Sprintf("echo %s.%s.svc\n", launcherService, mpiJob.Namespace))
 	}

@@ -154,7 +154,7 @@ type MPIJobSpec struct {
 	// +kubebuilder:default:=1
 	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
 
-	// RunLauncherAsWorker indicates wether to run worker process in launcher
+	// RunLauncherAsWorker indicates whether to run worker process in launcher
 	// Defaults to false.
 	// +optional
 	// +kubebuilder:default:=false

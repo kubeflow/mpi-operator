@@ -38,6 +38,7 @@ import (
 	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -139,7 +140,7 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 
 func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
 	mpiJob := newMPIJobCommon(name, startTime, completionTime)
-	if *replicas > 0 {
+	if ptr.Deref(replicas, 0) > 0 {
 		mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker] =
 			&kubeflow.ReplicaSpec{
 				Template: corev1.PodTemplateSpec{
@@ -529,7 +530,7 @@ func TestAllResourcesCreated(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
 			}
-			if (mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker) ||
+			if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) ||
 				implementation == kubeflow.MPIImplementationIntel ||
 				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
@@ -826,7 +827,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 				t.Fatalf("Failed creating secret")
 			}
 			f.expectCreateSecretAction(secret)
-			if (mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker) ||
+			if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) ||
 				implementation == kubeflow.MPIImplementationIntel ||
 				implementation == kubeflow.MPIImplementationMPICH {
 				f.expectCreateServiceAction(newLauncherService(mpiJob))
