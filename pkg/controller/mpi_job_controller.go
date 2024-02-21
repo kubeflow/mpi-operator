@@ -1289,7 +1289,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 	// note that pod.spec.dnsConfig also affect the svc resolution
 	// ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 	// launcher can be reach with hostname or service name
-	if mpiJob.Spec.RunLauncherAsWorker != nil && *mpiJob.Spec.RunLauncherAsWorker {
+	if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) {
 		launcherService := mpiJob.Name + launcherSuffix
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
