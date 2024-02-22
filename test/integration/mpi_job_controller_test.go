@@ -17,7 +17,6 @@ package integration
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -896,7 +895,7 @@ func validateMPIJobDependencies(
 	if err := wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		problems = nil
 		var err error
-		svc, err = getServiceForJob(ctx, kubeClient, job, "worker")
+		svc, err = getServiceForJob(ctx, kubeClient, job)
 		if err != nil {
 			return false, err
 		}
@@ -1027,16 +1026,14 @@ func updatePodsCondition(ctx context.Context, client kubernetes.Interface, pods 
 	return nil
 }
 
-func getServiceForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob, role string) (*corev1.Service, error) {
+func getServiceForJob(ctx context.Context, client kubernetes.Interface, job *kubeflow.MPIJob) (*corev1.Service, error) {
 	result, err := client.CoreV1().Services(job.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 	for _, obj := range result.Items {
-		if strings.HasSuffix(obj.Name, role) {
-			if metav1.IsControlledBy(&obj, job) {
-				return &obj, nil
-			}
+		if metav1.IsControlledBy(&obj, job) {
+			return &obj, nil
 		}
 	}
 	return nil, nil
