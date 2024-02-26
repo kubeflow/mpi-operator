@@ -54,6 +54,7 @@ import (
 	"k8s.io/klog"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
@@ -630,7 +631,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// We're done if the launcher either succeeded or failed.
 	done := launcher != nil && isJobFinished(launcher)
 	if !done {
-		_, err := c.getOrCreateService(mpiJob, newWorkersService(mpiJob))
+		_, err := c.getOrCreateService(mpiJob, newJobService(mpiJob))
 		if err != nil {
 			return fmt.Errorf("getting or creating Service to front workers: %w", err)
 		}
@@ -654,16 +655,6 @@ func (c *MPIJobController) syncHandler(key string) error {
 			worker, err = c.getOrCreateWorker(mpiJob)
 			if err != nil {
 				return err
-			}
-		}
-		if mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationIntel ||
-			mpiJob.Spec.MPIImplementation == kubeflow.MPIImplementationMPICH {
-			// The Intel and MPICH implementations require workers to communicate with the
-			// launcher through its hostname. For that, we create a Service which
-			// has the same name as the launcher's hostname.
-			_, err := c.getOrCreateService(mpiJob, newLauncherService(mpiJob))
-			if err != nil {
-				return fmt.Errorf("getting or creating Service to front launcher: %w", err)
 			}
 		}
 		if launcher == nil {
@@ -1279,17 +1270,30 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	var buffer bytes.Buffer
-	workersService := mpiJob.Name + workerSuffix
 	slots := 1
 	if mpiJob.Spec.SlotsPerWorker != nil {
 		slots = int(*mpiJob.Spec.SlotsPerWorker)
 	}
-	for i := 0; i < int(workerReplicas); i++ {
+	// note that pod.spec.dnsConfig also affect the svc resolution
+	// ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
+	// launcher can be reach with hostname or service name
+	if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) {
+		name := mpiJob.Name + launcherSuffix
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc slots=%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc slots=%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s%s-%d.%s.%s.svc:%d\n", mpiJob.Name, workerSuffix, i, workersService, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc:%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
+		}
+	}
+
+	for i := 0; i < int(workerReplicas); i++ {
+		name := workerName(mpiJob, i)
+		switch mpiJob.Spec.MPIImplementation {
+		case kubeflow.MPIImplementationOpenMPI:
+			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc slots=%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
+		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
+			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc:%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
 		}
 	}
 
@@ -1319,22 +1323,27 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 
 	var buffer bytes.Buffer
 	buffer.WriteString("#!/bin/sh\n")
-	workersService := mpiJob.Name + workerSuffix
+
+	// We don't check if launcher is running here, launcher should always be there or the job failed
+	if ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) {
+		name := mpiJob.Name + launcherSuffix
+		buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", name, mpiJob.Name, mpiJob.Namespace))
+	}
+
 	for _, p := range runningPods {
-		buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", p.Name, workersService, p.Namespace))
+		buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", p.Name, mpiJob.Name, p.Namespace))
 	}
 
 	configMap.Data[discoverHostsScriptName] = buffer.String()
 }
 
-// newWorkersService creates a new workers' Service for an MPIJob resource.
-func newWorkersService(job *kubeflow.MPIJob) *corev1.Service {
-	return newService(job, job.Name+workerSuffix, defaultLabels(job.Name, worker))
-}
-
-// newLauncherService creates a new launcher's Service for an MPIJob resource.
-func newLauncherService(job *kubeflow.MPIJob) *corev1.Service {
-	return newService(job, job.Name+launcherSuffix, defaultLabels(job.Name, launcher))
+// newJobService creates a Service with the same name of Job for both launcher and worker pods
+func newJobService(job *kubeflow.MPIJob) *corev1.Service {
+	labels := map[string]string{
+		kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+		kubeflow.JobNameLabel:      job.Name,
+	}
+	return newService(job, job.Name, labels)
 }
 
 func newService(job *kubeflow.MPIJob, name string, selector map[string]string) *corev1.Service {
@@ -1416,11 +1425,18 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 	}
 	podTemplate.Labels[kubeflow.ReplicaIndexLabel] = strconv.Itoa(index)
 	podTemplate.Spec.Hostname = name
-	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
+	podTemplate.Spec.Subdomain = mpiJob.Name // Matches job' Service name.
 	if podTemplate.Spec.HostNetwork {
 		// Allows resolution of worker hostnames without needing to include the
 		// namespace or cluster domain.
 		podTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
+	// The Intel and MPICH implementations require workers to communicate with the launcher through its hostname.
+	searche := fmt.Sprintf("%s.%s.svc.cluster.local", mpiJob.Name, mpiJob.Namespace)
+	if podTemplate.Spec.DNSConfig == nil {
+		podTemplate.Spec.DNSConfig = &corev1.PodDNSConfig{Searches: []string{searche}}
+	} else {
+		podTemplate.Spec.DNSConfig.Searches = append(podTemplate.Spec.DNSConfig.Searches, searche)
 	}
 	setRestartPolicy(podTemplate, mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker])
 
@@ -1494,7 +1510,7 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 		c.PodGroupCtrl.decoratePodTemplateSpec(podTemplate, mpiJob.Name)
 	}
 	podTemplate.Spec.Hostname = launcherName
-	podTemplate.Spec.Subdomain = mpiJob.Name + workerSuffix // Matches workers' Service name.
+	podTemplate.Spec.Subdomain = mpiJob.Name // Matches job' Service name.
 	if podTemplate.Spec.HostNetwork {
 		// Allows resolution of worker hostnames without needing to include the
 		// namespace or cluster domain.

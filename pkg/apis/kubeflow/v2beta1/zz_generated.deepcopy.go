@@ -163,6 +163,11 @@ func (in *MPIJobSpec) DeepCopyInto(out *MPIJobSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.RunLauncherAsWorker != nil {
+		in, out := &in.RunLauncherAsWorker, &out.RunLauncherAsWorker
+		*out = new(bool)
+		**out = **in
+	}
 	in.RunPolicy.DeepCopyInto(&out.RunPolicy)
 	if in.MPIReplicaSpecs != nil {
 		in, out := &in.MPIReplicaSpecs, &out.MPIReplicaSpecs

@@ -38,6 +38,7 @@ import (
 	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -110,18 +111,6 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 				CleanPodPolicy: &cleanPodPolicyAll,
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
-				kubeflow.MPIReplicaTypeWorker: {
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:  "foo",
-									Image: "bar",
-								},
-							},
-						},
-					},
-				},
 				kubeflow.MPIReplicaTypeLauncher: {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
@@ -151,7 +140,22 @@ func newMPIJobCommon(name string, startTime, completionTime *metav1.Time) *kubef
 
 func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.Time) *kubeflow.MPIJob {
 	mpiJob := newMPIJobCommon(name, startTime, completionTime)
-	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = replicas
+	if ptr.Deref(replicas, 0) > 0 {
+		mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker] =
+			&kubeflow.ReplicaSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "foo",
+								Image: "bar",
+							},
+						},
+					},
+				},
+				Replicas: replicas,
+			}
+	}
 	return mpiJob
 }
 
@@ -514,7 +518,7 @@ func TestAllResourcesCreated(t *testing.T) {
 			fmjc := f.newFakeMPIJobController()
 			mpiJobCopy := mpiJob.DeepCopy()
 			scheme.Scheme.Default(mpiJobCopy)
-			f.expectCreateServiceAction(newWorkersService(mpiJobCopy))
+			f.expectCreateServiceAction(newJobService(mpiJobCopy))
 			cfgMap := newConfigMap(mpiJobCopy, 5)
 			updateDiscoverHostsInConfigMap(cfgMap, mpiJob, nil)
 			f.expectCreateConfigMapAction(cfgMap)
@@ -525,10 +529,6 @@ func TestAllResourcesCreated(t *testing.T) {
 			f.expectCreateSecretAction(secret)
 			for i := 0; i < 5; i++ {
 				f.expectCreatePodAction(fmjc.newWorker(mpiJobCopy, i))
-			}
-			if implementation == kubeflow.MPIImplementationIntel ||
-				implementation == kubeflow.MPIImplementationMPICH {
-				f.expectCreateServiceAction(newLauncherService(mpiJobCopy))
 			}
 			f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
 
@@ -664,7 +664,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	var replicas int32 = 64
 	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
-	f.setUpService(newWorkersService(mpiJob))
+	f.setUpService(newJobService(mpiJob))
 
 	configMap := newConfigMap(mpiJob, replicas)
 	updateDiscoverHostsInConfigMap(configMap, mpiJob, nil)
@@ -685,7 +685,7 @@ func TestWorkerServiceNotControlledByUs(t *testing.T) {
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	service := newWorkersService(mpiJobCopy)
+	service := newJobService(mpiJobCopy)
 	service.OwnerReferences = nil
 	f.setUpService(service)
 
@@ -704,7 +704,8 @@ func TestLauncherServiceNotControlledByUs(t *testing.T) {
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	service := newWorkersService(mpiJobCopy)
+	service := newJobService(mpiJobCopy)
+	service.OwnerReferences = nil
 	f.setUpService(service)
 	configMap := newConfigMap(mpiJobCopy, replicas)
 	secret, err := newSSHAuthSecret(mpiJobCopy)
@@ -719,10 +720,6 @@ func TestLauncherServiceNotControlledByUs(t *testing.T) {
 		worker := fmjc.newWorker(mpiJobCopy, i)
 		f.setUpPod(worker)
 	}
-
-	service = newLauncherService(mpiJobCopy)
-	service.OwnerReferences = nil
-	f.setUpService(service)
 
 	f.runExpectError(getKey(mpiJob, t))
 }
@@ -741,7 +738,7 @@ func TestSecretNotControlledByUs(t *testing.T) {
 	configMap := newConfigMap(mpiJobCopy, replicas)
 	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
-	f.setUpService(newWorkersService(mpiJobCopy))
+	f.setUpService(newJobService(mpiJobCopy))
 
 	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
@@ -813,7 +810,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 
 			// expect creation of objects
 			scheme.Scheme.Default(mpiJob)
-			f.expectCreateServiceAction(newWorkersService(mpiJob))
+			f.expectCreateServiceAction(newJobService(mpiJob))
 			cfgMap := newConfigMap(mpiJob, replicas)
 			updateDiscoverHostsInConfigMap(cfgMap, mpiJob, nil)
 			f.expectCreateConfigMapAction(cfgMap)
@@ -822,10 +819,6 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 				t.Fatalf("Failed creating secret")
 			}
 			f.expectCreateSecretAction(secret)
-			if implementation == kubeflow.MPIImplementationIntel ||
-				implementation == kubeflow.MPIImplementationMPICH {
-				f.expectCreateServiceAction(newLauncherService(mpiJob))
-			}
 
 			// expect creating of the launcher
 			fmjc := f.newFakeMPIJobController()
@@ -887,7 +880,7 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 
 	// setup objects
 	scheme.Scheme.Default(mpiJob)
-	f.setUpService(newWorkersService(mpiJob))
+	f.setUpService(newJobService(mpiJob))
 
 	cfgMap := newConfigMap(mpiJob, replicas)
 	updateDiscoverHostsInConfigMap(cfgMap, mpiJob, runningPodList)
@@ -960,7 +953,7 @@ func TestResumeMPIJob(t *testing.T) {
 
 	// expect creation of objects
 	scheme.Scheme.Default(mpiJob)
-	f.expectCreateServiceAction(newWorkersService(mpiJob))
+	f.expectCreateServiceAction(newJobService(mpiJob))
 	cfgMap := newConfigMap(mpiJob, replicas)
 	updateDiscoverHostsInConfigMap(cfgMap, mpiJob, nil)
 	f.setUpConfigMap(cfgMap)
@@ -1016,7 +1009,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 	configMap := newConfigMap(mpiJobCopy, replicas)
 	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
-	f.setUpService(newWorkersService(mpiJobCopy))
+	f.setUpService(newJobService(mpiJobCopy))
 	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
@@ -1047,7 +1040,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	configMap := newConfigMap(mpiJobCopy, replicas)
 	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, nil)
 	f.setUpConfigMap(configMap)
-	f.setUpService(newWorkersService(mpiJobCopy))
+	f.setUpService(newJobService(mpiJobCopy))
 	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
@@ -1097,7 +1090,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	f.setUpService(newWorkersService(mpiJobCopy))
+	f.setUpService(newJobService(mpiJobCopy))
 	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
@@ -1156,7 +1149,7 @@ func TestWorkerReady(t *testing.T) {
 
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
-	f.setUpService(newWorkersService(mpiJobCopy))
+	f.setUpService(newJobService(mpiJobCopy))
 	secret, err := newSSHAuthSecret(mpiJobCopy)
 	if err != nil {
 		t.Fatalf("Creating SSH auth secret: %v", err)
@@ -1251,7 +1244,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						},
 						Spec: corev1.PodSpec{
 							Hostname:      "foo-launcher",
-							Subdomain:     "foo-worker",
+							Subdomain:     "foo",
 							RestartPolicy: corev1.RestartPolicyOnFailure,
 							Containers: []corev1.Container{
 								{
@@ -1305,8 +1298,11 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: corev1.PodSpec{
-					Hostname:      "foo-worker-0",
-					Subdomain:     "foo-worker",
+					Hostname:  "foo-worker-0",
+					Subdomain: "foo",
+					DNSConfig: &corev1.PodDNSConfig{
+						Searches: []string{"foo.bar.svc.cluster.local"},
+					},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{
 						{
@@ -1420,7 +1416,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							HostNetwork:   true,
 							DNSPolicy:     corev1.DNSClusterFirstWithHostNet,
 							Hostname:      "bar-launcher",
-							Subdomain:     "bar-worker",
+							Subdomain:     "bar",
 							RestartPolicy: corev1.RestartPolicyOnFailure,
 							Containers: []corev1.Container{
 								{
@@ -1480,10 +1476,13 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: corev1.PodSpec{
-					HostNetwork:   true,
-					DNSPolicy:     corev1.DNSClusterFirstWithHostNet,
-					Hostname:      "bar-worker-12",
-					Subdomain:     "bar-worker",
+					HostNetwork: true,
+					DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
+					Hostname:    "bar-worker-12",
+					Subdomain:   "bar",
+					DNSConfig: &corev1.PodDNSConfig{
+						Searches: []string{"bar.foo.svc.cluster.local"},
+					},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{
 						{
@@ -1538,7 +1537,57 @@ func TestNewConfigMap(t *testing.T) {
 		workerReplicas int32
 		wantCM         *corev1.ConfigMap
 	}{
-		"OpenMPI without slots": {
+		"OpenMPI without slots, enable launcher as worker": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots",
+					Namespace: "tenant-a",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIImplementation:   kubeflow.MPIImplementationOpenMPI,
+					RunLauncherAsWorker: pointer.Bool(true),
+				},
+			},
+			workerReplicas: 2,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots-config",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						"app": "openmpi-without-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "openmpi-without-slots-launcher.openmpi-without-slots.tenant-a.svc slots=1\nopenmpi-without-slots-worker-0.openmpi-without-slots.tenant-a.svc slots=1\nopenmpi-without-slots-worker-1.openmpi-without-slots.tenant-a.svc slots=1\n",
+				},
+			},
+		},
+		"OpenMPI without slots, zero explicit workers": {
+			mpiJob: &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots",
+					Namespace: "tenant-a",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIImplementation:   kubeflow.MPIImplementationOpenMPI,
+					RunLauncherAsWorker: pointer.Bool(true),
+				},
+			},
+			workerReplicas: 0,
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openmpi-without-slots-config",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						"app": "openmpi-without-slots",
+					},
+				},
+				Data: map[string]string{
+					"hostfile": "openmpi-without-slots-launcher.openmpi-without-slots.tenant-a.svc slots=1\n",
+				},
+			},
+		},
+		"OpenMPI without slots, disable launcher as worker": {
 			mpiJob: &kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "openmpi-without-slots",
@@ -1558,7 +1607,7 @@ func TestNewConfigMap(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"hostfile": "openmpi-without-slots-worker-0.openmpi-without-slots-worker.tenant-a.svc slots=1\nopenmpi-without-slots-worker-1.openmpi-without-slots-worker.tenant-a.svc slots=1\n",
+					"hostfile": "openmpi-without-slots-worker-0.openmpi-without-slots.tenant-a.svc slots=1\nopenmpi-without-slots-worker-1.openmpi-without-slots.tenant-a.svc slots=1\n",
 				},
 			},
 		},
@@ -1583,7 +1632,7 @@ func TestNewConfigMap(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"hostfile": "intelmpi-with-slots-worker-0.intelmpi-with-slots-worker.project-x.svc:10\n",
+					"hostfile": "intelmpi-with-slots-worker-0.intelmpi-with-slots.project-x.svc:10\n",
 				},
 			},
 		},
@@ -1608,7 +1657,7 @@ func TestNewConfigMap(t *testing.T) {
 					},
 				},
 				Data: map[string]string{
-					"hostfile": "mpich-with-slots-worker-0.mpich-with-slots-worker.project-x.svc:10\n",
+					"hostfile": "mpich-with-slots-worker-0.mpich-with-slots.project-x.svc:10\n",
 				},
 			},
 		},
