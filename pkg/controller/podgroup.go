@@ -25,7 +25,7 @@ import (
 	schedulinglisters "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	schedinformers "sigs.k8s.io/scheduler-plugins/pkg/generated/informers/externalversions"
@@ -242,7 +242,7 @@ func (s *SchedulerPluginsCtrl) newPodGroup(mpiJob *kubeflow.MPIJob) metav1.Objec
 	if mpiJob == nil {
 		return nil
 	}
-	scheduleTimeoutSec := pointer.Int32(0)
+	scheduleTimeoutSec := ptr.To[int32](0)
 	if schedPolicy := mpiJob.Spec.RunPolicy.SchedulingPolicy; schedPolicy != nil && schedPolicy.ScheduleTimeoutSeconds != nil {
 		scheduleTimeoutSec = schedPolicy.ScheduleTimeoutSeconds
 	}
@@ -364,9 +364,9 @@ func calPGMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pcLister schedu
 				klog.Warningf("Couldn't find the worker replicas")
 				return nil
 			}
-			order[wIndex].Replicas = pointer.Int32(*minMember - 1)
+			order[wIndex].Replicas = ptr.To(*minMember - 1)
 		} else {
-			order[1].Replicas = pointer.Int32(*minMember - 1)
+			order[1].Replicas = ptr.To(*minMember - 1)
 		}
 	}
 
@@ -390,7 +390,7 @@ func calculateMinAvailable(mpiJob *kubeflow.MPIJob) *int32 {
 	if schedulingPolicy := mpiJob.Spec.RunPolicy.SchedulingPolicy; schedulingPolicy != nil && schedulingPolicy.MinAvailable != nil {
 		return schedulingPolicy.MinAvailable
 	}
-	return pointer.Int32(workerReplicas(mpiJob) + 1)
+	return ptr.To(workerReplicas(mpiJob) + 1)
 }
 
 // calculatePriorityClassName calculates the priorityClass name needed for podGroup according to the following priorities:

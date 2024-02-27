@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/clock"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
@@ -57,16 +57,16 @@ func TestNewPodGroup(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					RunPolicy: kubeflow.RunPolicy{
 						SchedulingPolicy: &kubeflow.SchedulingPolicy{
-							MinAvailable:           pointer.Int32(2),
+							MinAvailable:           ptr.To[int32](2),
 							Queue:                  "project-y",
 							PriorityClass:          "high",
 							MinResources:           minResources,
-							ScheduleTimeoutSeconds: pointer.Int32(100),
+							ScheduleTimeoutSeconds: ptr.To[int32](100),
 						},
 					},
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{
@@ -81,7 +81,7 @@ func TestNewPodGroup(t *testing.T) {
 							},
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(1000),
+							Replicas: ptr.To[int32](1000),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{
@@ -124,7 +124,7 @@ func TestNewPodGroup(t *testing.T) {
 				Spec: schedv1alpha1.PodGroupSpec{
 					MinMember:              2,
 					MinResources:           *minResources,
-					ScheduleTimeoutSeconds: pointer.Int32(100),
+					ScheduleTimeoutSeconds: ptr.To[int32](100),
 				},
 			},
 		},
@@ -139,7 +139,7 @@ func TestNewPodGroup(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									PriorityClassName: "high",
@@ -155,7 +155,7 @@ func TestNewPodGroup(t *testing.T) {
 							},
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(2),
+							Replicas: ptr.To[int32](2),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{{
@@ -200,7 +200,7 @@ func TestNewPodGroup(t *testing.T) {
 				},
 				Spec: schedv1alpha1.PodGroupSpec{
 					MinMember:              3,
-					ScheduleTimeoutSeconds: pointer.Int32(0),
+					ScheduleTimeoutSeconds: ptr.To[int32](0),
 					MinResources: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("21"),
 						corev1.ResourceMemory: resource.MustParse("42Gi"),
@@ -406,7 +406,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{
@@ -423,7 +423,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 							},
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(2),
+							Replicas: ptr.To[int32](2),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{
@@ -492,7 +492,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 					Name: "test",
 				},
 			},
-			minMember: pointer.Int32(0),
+			minMember: ptr.To[int32](0),
 			want:      nil,
 		},
 		"without priorityClass": {
@@ -503,7 +503,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{
@@ -520,7 +520,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 							},
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(2),
+							Replicas: ptr.To[int32](2),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									Containers: []corev1.Container{
@@ -553,7 +553,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 			},
 		},
 		"with non-existence priorityClass": {
-			minMember: pointer.Int32(2),
+			minMember: ptr.To[int32](2),
 			job: &kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -561,7 +561,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									PriorityClassName: "non-existence",
@@ -579,7 +579,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 							},
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(2),
+							Replicas: ptr.To[int32](2),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									PriorityClassName: "non-existence",
@@ -619,7 +619,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 					Value: 10_010,
 				},
 			},
-			minMember: pointer.Int32(2),
+			minMember: ptr.To[int32](2),
 			job: &kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -627,7 +627,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									PriorityClassName: "high",
@@ -645,7 +645,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 							},
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(100),
+							Replicas: ptr.To[int32](100),
 							Template: corev1.PodTemplateSpec{
 								Spec: corev1.PodSpec{
 									PriorityClassName: "low",
@@ -774,15 +774,15 @@ func TestCalculateMinAvailable(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					RunPolicy: kubeflow.RunPolicy{
 						SchedulingPolicy: &kubeflow.SchedulingPolicy{
-							MinAvailable: pointer.Int32(2),
+							MinAvailable: ptr.To[int32](2),
 						},
 					},
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(1000),
+							Replicas: ptr.To[int32](1000),
 						},
 					},
 				},
@@ -797,10 +797,10 @@ func TestCalculateMinAvailable(t *testing.T) {
 				Spec: kubeflow.MPIJobSpec{
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
-							Replicas: pointer.Int32(1),
+							Replicas: ptr.To[int32](1),
 						},
 						kubeflow.MPIReplicaTypeWorker: {
-							Replicas: pointer.Int32(99),
+							Replicas: ptr.To[int32](99),
 						},
 					},
 				},

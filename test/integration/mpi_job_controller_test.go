@@ -32,7 +32,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -321,7 +321,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 			SlotsPerWorker: newInt32(1),
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
-				Suspend:        pointer.Bool(true),
+				Suspend:        ptr.To(true),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
@@ -389,7 +389,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	s.events.verify(t)
 
 	// 2. Resume the MPIJob
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
 	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to resume the MPIJob: %v", err)
@@ -445,7 +445,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	s.events.verify(t)
 
 	// 4. Suspend the running MPIJob
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
 	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Failed to suspend the MPIJob: %v", err)
@@ -614,7 +614,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 			RunPolicy: kubeflow.RunPolicy{
 				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
 				SchedulingPolicy: &kubeflow.SchedulingPolicy{
-					ScheduleTimeoutSeconds: pointer.Int32(900),
+					ScheduleTimeoutSeconds: ptr.To[int32](900),
 				},
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
@@ -1166,7 +1166,7 @@ func mpiJobHasConditionWithStatus(job *kubeflow.MPIJob, cond kubeflow.JobConditi
 }
 
 func isJobSuspended(job *batchv1.Job) bool {
-	return pointer.BoolDeref(job.Spec.Suspend, false)
+	return ptr.Deref(job.Spec.Suspend, false)
 }
 
 func newInt32(v int32) *int32 {
