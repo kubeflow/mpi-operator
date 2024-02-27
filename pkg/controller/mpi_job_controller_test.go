@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
@@ -804,7 +803,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 			// create a suspended job
 			var replicas int32 = 8
 			mpiJob := newMPIJob("test", &replicas, nil, nil)
-			mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+			mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
 			mpiJob.Spec.MPIImplementation = implementation
 			f.setUpMPIJob(mpiJob)
 
@@ -823,7 +822,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 			// expect creating of the launcher
 			fmjc := f.newFakeMPIJobController()
 			launcher := fmjc.newLauncherJob(mpiJob)
-			launcher.Spec.Suspend = pointer.Bool(true)
+			launcher.Spec.Suspend = ptr.To(true)
 			f.expectCreateJobAction(launcher)
 
 			// expect an update to add the conditions
@@ -851,7 +850,7 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 	var replicas int32 = 8
 	startTime := metav1.Now()
 	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
@@ -893,18 +892,18 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 
 	// setup launcher and its pod
 	launcher := fmjc.newLauncherJob(mpiJob)
-	launcher.Spec.Suspend = pointer.Bool(false)
+	launcher.Spec.Suspend = ptr.To(false)
 	launcherPod := mockJobPod(launcher)
 	launcherPod.Status.Phase = corev1.PodRunning
 	f.setUpLauncher(launcher)
 	f.setUpPod(launcherPod)
 
 	// transition the MPIJob into suspended state
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
 
 	// expect moving the launcher pod into suspended state
 	launcherCopy := launcher.DeepCopy()
-	launcherCopy.Spec.Suspend = pointer.Bool(true)
+	launcherCopy.Spec.Suspend = ptr.To(true)
 	f.expectUpdateJobAction(launcherCopy)
 
 	// expect removal of the pods
@@ -939,7 +938,7 @@ func TestResumeMPIJob(t *testing.T) {
 	var replicas int32 = 8
 	startTime := metav1.Now()
 	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
@@ -966,14 +965,14 @@ func TestResumeMPIJob(t *testing.T) {
 	// expect creating of the launcher
 	fmjc := f.newFakeMPIJobController()
 	launcher := fmjc.newLauncherJob(mpiJob)
-	launcher.Spec.Suspend = pointer.Bool(true)
+	launcher.Spec.Suspend = ptr.To(true)
 	f.setUpLauncher(launcher)
 
 	// move the timer by a second so that the StartTime is updated after resume
 	fakeClock.Sleep(time.Second)
 
 	// resume the MPIJob
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
 
 	// expect creation of the pods
 	for i := 0; i < int(replicas); i++ {
@@ -983,7 +982,7 @@ func TestResumeMPIJob(t *testing.T) {
 
 	// expect the launcher update to resume it
 	launcherCopy := launcher.DeepCopy()
-	launcherCopy.Spec.Suspend = pointer.Bool(false)
+	launcherCopy.Spec.Suspend = ptr.To(false)
 	f.expectUpdateJobAction(launcherCopy)
 
 	// expect an update to add the conditions
@@ -1545,7 +1544,7 @@ func TestNewConfigMap(t *testing.T) {
 				},
 				Spec: kubeflow.MPIJobSpec{
 					MPIImplementation:   kubeflow.MPIImplementationOpenMPI,
-					RunLauncherAsWorker: pointer.Bool(true),
+					RunLauncherAsWorker: ptr.To(true),
 				},
 			},
 			workerReplicas: 2,
@@ -1570,7 +1569,7 @@ func TestNewConfigMap(t *testing.T) {
 				},
 				Spec: kubeflow.MPIJobSpec{
 					MPIImplementation:   kubeflow.MPIImplementationOpenMPI,
-					RunLauncherAsWorker: pointer.Bool(true),
+					RunLauncherAsWorker: ptr.To(true),
 				},
 			},
 			workerReplicas: 0,
@@ -1618,7 +1617,7 @@ func TestNewConfigMap(t *testing.T) {
 					Namespace: "project-x",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					SlotsPerWorker:    pointer.Int32(10),
+					SlotsPerWorker:    ptr.To[int32](10),
 					MPIImplementation: kubeflow.MPIImplementationIntel,
 				},
 			},
@@ -1643,7 +1642,7 @@ func TestNewConfigMap(t *testing.T) {
 					Namespace: "project-x",
 				},
 				Spec: kubeflow.MPIJobSpec{
-					SlotsPerWorker:    pointer.Int32(10),
+					SlotsPerWorker:    ptr.To[int32](10),
 					MPIImplementation: kubeflow.MPIImplementationMPICH,
 				},
 			},

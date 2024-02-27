@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
@@ -109,7 +109,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 			ginkgo.When("suspended on creation", func() {
 				ginkgo.BeforeEach(func() {
-					mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(true)
+					mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
 				})
 				ginkgo.It("should not create pods when suspended and succeed when resumed", func() {
 					ctx := context.Background()
@@ -494,7 +494,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 })
 
 func resumeJob(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
-	mpiJob.Spec.RunPolicy.Suspend = pointer.Bool(false)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
 	ginkgo.By("Resuming MPIJob")
 	mpiJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())

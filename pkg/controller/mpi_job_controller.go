@@ -53,7 +53,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	"k8s.io/utils/clock"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
@@ -673,7 +672,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	if launcher != nil {
 		if isMPIJobSuspended(mpiJob) != isJobSuspended(launcher) {
 			// align the suspension state of launcher with the MPIJob
-			launcher.Spec.Suspend = pointer.Bool(isMPIJobSuspended(mpiJob))
+			launcher.Spec.Suspend = ptr.To(isMPIJobSuspended(mpiJob))
 			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
@@ -998,11 +997,11 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 }
 
 func isMPIJobSuspended(mpiJob *kubeflow.MPIJob) bool {
-	return pointer.BoolDeref(mpiJob.Spec.RunPolicy.Suspend, false)
+	return ptr.Deref(mpiJob.Spec.RunPolicy.Suspend, false)
 }
 
 func isJobSuspended(job *batchv1.Job) bool {
-	return pointer.BoolDeref(job.Spec.Suspend, false)
+	return ptr.Deref(job.Spec.Suspend, false)
 }
 
 func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
@@ -1486,7 +1485,7 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob) *batchv1.Job 
 		},
 	}
 	if isMPIJobSuspended(mpiJob) {
-		job.Spec.Suspend = pointer.Bool(true)
+		job.Spec.Suspend = ptr.To(true)
 	}
 	return job
 }
