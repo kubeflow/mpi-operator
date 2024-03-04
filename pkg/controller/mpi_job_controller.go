@@ -1534,12 +1534,13 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 	case kubeflow.MPIImplementationMPICH:
 		container.Env = append(container.Env, mpichEnvVars...)
 	}
-
-	container.Env = append(container.Env,
-		// We overwrite these environment variables so that users will not
-		// be mistakenly using GPU resources for launcher due to potential
-		// issues with scheduler/container technologies.
-		nvidiaDisableEnvVars...)
+	if !ptr.Deref(mpiJob.Spec.RunLauncherAsWorker, false) {
+		container.Env = append(container.Env,
+			// We overwrite these environment variables so that users will not
+			// be mistakenly using GPU resources for launcher due to potential
+			// issues with scheduler/container technologies.
+			nvidiaDisableEnvVars...)
+	}
 	c.setupSSHOnPod(&podTemplate.Spec, mpiJob)
 
 	// Submit a warning event if the user specifies restart policy for
