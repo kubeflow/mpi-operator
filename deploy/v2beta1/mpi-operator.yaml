@@ -8473,7 +8473,6 @@ metadata:
     app.kubernetes.io/name: mpi-operator
     kustomize.component: mpi-operator
     rbac.authorization.kubeflow.org/aggregate-to-kubeflow-edit: "true"
-    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-mpijobs-admin: "true"
   name: kubeflow-mpijobs-edit
 rules:
 - apiGroups:
