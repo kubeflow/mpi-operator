@@ -126,7 +126,6 @@ metadata:
   name: kubeflow-mpijobs-edit
   labels:
     rbac.authorization.kubeflow.org/aggregate-to-kubeflow-edit: "true"
-    rbac.authorization.kubeflow.org/aggregate-to-kubeflow-mpijobs-admin: "true"
 rules:
 - apiGroups:
   - kubeflow.org
