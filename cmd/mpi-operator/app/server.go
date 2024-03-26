@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kubeapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/healthz"
-	kubeinformers "k8s.io/client-go/informers"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -45,7 +44,6 @@ import (
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	mpijobclientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	kubeflowscheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	controllersv1 "github.com/kubeflow/mpi-operator/pkg/controller"
 	"github.com/kubeflow/mpi-operator/pkg/version"
 )
@@ -82,13 +80,6 @@ func Run(opt *options.ServerOption) error {
 		version.PrintVersionAndExit(apiVersion)
 	}
 
-	namespace := opt.Namespace
-	if namespace == corev1.NamespaceAll {
-		klog.Info("Using cluster scoped operator")
-	} else {
-		klog.Infof("Scoping operator to namespace %s", namespace)
-	}
-
 	// To help debugging, immediately log version.
 	klog.Infof("%+v", version.Info(apiVersion))
 
@@ -118,9 +109,23 @@ func Run(opt *options.ServerOption) error {
 	if err != nil {
 		return err
 	}
-	if !checkCRDExists(mpiJobClientSet, namespace) {
-		klog.Info("CRD doesn't exist. Exiting")
-		os.Exit(1)
+
+	namespaces, err := opt.Namespaces(opt.Namespace, kubeClient)
+	if err != nil {
+		return err
+	}
+
+	if namespaces[0] == corev1.NamespaceAll {
+		klog.Info("Using cluster scoped operator")
+	} else {
+		klog.Infof("Scoping operator to namespace %s", namespaces)
+	}
+
+	for _, namespace := range namespaces {
+		if !checkCRDExists(mpiJobClientSet, namespace) {
+			klog.Info("CRD doesn't exist. Exiting")
+			os.Exit(1)
+		}
 	}
 
 	// Add mpi-job-controller types to the default Kubernetes Scheme so Events
@@ -132,14 +137,8 @@ func Run(opt *options.ServerOption) error {
 
 	// Set leader election start function.
 	run := func(ctx context.Context) {
-		var kubeInformerFactoryOpts []kubeinformers.SharedInformerOption
-		var kubeflowInformerFactoryOpts []informers.SharedInformerOption
-		if namespace != metav1.NamespaceAll {
-			kubeInformerFactoryOpts = append(kubeInformerFactoryOpts, kubeinformers.WithNamespace(namespace))
-			kubeflowInformerFactoryOpts = append(kubeflowInformerFactoryOpts, informers.WithNamespace(namespace))
-		}
-		kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeInformerFactoryOpts...)
-		kubeflowInformerFactory := informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, kubeflowInformerFactoryOpts...)
+		kubeInformerFactory := opt.KubeInformer(namespaces, kubeClient)
+		mpiJobInformerFactory := opt.MpiJobInformer(namespaces, mpiJobClientSet)
 
 		controller, err := controllersv1.NewMPIJobController(
 			kubeClient,
@@ -152,14 +151,15 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Batch().V1().Jobs(),
 			kubeInformerFactory.Core().V1().Pods(),
 			kubeInformerFactory.Scheduling().V1().PriorityClasses(),
-			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-			namespace, opt.GangSchedulingName)
+			mpiJobInformerFactory.Kubeflow().V2beta1().MPIJobs(),
+			opt.VolcanoInformer, opt.SchedulerPluginsInformer,
+			namespaces, opt.GangSchedulingName)
 		if err != nil {
 			klog.Fatalf("Failed to setup the controller")
 		}
 
 		go kubeInformerFactory.Start(ctx.Done())
-		go kubeflowInformerFactory.Start(ctx.Done())
+		go mpiJobInformerFactory.Start(ctx.Done())
 		if controller.PodGroupCtrl != nil {
 			controller.PodGroupCtrl.StartInformerFactory(ctx.Done())
 		}

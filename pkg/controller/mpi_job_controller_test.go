@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/kubeflow/mpi-operator/pkg/informers"
 	"reflect"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ import (
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
+	mpijobinformers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 )
 
 var (
@@ -86,6 +87,8 @@ type fixture struct {
 	objects     []runtime.Object
 
 	gangSchedulingName string
+
+	namespaces []string
 }
 
 func newFixture(t *testing.T, gangSchedulingName string) *fixture {
@@ -94,6 +97,7 @@ func newFixture(t *testing.T, gangSchedulingName string) *fixture {
 	f.objects = []runtime.Object{}
 	f.kubeObjects = []runtime.Object{}
 	f.gangSchedulingName = gangSchedulingName
+	f.namespaces = []string{metav1.NamespaceAll}
 	return f
 }
 
@@ -158,11 +162,12 @@ func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.T
 	return mpiJob
 }
 
-func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, mpijobinformers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
-	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
-	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
+
+	i := informers.DefaultMpiJobInformer(f.namespaces, f.client)
+	k8sI := informers.DefaultKubeInformer(f.namespaces, f.kubeClient)
 
 	c, err := NewMPIJobControllerWithClock(
 		f.kubeClient,
@@ -177,7 +182,8 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 		k8sI.Scheduling().V1().PriorityClasses(),
 		i.Kubeflow().V2beta1().MPIJobs(),
 		clock,
-		metav1.NamespaceAll,
+		informers.DefaultVolcanoInformer, informers.DefaultSchedulerPluginsInformer,
+		f.namespaces,
 		f.gangSchedulingName,
 	)
 	if err != nil {
