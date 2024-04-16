@@ -1,5 +1,18 @@
 # MPI Operator Releases
 
+## Release v0.5.0
+* Features:
+  * Add support for MPICH (#562, @sheevy)
+  * Field runLauncherAsWorker allows to add the launcher pod into the hostfile as a worker (#612, @kuizhiqing)
+  * Add PodGroup minResources calculation for volcano integration (#566, @lowang-bh)
+* Bug fixes:
+  * Fix panic when using PodGroups and PriorityClasses (#561, @tenzen-y)
+  * Fix installation of mpijob Python module (#579, @vsoch)
+  * Fix hostfile when jobs in different namespaces have the same name (#622, @kuizhiqing)
+* Clean ups:
+  * Upgrade k8s libraries to v1.29 (#633, @tenzen-y)
+  * Fail the mpi-operator binary if access to API is denied (#619, @emsixteeen)
+
 ## Release v0.4.0
 * Breaking changes
   * Removed v1 operator. If you want to use MPIJob v1, you can use the training-operator.
