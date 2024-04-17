@@ -375,10 +375,8 @@ func calPGMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pcLister schedu
 		if rp.Replicas == nil {
 			continue
 		}
-		for i := int32(0); i < *rp.Replicas; i++ {
-			for _, c := range rp.Template.Spec.Containers {
-				addResources(minResources, c.Resources)
-			}
+		for _, c := range rp.Template.Spec.Containers {
+			addResources(minResources, c.Resources, int64(*rp.Replicas))
 		}
 	}
 	return &minResources
@@ -414,7 +412,7 @@ func calculatePriorityClassName(
 
 // addResources adds resources to minResources.
 // If resources don't have requests, it defaults limit if that is explicitly specified.
-func addResources(minResources corev1.ResourceList, resources corev1.ResourceRequirements) {
+func addResources(minResources corev1.ResourceList, resources corev1.ResourceRequirements, replicas int64) {
 	if minResources == nil || cmp.Equal(resources, corev1.ResourceRequirements{}) {
 		return
 	}
@@ -429,6 +427,7 @@ func addResources(minResources corev1.ResourceList, resources corev1.ResourceReq
 		}
 	}
 	for name, quantity := range merged {
+		quantity.Mul(replicas)
 		if q, ok := minResources[name]; !ok {
 			minResources[name] = quantity.DeepCopy()
 		} else {
