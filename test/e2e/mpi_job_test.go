@@ -74,7 +74,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 						RestartPolicy: kubeflow.RestartPolicyOnFailure,
 					},
 					kubeflow.MPIReplicaTypeWorker: {
-						Replicas: newInt32(2),
+						Replicas: ptr.To[int32](2),
 					},
 				},
 			},
@@ -88,7 +88,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 
 		ginkgo.When("has malformed command", func() {
 			ginkgo.BeforeEach(func() {
-				mpiJob.Spec.RunPolicy.BackoffLimit = newInt32(1)
+				mpiJob.Spec.RunPolicy.BackoffLimit = ptr.To[int32](1)
 			})
 			ginkgo.It("should fail", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
@@ -133,7 +133,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 					// The test cluster has only one node.
 					// More than one pod cannot use the same host port for sshd.
 					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].Args = []string{"/home/mpiuser/pi"}
-					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = newInt32(1)
+					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Replicas = ptr.To[int32](1)
 				})
 
 				ginkgo.It("should succeed", func() {
@@ -147,11 +147,11 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			ginkgo.BeforeEach(func() {
 				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-					RunAsUser: newInt64(1000),
+					RunAsUser: ptr.To[int64](1000),
 				}
 				workerContainer := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers[0]
 				workerContainer.SecurityContext = &corev1.SecurityContext{
-					RunAsUser: newInt64(1000),
+					RunAsUser: ptr.To[int64](1000),
 					Capabilities: &corev1.Capabilities{
 						Add: []corev1.Capability{"NET_BIND_SERVICE"},
 					},
@@ -219,11 +219,11 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
 
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-					RunAsUser: newInt64(1000),
+					RunAsUser: ptr.To[int64](1000),
 				}
 				workerContainer := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers[0]
 				workerContainer.SecurityContext = &corev1.SecurityContext{
-					RunAsUser: newInt64(1000),
+					RunAsUser: ptr.To[int64](1000),
 				}
 				workerContainer.Args = append(workerContainer.Args, "-f", "/home/mpiuser/.sshd_config")
 			})
@@ -286,11 +286,11 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				mpiJob.Spec.SSHAuthMountPath = "/home/mpiuser/.ssh"
 
 				mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-					RunAsUser: newInt64(1000),
+					RunAsUser: ptr.To[int64](1000),
 				}
 				workerContainer := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker].Template.Spec.Containers[0]
 				workerContainer.SecurityContext = &corev1.SecurityContext{
-					RunAsUser: newInt64(1000),
+					RunAsUser: ptr.To[int64](1000),
 				}
 				workerContainer.Args = append(workerContainer.Args, "-f", "/home/mpiuser/.sshd_config")
 			})
@@ -611,14 +611,6 @@ func getJobCondition(mpiJob *kubeflow.MPIJob, condType kubeflow.JobConditionType
 	return nil
 }
 
-func newInt32(v int32) *int32 {
-	return &v
-}
-
-func newInt64(v int64) *int64 {
-	return &v
-}
-
 func createMPIJobWithOpenMPI(mpiJob *kubeflow.MPIJob) {
 	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers = []corev1.Container{
 		{
@@ -681,7 +673,7 @@ func setupMPIOperator(ctx context.Context, mpiJob *kubeflow.MPIJob, enableGangSc
 	ginkgo.By("Scale-In the deployment to 0")
 	operator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
 	gomega.Expect(err).Should(gomega.Succeed())
-	operator.Spec.Replicas = newInt32(0)
+	operator.Spec.Replicas = ptr.To[int32](0)
 	_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, operator, metav1.UpdateOptions{})
 	gomega.Expect(err).Should(gomega.Succeed())
 	gomega.Eventually(func() bool {
@@ -695,7 +687,7 @@ func setupMPIOperator(ctx context.Context, mpiJob *kubeflow.MPIJob, enableGangSc
 		updatedOperator, err := k8sClient.AppsV1().Deployments(mpiOperator).Get(ctx, mpiOperator, metav1.GetOptions{})
 		gomega.Expect(err).Should(gomega.Succeed())
 		updatedOperator.Spec.Template.Spec.Containers[0].Args = append(updatedOperator.Spec.Template.Spec.Containers[0].Args, enableGangSchedulingFlag)
-		updatedOperator.Spec.Replicas = newInt32(1)
+		updatedOperator.Spec.Replicas = ptr.To[int32](1)
 		_, err = k8sClient.AppsV1().Deployments(mpiOperator).Update(ctx, updatedOperator, metav1.UpdateOptions{})
 		return err
 	}, foreverTimeout, waitInterval).Should(gomega.BeNil())

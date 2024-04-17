@@ -61,9 +61,9 @@ func TestMPIJobSuccess(t *testing.T) {
 			Namespace: s.namespace,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			SlotsPerWorker: newInt32(1),
+			SlotsPerWorker: ptr.To[int32](1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
@@ -79,7 +79,7 @@ func TestMPIJobSuccess(t *testing.T) {
 					},
 				},
 				kubeflow.MPIReplicaTypeWorker: {
-					Replicas: newInt32(2),
+					Replicas: ptr.To[int32](2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -187,10 +187,10 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 			Namespace: s.namespace,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			SlotsPerWorker:         newInt32(1),
+			SlotsPerWorker:         ptr.To[int32](1),
 			LauncherCreationPolicy: "WaitForWorkersReady",
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
@@ -206,7 +206,7 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 					},
 				},
 				kubeflow.MPIReplicaTypeWorker: {
-					Replicas: newInt32(2),
+					Replicas: ptr.To[int32](2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -318,9 +318,9 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 			Namespace: s.namespace,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			SlotsPerWorker: newInt32(1),
+			SlotsPerWorker: ptr.To[int32](1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 				Suspend:        ptr.To(true),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
@@ -337,7 +337,7 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 					},
 				},
 				kubeflow.MPIReplicaTypeWorker: {
-					Replicas: newInt32(2),
+					Replicas: ptr.To[int32](2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -482,9 +482,9 @@ func TestMPIJobFailure(t *testing.T) {
 			Namespace: s.namespace,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			SlotsPerWorker: newInt32(1),
+			SlotsPerWorker: ptr.To[int32](1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 				kubeflow.MPIReplicaTypeLauncher: {
@@ -500,7 +500,7 @@ func TestMPIJobFailure(t *testing.T) {
 					},
 				},
 				kubeflow.MPIReplicaTypeWorker: {
-					Replicas: newInt32(2),
+					Replicas: ptr.To[int32](2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -610,9 +610,9 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 			Namespace: s.namespace,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			SlotsPerWorker: newInt32(1),
+			SlotsPerWorker: ptr.To[int32](1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 				SchedulingPolicy: &kubeflow.SchedulingPolicy{
 					ScheduleTimeoutSeconds: ptr.To[int32](900),
 				},
@@ -632,7 +632,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 					},
 				},
 				kubeflow.MPIReplicaTypeWorker: {
-					Replicas: newInt32(2),
+					Replicas: ptr.To[int32](2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -723,9 +723,9 @@ func TestMPIJobWithVolcanoScheduler(t *testing.T) {
 			Namespace: s.namespace,
 		},
 		Spec: kubeflow.MPIJobSpec{
-			SlotsPerWorker: newInt32(1),
+			SlotsPerWorker: ptr.To[int32](1),
 			RunPolicy: kubeflow.RunPolicy{
-				CleanPodPolicy: kubeflow.NewCleanPodPolicy(kubeflow.CleanPodPolicyRunning),
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 				SchedulingPolicy: &kubeflow.SchedulingPolicy{
 					Queue:         "default",
 					PriorityClass: prioClass,
@@ -746,7 +746,7 @@ func TestMPIJobWithVolcanoScheduler(t *testing.T) {
 					},
 				},
 				kubeflow.MPIReplicaTypeWorker: {
-					Replicas: newInt32(2),
+					Replicas: ptr.To[int32](2),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -1167,10 +1167,6 @@ func mpiJobHasConditionWithStatus(job *kubeflow.MPIJob, cond kubeflow.JobConditi
 
 func isJobSuspended(job *batchv1.Job) bool {
 	return ptr.Deref(job.Spec.Suspend, false)
-}
-
-func newInt32(v int32) *int32 {
-	return &v
 }
 
 func eventForJob(event corev1.Event, job *kubeflow.MPIJob) corev1.Event {
