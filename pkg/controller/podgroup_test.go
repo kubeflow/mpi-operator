@@ -753,7 +753,7 @@ func TestAddResources(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			addResources(tc.minResources, tc.resources)
+			addResources(tc.minResources, tc.resources, 1)
 			if diff := cmp.Diff(tc.want, tc.minResources); len(diff) != 0 {
 				t.Fatalf("Unexpected resourceList (-want,+got):\n%s", diff)
 			}
