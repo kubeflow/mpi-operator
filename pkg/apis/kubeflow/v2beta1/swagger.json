@@ -17,12 +17,10 @@
       "properties": {
         "lastTransitionTime": {
           "description": "Last time the condition transitioned from one status to another.",
-          "default": {},
           "$ref": "#/definitions/v1.Time"
         },
         "lastUpdateTime": {
           "description": "The last time this condition was updated.",
-          "default": {},
           "$ref": "#/definitions/v1.Time"
         },
         "message": {
@@ -271,7 +269,6 @@
           "description": "MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling isn't empty, input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.",
           "type": "object",
           "additionalProperties": {
-            "default": {},
             "$ref": "#/definitions/resource.Quantity"
           }
         },

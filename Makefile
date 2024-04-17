@@ -34,8 +34,8 @@ KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/ku
 KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
-KUBECTL_VERSION=v1.27.4
-ENVTEST_K8S_VERSION=1.27.1
+KUBECTL_VERSION=v1.29.4
+ENVTEST_K8S_VERSION=1.29.3
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
@@ -118,11 +118,11 @@ test_images:
 
 .PHONY: tidy
 tidy:
-	go mod tidy -go 1.20
+	go mod tidy
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run --new-from-rev=origin/master --go 1.20
+	$(GOLANGCI_LINT) run --new-from-rev=origin/master
 
 # Generate deploy/v2beta1/mpi-operator.yaml
 manifest: kustomize crd
@@ -139,7 +139,7 @@ bin:
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: bin/golangci-lint
 bin/golangci-lint: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.3
+	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.57.2
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
@@ -197,14 +197,15 @@ scheduler-plugins-chart: scheduler-plugins-crd
 
 .PHONY: volcano-scheduler
 volcano-scheduler:
-	-@GOPATH=/tmp go install volcano.sh/volcano/cmd/scheduler@$(VOLCANO_SCHEDULER_VERSION)
+	rm -rf /tmp/volcano.sh/volcano
+	git clone -b $(VOLCANO_SCHEDULER_VERSION) --depth 1 https://github.com/volcano-sh/volcano /tmp/volcano.sh/volcano
 
 .PHONY: volcano-scheduler-crd
 volcano-scheduler-crd: volcano-scheduler
 	mkdir -p $(PROJECT_DIR)/dep-crds/volcano-scheduler/
-	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/config/crd/volcano/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
+	cp -f /tmp/volcano.sh/volcano/config/crd/volcano/bases/* $(PROJECT_DIR)/dep-crds/volcano-scheduler
 
 .PHONY: volcano-scheduler-deploy
 volcano-scheduler-deploy: volcano-scheduler-crd
 	mkdir -p $(PROJECT_DIR)/dep-manifests/volcano-scheduler/
-	cp -f /tmp/pkg/mod/volcano.sh/volcano@$(VOLCANO_SCHEDULER_VERSION)/installer/volcano-development.yaml $(PROJECT_DIR)/dep-manifests/volcano-scheduler/
+	cp -f /tmp/volcano.sh/volcano/installer/volcano-development.yaml $(PROJECT_DIR)/dep-manifests/volcano-scheduler/

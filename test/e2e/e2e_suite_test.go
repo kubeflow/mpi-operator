@@ -47,7 +47,7 @@ const (
 	envVolcanoSchedulerVersion = "VOLCANO_SCHEDULER_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.27.3"
+	defaultKindImage        = "kindest/node:v1.29.2"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
 	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
@@ -61,8 +61,8 @@ const (
 	volcanoSchedulerManifestPath   = rootPath + "/dep-manifests/volcano-scheduler/" // all in one yaml of volcano-development.yaml
 	envUseExistingSchedulerPlugins = "USE_EXISTING_SCHEDULER_PLUGINS"
 	envUseExistingVolcanoScheduler = "USE_EXISTING_VOLCANO_SCHEDULER"
-	defaultSchedulerPluginsVersion = "v0.26.7"
-	defaultVolcanoSchedulerVersion = "v1.7.0"
+	defaultSchedulerPluginsVersion = "v0.28.9"
+	defaultVolcanoSchedulerVersion = "v1.8.0"
 
 	mpiOperator      = "mpi-operator"
 	schedulerPlugins = "scheduler-plugins"
@@ -172,7 +172,7 @@ func bootstrapKindCluster() error {
 }
 
 func installOperator() error {
-	err := runCommand(kubectlPath, "apply", "-k", operatorManifestsPath)
+	err := runCommand(kubectlPath, "apply", "--server-side", "-k", operatorManifestsPath)
 	if err != nil {
 		return fmt.Errorf("applying operator YAMLs: %w", err)
 	}

@@ -1172,6 +1172,7 @@ func isJobSuspended(job *batchv1.Job) bool {
 func eventForJob(event corev1.Event, job *kubeflow.MPIJob) corev1.Event {
 	event.Namespace = job.Namespace
 	event.Source.Component = "mpi-job-controller"
+	event.ReportingController = "mpi-job-controller"
 	ref, err := reference.GetReference(scheme.Scheme, job)
 	runtime.Must(err)
 	event.InvolvedObject = *ref
