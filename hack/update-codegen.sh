@@ -29,6 +29,7 @@ popd
 CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
 CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}")
 chmod +x "${CODEGEN_PKG}/generate-groups.sh"
+chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
 
 "${CODEGEN_PKG}/generate-groups.sh" "deepcopy,client,informer,lister,applyconfiguration" \
   github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \

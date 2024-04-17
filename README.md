@@ -12,13 +12,13 @@ You can deploy the operator with default settings by running the following comma
 - Latest Development Version
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/kubeflow/mpi-operator/master/deploy/v2beta1/mpi-operator.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/kubeflow/mpi-operator/master/deploy/v2beta1/mpi-operator.yaml
 ```
 
 - Release Version
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml
 ```
 
 Alternatively, follow the [getting started guide](https://www.kubeflow.org/docs/started/getting-started/) to deploy Kubeflow.
