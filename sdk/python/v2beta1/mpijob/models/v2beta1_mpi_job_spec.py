@@ -36,7 +36,6 @@ class V2beta1MPIJobSpec(object):
         'launcher_creation_policy': 'str',
         'mpi_implementation': 'str',
         'mpi_replica_specs': 'dict(str, V2beta1ReplicaSpec)',
-        'run_launcher_as_worker': 'bool',
         'run_policy': 'V2beta1RunPolicy',
         'slots_per_worker': 'int',
         'ssh_auth_mount_path': 'str'
@@ -46,13 +45,12 @@ class V2beta1MPIJobSpec(object):
         'launcher_creation_policy': 'launcherCreationPolicy',
         'mpi_implementation': 'mpiImplementation',
         'mpi_replica_specs': 'mpiReplicaSpecs',
-        'run_launcher_as_worker': 'runLauncherAsWorker',
         'run_policy': 'runPolicy',
         'slots_per_worker': 'slotsPerWorker',
         'ssh_auth_mount_path': 'sshAuthMountPath'
     }
 
-    def __init__(self, launcher_creation_policy=None, mpi_implementation=None, mpi_replica_specs=None, run_launcher_as_worker=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, launcher_creation_policy=None, mpi_implementation=None, mpi_replica_specs=None, run_policy=None, slots_per_worker=None, ssh_auth_mount_path=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1MPIJobSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration.get_default_copy()
@@ -61,7 +59,6 @@ class V2beta1MPIJobSpec(object):
         self._launcher_creation_policy = None
         self._mpi_implementation = None
         self._mpi_replica_specs = None
-        self._run_launcher_as_worker = None
         self._run_policy = None
         self._slots_per_worker = None
         self._ssh_auth_mount_path = None
@@ -72,8 +69,6 @@ class V2beta1MPIJobSpec(object):
         if mpi_implementation is not None:
             self.mpi_implementation = mpi_implementation
         self.mpi_replica_specs = mpi_replica_specs
-        if run_launcher_as_worker is not None:
-            self.run_launcher_as_worker = run_launcher_as_worker
         if run_policy is not None:
             self.run_policy = run_policy
         if slots_per_worker is not None:
@@ -151,29 +146,6 @@ class V2beta1MPIJobSpec(object):
             raise ValueError("Invalid value for `mpi_replica_specs`, must not be `None`")  # noqa: E501
 
         self._mpi_replica_specs = mpi_replica_specs
-
-    @property
-    def run_launcher_as_worker(self):
-        """Gets the run_launcher_as_worker of this V2beta1MPIJobSpec.  # noqa: E501
-
-        RunLauncherAsWorker indicates whether to run worker process in launcher Defaults to false.  # noqa: E501
-
-        :return: The run_launcher_as_worker of this V2beta1MPIJobSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._run_launcher_as_worker
-
-    @run_launcher_as_worker.setter
-    def run_launcher_as_worker(self, run_launcher_as_worker):
-        """Sets the run_launcher_as_worker of this V2beta1MPIJobSpec.
-
-        RunLauncherAsWorker indicates whether to run worker process in launcher Defaults to false.  # noqa: E501
-
-        :param run_launcher_as_worker: The run_launcher_as_worker of this V2beta1MPIJobSpec.  # noqa: E501
-        :type run_launcher_as_worker: bool
-        """
-
-        self._run_launcher_as_worker = run_launcher_as_worker
 
     @property
     def run_policy(self):
