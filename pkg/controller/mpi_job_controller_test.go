@@ -487,7 +487,7 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	f := newFixture(t, "")
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
-	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
+	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
 	f.run(getKey(mpiJob, t))
 }
 
@@ -510,7 +510,7 @@ func TestAllResourcesCreated(t *testing.T) {
 		t.Run(string(implementation), func(t *testing.T) {
 			f := newFixture(t, "")
 			now := metav1.Now()
-			mpiJob := newMPIJob("foo", newInt32(5), &now, nil)
+			mpiJob := newMPIJob("foo", ptr.To[int32](5), &now, nil)
 			mpiJob.Spec.MPIImplementation = implementation
 			f.setUpMPIJob(mpiJob)
 
@@ -548,7 +548,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
+	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
@@ -567,7 +567,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
+	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
@@ -605,7 +605,7 @@ func TestLauncherFailed(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 
-	mpiJob := newMPIJob("test", newInt32(64), &startTime, &completionTime)
+	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
@@ -1263,7 +1263,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 									Name: "ssh-auth",
 									VolumeSource: corev1.VolumeSource{
 										Secret: &corev1.SecretVolumeSource{
-											DefaultMode: newInt32(0600),
+											DefaultMode: ptr.To[int32](0600),
 											SecretName:  "foo-ssh",
 											Items:       sshVolumeItems,
 										},
@@ -1317,7 +1317,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							Name: "ssh-auth",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									DefaultMode: newInt32(0600),
+									DefaultMode: ptr.To[int32](0600),
 									SecretName:  "foo-ssh",
 									Items:       sshVolumeItems,
 								},
@@ -1392,7 +1392,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 									Name: "ssh-auth",
 									VolumeSource: corev1.VolumeSource{
 										Secret: &corev1.SecretVolumeSource{
-											DefaultMode: newInt32(0600),
+											DefaultMode: ptr.To[int32](0600),
 											SecretName:  "foo-ssh",
 											Items:       sshVolumeItems,
 										},
@@ -1446,7 +1446,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							Name: "ssh-auth",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									DefaultMode: newInt32(0600),
+									DefaultMode: ptr.To[int32](0600),
 									SecretName:  "foo-ssh",
 									Items:       sshVolumeItems,
 								},
@@ -1464,12 +1464,12 @@ func TestNewLauncherAndWorker(t *testing.T) {
 				},
 				Spec: kubeflow.MPIJobSpec{
 					SSHAuthMountPath:  "/home/mpiuser/.ssh",
-					SlotsPerWorker:    newInt32(5),
+					SlotsPerWorker:    ptr.To[int32](5),
 					MPIImplementation: kubeflow.MPIImplementationIntel,
 					RunPolicy: kubeflow.RunPolicy{
-						TTLSecondsAfterFinished: newInt32(1),
-						ActiveDeadlineSeconds:   newInt64(2),
-						BackoffLimit:            newInt32(3),
+						TTLSecondsAfterFinished: ptr.To[int32](1),
+						ActiveDeadlineSeconds:   ptr.To[int64](2),
+						BackoffLimit:            ptr.To[int32](3),
 					},
 					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
 						kubeflow.MPIReplicaTypeLauncher: {
@@ -1486,7 +1486,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 												{Name: "FOO", Value: "bar"},
 											},
 											SecurityContext: &corev1.SecurityContext{
-												RunAsUser: newInt64(1000),
+												RunAsUser: ptr.To[int64](1000),
 											},
 											VolumeMounts: []corev1.VolumeMount{
 												{Name: "fool-vol", MountPath: "/mnt/foo"},
@@ -1528,9 +1528,9 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: batchv1.JobSpec{
-					TTLSecondsAfterFinished: newInt32(1),
-					ActiveDeadlineSeconds:   newInt64(2),
-					BackoffLimit:            newInt32(3),
+					TTLSecondsAfterFinished: ptr.To[int32](1),
+					ActiveDeadlineSeconds:   ptr.To[int64](2),
+					BackoffLimit:            ptr.To[int32](3),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1549,7 +1549,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									SecurityContext: &corev1.SecurityContext{
-										RunAsUser: newInt64(1000),
+										RunAsUser: ptr.To[int64](1000),
 									},
 									Env: joinEnvVars(
 										corev1.EnvVar{Name: "FOO", Value: "bar"},
@@ -1801,10 +1801,6 @@ func TestNewConfigMap(t *testing.T) {
 			}
 		})
 	}
-}
-
-func newInt64(v int64) *int64 {
-	return &v
 }
 
 func joinEnvVars(evs ...interface{}) []corev1.EnvVar {

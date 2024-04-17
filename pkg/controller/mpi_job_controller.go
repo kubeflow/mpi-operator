@@ -155,12 +155,12 @@ var (
 		{
 			Key:  hostfileName,
 			Path: hostfileName,
-			Mode: newInt32(0444),
+			Mode: ptr.To[int32](0444),
 		},
 		{
 			Key:  discoverHostsScriptName,
 			Path: discoverHostsScriptName,
-			Mode: newInt32(0555),
+			Mode: ptr.To[int32](0555),
 		},
 	}
 
@@ -1269,10 +1269,7 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // handleObject can discover the MPIJob resource that 'owns' it.
 func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
 	var buffer bytes.Buffer
-	slots := 1
-	if mpiJob.Spec.SlotsPerWorker != nil {
-		slots = int(*mpiJob.Spec.SlotsPerWorker)
-	}
+	slots := ptr.Deref(mpiJob.Spec.SlotsPerWorker, 1)
 	// note that pod.spec.dnsConfig also affect the svc resolution
 	// ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 	// launcher can be reach with hostname or service name
@@ -1683,7 +1680,7 @@ func workerReplicas(job *kubeflow.MPIJob) int32 {
 func (c *MPIJobController) setupSSHOnPod(podSpec *corev1.PodSpec, job *kubeflow.MPIJob) {
 	var mode *int32
 	if job.Spec.SSHAuthMountPath == rootSSHPath {
-		mode = newInt32(0600)
+		mode = ptr.To[int32](0600)
 	}
 	mainContainer := &podSpec.Containers[0]
 	podSpec.Volumes = append(podSpec.Volumes,
@@ -1715,10 +1712,6 @@ func ownerReferenceAndGVK(object metav1.Object) (*metav1.OwnerReference, schema.
 		return nil, schema.GroupVersionKind{}, fmt.Errorf("parsing owner's API version: %w", err)
 	}
 	return ownerRef, gv.WithKind(ownerRef.Kind), nil
-}
-
-func newInt32(v int32) *int32 {
-	return &v
 }
 
 // truncateMessage truncates a message if it hits the NoteLengthLimit.
