@@ -8225,6 +8225,6 @@ spec:
       - args:
         - -alsologtostderr
         - --lock-namespace=mpi-operator
-        image: mpioperator/mpi-operator:0.5
+        image: mpioperator/mpi-operator:0.5.0
         name: mpi-operator
       serviceAccountName: mpi-operator
