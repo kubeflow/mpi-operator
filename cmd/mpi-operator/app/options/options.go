@@ -16,6 +16,7 @@ package options
 
 import (
 	"flag"
+	"github.com/kubeflow/mpi-operator/pkg/informers"
 	"os"
 
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
@@ -38,11 +39,21 @@ type ServerOption struct {
 	LockNamespace      string
 	QPS                int
 	Burst              int
+
+	NamespaceOptions
+	InformerOptions
 }
 
 // NewServerOption creates a new CMServer with a default config.
 func NewServerOption() *ServerOption {
 	s := ServerOption{}
+
+	s.Namespaces = DefaultNamespaceParser
+	s.KubeInformer = informers.DefaultKubeInformer
+	s.MpiJobInformer = informers.DefaultMpiJobInformer
+	s.VolcanoInformer = informers.DefaultVolcanoInformer
+	s.SchedulerPluginsInformer = informers.DefaultSchedulerPluginsInformer
+
 	return &s
 }
 

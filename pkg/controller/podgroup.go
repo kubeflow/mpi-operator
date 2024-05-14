@@ -73,12 +73,7 @@ type VolcanoCtrl struct {
 	schedulerName       string
 }
 
-func NewVolcanoCtrl(c volcanoclient.Interface, watchNamespace string, pcLister schedulinglisters.PriorityClassLister) *VolcanoCtrl {
-	var informerFactoryOpts []volcanoinformers.SharedInformerOption
-	if watchNamespace != metav1.NamespaceAll {
-		informerFactoryOpts = append(informerFactoryOpts, volcanoinformers.WithNamespace(watchNamespace))
-	}
-	informerFactory := volcanoinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
+func NewVolcanoCtrl(c volcanoclient.Interface, informerFactory volcanoinformers.SharedInformerFactory, pcLister schedulinglisters.PriorityClassLister) *VolcanoCtrl {
 	return &VolcanoCtrl{
 		Client:              c,
 		InformerFactory:     informerFactory,
@@ -204,14 +199,9 @@ type SchedulerPluginsCtrl struct {
 
 func NewSchedulerPluginsCtrl(
 	c schedclientset.Interface,
-	watchNamespace, schedulerName string,
+	pgInformerFactory schedinformers.SharedInformerFactory, schedulerName string,
 	pcLister schedulinglisters.PriorityClassLister,
 ) *SchedulerPluginsCtrl {
-	var informerFactoryOpts []schedinformers.SharedInformerOption
-	if watchNamespace != metav1.NamespaceAll {
-		informerFactoryOpts = append(informerFactoryOpts, schedinformers.WithNamespace(watchNamespace))
-	}
-	pgInformerFactory := schedinformers.NewSharedInformerFactoryWithOptions(c, 0, informerFactoryOpts...)
 	return &SchedulerPluginsCtrl{
 		Client:              c,
 		InformerFactory:     pgInformerFactory,
