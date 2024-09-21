@@ -53,6 +53,9 @@ func setDefaultsRunPolicy(policy *RunPolicy) {
 	if policy.CleanPodPolicy == nil {
 		policy.CleanPodPolicy = ptr.To(CleanPodPolicyNone)
 	}
+	if policy.ManagedBy == nil {
+		policy.ManagedBy = ptr.To(KubeflowJobController)
+	}
 	// The remaining fields are passed as-is to the k8s Job API, which does its
 	// own defaulting.
 }
