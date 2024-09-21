@@ -504,6 +504,18 @@ func TestDoNothingWithInvalidMPIJob(t *testing.T) {
 	f.run(getKey(mpiJob, t))
 }
 
+func TestDoNothingWithMPIJobManagedExternally(t *testing.T) {
+	f := newFixture(t, "")
+	var replicas int32 = 1
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
+	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
+	mpiJob.Spec.RunPolicy.ManagedBy = ptr.To(kubeflow.MultiKueueController)
+	f.setUpMPIJob(mpiJob)
+	f.run(getKey(mpiJob, t))
+}
+
 func TestAllResourcesCreated(t *testing.T) {
 	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {

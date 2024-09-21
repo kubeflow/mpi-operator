@@ -582,6 +582,11 @@ func (c *MPIJobController) syncHandler(key string) error {
 	// Set default for the new mpiJob.
 	scheme.Scheme.Default(mpiJob)
 
+	if manager := managedByExternalController(mpiJob.Spec.RunPolicy.ManagedBy); manager != nil {
+		klog.V(2).Info("Skipping MPIJob managed by a custom controller", "managed-by", manager)
+		return nil
+	}
+
 	// for mpi job that is terminating, just return.
 	if mpiJob.DeletionTimestamp != nil {
 		return nil
@@ -1721,4 +1726,11 @@ func truncateMessage(message string) string {
 	}
 	suffix := "..."
 	return message[:eventMessageLimit-len(suffix)] + suffix
+}
+
+func managedByExternalController(controllerName *string) *string {
+	if controllerName != nil && *controllerName != kubeflow.KubeflowJobController {
+		return controllerName
+	}
+	return nil
 }
