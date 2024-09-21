@@ -193,6 +193,7 @@ func TestValidateMPIJob(t *testing.T) {
 						TTLSecondsAfterFinished: ptr.To[int32](-1),
 						ActiveDeadlineSeconds:   ptr.To[int64](-1),
 						BackoffLimit:            ptr.To[int32](-1),
+						ManagedBy:               ptr.To("invalid.com/controller"),
 					},
 					SSHAuthMountPath:  "/root/.ssh",
 					MPIImplementation: kubeflow.MPIImplementation("Unknown"),
@@ -238,6 +239,10 @@ func TestValidateMPIJob(t *testing.T) {
 				{
 					Type:  field.ErrorTypeInvalid,
 					Field: "spec.runPolicy.backoffLimit",
+				},
+				{
+					Type:  field.ErrorTypeNotSupported,
+					Field: "spec.runPolicy.managedBy",
 				},
 				{
 					Type:  field.ErrorTypeNotSupported,
