@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/ginkgo"
@@ -163,6 +164,27 @@ var _ = ginkgo.Describe("MPIJob", func() {
 			ginkgo.It("should succeed", func() {
 				mpiJob := createJobAndWaitForCompletion(mpiJob)
 				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
+			})
+
+			ginkgo.It("should not be updated when managed externaly, only created", func() {
+				mpiJob.Spec.RunPolicy.ManagedBy = ptr.To(kubeflow.MultiKueueController)
+				ctx := context.Background()
+				mpiJob = createJob(ctx, mpiJob)
+
+				gomega.Consistently(func() error {
+					updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					mpiJob = updatedJob
+					return nil
+				}, 5*time.Second, waitInterval).Should(gomega.Succeed())
+
+				// job should be created, but status should not be updated neither for create nor for any other status
+				condition := getJobCondition(mpiJob, kubeflow.JobCreated)
+				gomega.Expect(condition).To(gomega.BeNil())
+				condition = getJobCondition(mpiJob, kubeflow.JobSucceeded)
+				gomega.Expect(condition).To(gomega.BeNil())
 			})
 		})
 

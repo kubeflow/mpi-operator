@@ -510,7 +510,7 @@ func TestDoNothingWithMPIJobManagedExternally(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
-	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationIntel
+	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationOpenMPI
 	mpiJob.Spec.RunPolicy.ManagedBy = ptr.To(kubeflow.MultiKueueController)
 	f.setUpMPIJob(mpiJob)
 	f.run(getKey(mpiJob, t))
