@@ -418,6 +418,11 @@ func (f *fixture) expectCreateSecretAction(d *corev1.Secret) {
 	f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "secrets"}, d.Namespace, d))
 }
 
+func (f *fixture) expectNoKubeActions() bool {
+	k8sActions := filterInformerActions(f.kubeClient.Actions())
+	return len(k8sActions) == 0
+}
+
 func (f *fixture) expectUpdateMPIJobStatusAction(mpiJob *kubeflow.MPIJob) {
 	action := core.NewUpdateAction(schema.GroupVersionResource{Resource: "mpijobs"}, mpiJob.Namespace, mpiJob)
 	action.Subresource = "status"
@@ -514,6 +519,9 @@ func TestDoNothingWithMPIJobManagedExternally(t *testing.T) {
 	mpiJob.Spec.RunPolicy.ManagedBy = ptr.To(kubeflow.MultiKueueController)
 	f.setUpMPIJob(mpiJob)
 	f.run(getKey(mpiJob, t))
+	if !f.expectNoKubeActions() {
+		t.Fatalf("Expected no kubeActions (secrets, pods, services etc.)")
+	}
 }
 
 func TestAllResourcesCreated(t *testing.T) {

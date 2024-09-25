@@ -140,12 +140,12 @@ type RunPolicy struct {
 	// +kubebuilder:default:=false
 	Suspend *bool `json:"suspend,omitempty"`
 
-	// ManagedBy is used to indicate the controller or entity that manages a job.
+	// ManagedBy is used to indicate the controller or entity that manages a MPIJob.
 	// The value must be either an empty, 'kubeflow.org/mpi-operator' or
 	// 'kueue.x-k8s.io/multikueue'.
-	// The mpi-operator reconciles a job which doesn't have this
+	// The mpi-operator reconciles a MPIJob which doesn't have this
 	// field at all or the field value is the reserved string
-	// 'kubeflow.org/mpi-operator', but delegates reconciling the job
+	// 'kubeflow.org/mpi-operator', but delegates reconciling the MPIJob
 	// with 'kueue.x-k8s.io/multikueue' to the Kueue.
 	// The field is immutable.
 	ManagedBy *string `json:"managedBy,omitempty"`

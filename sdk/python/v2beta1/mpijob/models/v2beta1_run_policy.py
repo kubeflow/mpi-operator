@@ -155,7 +155,7 @@ class V2beta1RunPolicy(object):
     def managed_by(self):
         """Gets the managed_by of this V2beta1RunPolicy.  # noqa: E501
 
-        ManagedBy is used to indicate the controller or entity that manages a job. The value must be either an empty, 'kubeflow.org/mpi-operator' or 'kueue.x-k8s.io/multikueue'. The mpi-operator reconciles a job which doesn't have this field at all or the field value is the reserved string 'kubeflow.org/mpi-operator', but delegates reconciling the job with 'kueue.x-k8s.io/multikueue' to the Kueue. The field is immutable.  # noqa: E501
+        ManagedBy is used to indicate the controller or entity that manages a MPIJob. The value must be either an empty, 'kubeflow.org/mpi-operator' or 'kueue.x-k8s.io/multikueue'. The mpi-operator reconciles a MPIJob which doesn't have this field at all or the field value is the reserved string 'kubeflow.org/mpi-operator', but delegates reconciling the MPIJob with 'kueue.x-k8s.io/multikueue' to the Kueue. The field is immutable.  # noqa: E501
 
         :return: The managed_by of this V2beta1RunPolicy.  # noqa: E501
         :rtype: str
@@ -166,7 +166,7 @@ class V2beta1RunPolicy(object):
     def managed_by(self, managed_by):
         """Sets the managed_by of this V2beta1RunPolicy.
 
-        ManagedBy is used to indicate the controller or entity that manages a job. The value must be either an empty, 'kubeflow.org/mpi-operator' or 'kueue.x-k8s.io/multikueue'. The mpi-operator reconciles a job which doesn't have this field at all or the field value is the reserved string 'kubeflow.org/mpi-operator', but delegates reconciling the job with 'kueue.x-k8s.io/multikueue' to the Kueue. The field is immutable.  # noqa: E501
+        ManagedBy is used to indicate the controller or entity that manages a MPIJob. The value must be either an empty, 'kubeflow.org/mpi-operator' or 'kueue.x-k8s.io/multikueue'. The mpi-operator reconciles a MPIJob which doesn't have this field at all or the field value is the reserved string 'kubeflow.org/mpi-operator', but delegates reconciling the MPIJob with 'kueue.x-k8s.io/multikueue' to the Kueue. The field is immutable.  # noqa: E501
 
         :param managed_by: The managed_by of this V2beta1RunPolicy.  # noqa: E501
         :type managed_by: str

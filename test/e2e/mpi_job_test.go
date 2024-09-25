@@ -178,16 +178,30 @@ var _ = ginkgo.Describe("MPIJob", func() {
 					}
 					mpiJob = updatedJob
 					return nil
-				}, 5*time.Second, waitInterval).Should(gomega.Succeed())
+				}, 2*time.Second, waitInterval).Should(gomega.Succeed())
 
 				// job should be created, but status should not be updated neither for create nor for any other status
 				condition := getJobCondition(mpiJob, kubeflow.JobCreated)
 				gomega.Expect(condition).To(gomega.BeNil())
 				condition = getJobCondition(mpiJob, kubeflow.JobSucceeded)
 				gomega.Expect(condition).To(gomega.BeNil())
+				launcherPods, err := getLauncherPods(ctx, mpiJob)
+				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Expect(len(launcherPods.Items)).To(gomega.Equal(0))
+				workerPods, err := getWorkerPods(ctx, mpiJob)
+				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Expect(len(workerPods.Items)).To(gomega.Equal(0))
+				secret, err := getSecretsForJob(ctx, mpiJob)
+				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Expect(secret).To(gomega.BeNil())
+			})
+
+			ginkgo.It("should succeed when explicitly managed by mpi-operator", func() {
+				mpiJob.Spec.RunPolicy.ManagedBy = ptr.To(kubeflow.KubeflowJobController)
+				mpiJob := createJobAndWaitForCompletion(mpiJob)
+				expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
 			})
 		})
-
 	})
 
 	ginkgo.Context("with Intel Implementation", func() {
@@ -558,7 +572,7 @@ func waitForCompletion(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.M
 	return mpiJob
 }
 
-func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
+func getLauncherPods(ctx context.Context, mpiJob *kubeflow.MPIJob) (*corev1.PodList, error) {
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			kubeflow.OperatorNameLabel: kubeflow.OperatorName,
@@ -570,7 +584,45 @@ func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
 		LabelSelector: metav1.FormatLabelSelector(&selector),
 	})
 	if err != nil {
-		return fmt.Errorf("getting launcher Pods: %w", err)
+		return &corev1.PodList{}, fmt.Errorf("getting launcher Pods: %w", err)
+	}
+	return launcherPods, nil
+}
+
+func getWorkerPods(ctx context.Context, mpiJob *kubeflow.MPIJob) (*corev1.PodList, error) {
+	selector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+			kubeflow.JobNameLabel:      mpiJob.Name,
+			kubeflow.JobRoleLabel:      "worker",
+		},
+	}
+	workerPods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(&selector),
+	})
+	if err != nil {
+		return &corev1.PodList{}, fmt.Errorf("getting worker Pods: %w", err)
+	}
+	return workerPods, nil
+}
+
+func getSecretsForJob(ctx context.Context, mpiJob *kubeflow.MPIJob) (*corev1.Secret, error) {
+	result, err := k8sClient.CoreV1().Secrets(mpiJob.Namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range result.Items {
+		if metav1.IsControlledBy(&obj, mpiJob) {
+			return &obj, nil
+		}
+	}
+	return nil, nil
+}
+
+func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
+	launcherPods, err := getLauncherPods(ctx, mpiJob)
+	if err != nil {
+		return err
 	}
 	if len(launcherPods.Items) == 0 {
 		return fmt.Errorf("no launcher Pods found")
@@ -585,11 +637,7 @@ func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
 	if err != nil {
 		return fmt.Errorf("obtaining launcher logs: %w", err)
 	}
-
-	selector.MatchLabels[kubeflow.JobRoleLabel] = "worker"
-	workerPods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: metav1.FormatLabelSelector(&selector),
-	})
+	workerPods, err := getWorkerPods(ctx, mpiJob)
 	if err != nil {
 		return fmt.Errorf("getting worker Pods: %w", err)
 	}
