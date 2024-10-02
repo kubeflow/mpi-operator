@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -185,6 +186,9 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				gomega.Expect(condition).To(gomega.BeNil())
 				condition = getJobCondition(mpiJob, kubeflow.JobSucceeded)
 				gomega.Expect(condition).To(gomega.BeNil())
+				launcherJob, err := getLauncherJob(ctx, mpiJob)
+				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Expect(launcherJob).To(gomega.BeNil())
 				launcherPods, err := getLauncherPods(ctx, mpiJob)
 				gomega.Expect(err).To(gomega.BeNil())
 				gomega.Expect(len(launcherPods.Items)).To(gomega.Equal(0))
@@ -679,6 +683,19 @@ func getJobCondition(mpiJob *kubeflow.MPIJob, condType kubeflow.JobConditionType
 		}
 	}
 	return nil
+}
+
+func getLauncherJob(ctx context.Context, mpiJob *kubeflow.MPIJob) (*batchv1.Job, error) {
+	result, err := k8sClient.BatchV1().Jobs(mpiJob.Namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, j := range result.Items {
+		if metav1.IsControlledBy(&j, mpiJob) {
+			return &j, nil
+		}
+	}
+	return nil, nil
 }
 
 func createMPIJobWithOpenMPI(mpiJob *kubeflow.MPIJob) {

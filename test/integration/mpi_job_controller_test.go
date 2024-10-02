@@ -891,13 +891,13 @@ func TestMPIJobManagedExternally(t *testing.T) {
 		if mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
 			t.Errorf("MPIJob shouldn't have any condition")
 		}
-		// 4. No Pods or Services created
-		pods, err := getPodsForJob(ctx, s.kClient, mpiJob)
+		// 4. No Jobs or Services created
+		lp, err := getLauncherJobForMPIJob(ctx, s.kClient, mpiJob)
 		if err != nil {
-			t.Fatalf("Failed getting pods for the job: %v", err)
+			t.Fatalf("Failed getting launcher jobs: %v", err)
 		}
-		if len(pods) > 0 {
-			t.Fatalf("There should be no pods from job: %v", pods)
+		if lp != nil {
+			t.Fatalf("There should be no launcher jobs from job: %v", lp)
 		}
 		svcs, err := getServiceForJob(ctx, s.kClient, mpiJob)
 		if err != nil {
