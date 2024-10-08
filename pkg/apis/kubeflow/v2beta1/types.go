@@ -148,6 +148,7 @@ type RunPolicy struct {
 	// 'kubeflow.org/mpi-operator', but delegates reconciling the MPIJob
 	// with 'kueue.x-k8s.io/multikueue' to the Kueue.
 	// The field is immutable.
+	// +optional
 	ManagedBy *string `json:"managedBy,omitempty"`
 }
 

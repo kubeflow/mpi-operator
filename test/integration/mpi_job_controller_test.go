@@ -876,41 +876,33 @@ func TestMPIJobManagedExternally(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed sending job to apiserver: %v", err)
 	}
-	backoff := wait.Backoff{
-		Duration: moderateTimeout,
-		Factor:   1.0,
-		Steps:    3,
+
+	time.Sleep(moderateTimeout)
+	// 2. Status is not getting updated
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, nil)
+	if mpiJob.Status.StartTime != nil {
+		t.Errorf("MPIJob should be missing startTime")
 	}
-	err = wait.ExponentialBackoff(backoff, func() (bool, error) {
-		// 2. Status is not getting updated
-		mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, nil)
-		if mpiJob.Status.StartTime != nil {
-			t.Errorf("MPIJob should be missing startTime")
-		}
-		// 3. There should be no conditions, even the one for create
-		if mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
-			t.Errorf("MPIJob shouldn't have any condition")
-		}
-		// 4. No Jobs or Services created
-		lp, err := getLauncherJobForMPIJob(ctx, s.kClient, mpiJob)
-		if err != nil {
-			t.Fatalf("Failed getting launcher jobs: %v", err)
-		}
-		if lp != nil {
-			t.Fatalf("There should be no launcher jobs from job: %v", lp)
-		}
-		svcs, err := getServiceForJob(ctx, s.kClient, mpiJob)
-		if err != nil {
-			t.Fatalf("Failed getting services for the job: %v", err)
-		}
-		if svcs != nil {
-			t.Fatalf("There should be no services from job: %v", svcs)
-		}
-		return false, nil
-	})
-	if !wait.Interrupted(err) {
-		t.Fatalf("Failed to verify externally managed mpiJob: %v", err)
+	// 3. There should be no conditions, even the one for create
+	if mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
+		t.Errorf("MPIJob shouldn't have any condition")
 	}
+	// 4. No Jobs or Services created
+	lp, err := getLauncherJobForMPIJob(ctx, s.kClient, mpiJob)
+	if err != nil {
+		t.Fatalf("Failed getting launcher jobs: %v", err)
+	}
+	if lp != nil {
+		t.Fatalf("There should be no launcher jobs from job: %v", lp)
+	}
+	svcs, err := getServiceForJob(ctx, s.kClient, mpiJob)
+	if err != nil {
+		t.Fatalf("Failed getting services for the job: %v", err)
+	}
+	if svcs != nil {
+		t.Fatalf("There should be no services from job: %v", svcs)
+	}
+
 }
 
 func startController(

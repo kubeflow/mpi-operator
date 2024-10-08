@@ -172,14 +172,9 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				ctx := context.Background()
 				mpiJob = createJob(ctx, mpiJob)
 
-				gomega.Consistently(func() error {
-					updatedJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					mpiJob = updatedJob
-					return nil
-				}, 2*time.Second, waitInterval).Should(gomega.Succeed())
+				time.Sleep(1 * time.Second)
+				mpiJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+				gomega.Expect(err).To(gomega.BeNil())
 
 				// job should be created, but status should not be updated neither for create nor for any other status
 				condition := getJobCondition(mpiJob, kubeflow.JobCreated)
