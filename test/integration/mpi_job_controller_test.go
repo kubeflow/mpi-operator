@@ -43,11 +43,7 @@ import (
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	"github.com/kubeflow/mpi-operator/pkg/controller"
-)
-
-const (
-	waitInterval    = 100 * time.Millisecond
-	moderateTimeout = 2 * time.Second
+	"github.com/kubeflow/mpi-operator/test/util"
 )
 
 func TestMPIJobSuccess(t *testing.T) {
@@ -693,7 +689,7 @@ func TestMPIJobWithSchedulerPlugins(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed sending job to apiserver: %v", err)
 	}
-	if err = wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+	if err = wait.PollUntilContextTimeout(ctx, util.WaitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		pg, err := getSchedPodGroup(ctx, gangSchedulerCfg.schedClient, mpiJob)
 		if err != nil {
 			return false, err
@@ -809,7 +805,7 @@ func TestMPIJobWithVolcanoScheduler(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed sending job to apiserver: %v", err)
 	}
-	if err = wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+	if err = wait.PollUntilContextTimeout(ctx, util.WaitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		pg, err := getVolcanoPodGroup(ctx, gangSchedulerCfg.volcanoClient, mpiJob)
 		if err != nil {
 			return false, err
@@ -877,7 +873,7 @@ func TestMPIJobManagedExternally(t *testing.T) {
 		t.Fatalf("Failed sending job to apiserver: %v", err)
 	}
 
-	time.Sleep(moderateTimeout)
+	time.Sleep(util.SleepDurationControllerSyncDelay)
 	// 2. Status is not getting updated
 	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, nil)
 	if mpiJob.Status.StartTime != nil {
@@ -975,7 +971,7 @@ func validateMPIJobDependencies(
 		podGroup    metav1.Object
 	)
 	var problems []string
-	if err := wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, util.WaitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		problems = nil
 		var err error
 		svc, err = getServiceForJob(ctx, kubeClient, job)
@@ -1071,7 +1067,7 @@ func validateMPIJobStatus(ctx context.Context, t *testing.T, client clientset.In
 		err    error
 		got    map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus
 	)
-	if err := wait.PollUntilContextTimeout(ctx, waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, util.WaitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		newJob, err = client.KubeflowV2beta1().MPIJobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

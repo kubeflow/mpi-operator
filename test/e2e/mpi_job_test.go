@@ -35,6 +35,7 @@ import (
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	"github.com/kubeflow/mpi-operator/test/util"
 )
 
 var _ = ginkgo.Describe("MPIJob", func() {
@@ -172,7 +173,7 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				ctx := context.Background()
 				mpiJob = createJob(ctx, mpiJob)
 
-				time.Sleep(1 * time.Second)
+				time.Sleep(util.SleepDurationControllerSyncDelay)
 				mpiJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
 				gomega.Expect(err).To(gomega.BeNil())
 
