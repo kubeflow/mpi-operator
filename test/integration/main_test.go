@@ -36,6 +36,7 @@ import (
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
+	"github.com/kubeflow/mpi-operator/test/util"
 )
 
 var (
@@ -191,7 +192,7 @@ func (c *eventChecker) run() {
 
 func (c *eventChecker) verify(t *testing.T) {
 	t.Helper()
-	err := wait.PollUntilContextTimeout(context.Background(), waitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), util.WaitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
 		c.Lock()
 		defer c.Unlock()
 		return c.expected.Len() == 0, nil

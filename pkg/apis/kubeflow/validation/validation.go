@@ -39,8 +39,11 @@ var (
 
 	validRestartPolicies = sets.NewString(
 		string(kubeflow.RestartPolicyNever),
-		string(kubeflow.RestartPolicyOnFailure),
-	)
+		string(kubeflow.RestartPolicyOnFailure))
+
+	validManagedBy = sets.NewString(
+		string(kubeflow.MultiKueueController),
+		string(kubeflow.KubeflowJobController))
 )
 
 func ValidateMPIJob(job *kubeflow.MPIJob) field.ErrorList {
@@ -97,6 +100,11 @@ func validateRunPolicy(policy *kubeflow.RunPolicy, path *field.Path) field.Error
 	}
 	if policy.BackoffLimit != nil {
 		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.BackoffLimit), path.Child("backoffLimit"))...)
+	}
+	if policy.ManagedBy != nil {
+		if !validManagedBy.Has(*policy.ManagedBy) {
+			errs = append(errs, field.NotSupported(path.Child("managedBy"), *policy.ManagedBy, validManagedBy.List()))
+		}
 	}
 	return errs
 }

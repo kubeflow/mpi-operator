@@ -29,6 +29,7 @@ type RunPolicyApplyConfiguration struct {
 	BackoffLimit            *int32                              `json:"backoffLimit,omitempty"`
 	SchedulingPolicy        *SchedulingPolicyApplyConfiguration `json:"schedulingPolicy,omitempty"`
 	Suspend                 *bool                               `json:"suspend,omitempty"`
+	ManagedBy               *string                             `json:"managedBy,omitempty"`
 }
 
 // RunPolicyApplyConfiguration constructs an declarative configuration of the RunPolicy type for use with
@@ -82,5 +83,13 @@ func (b *RunPolicyApplyConfiguration) WithSchedulingPolicy(value *SchedulingPoli
 // If called multiple times, the Suspend field is set to the value of the last call.
 func (b *RunPolicyApplyConfiguration) WithSuspend(value bool) *RunPolicyApplyConfiguration {
 	b.Suspend = &value
+	return b
+}
+
+// WithManagedBy sets the ManagedBy field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ManagedBy field is set to the value of the last call.
+func (b *RunPolicyApplyConfiguration) WithManagedBy(value string) *RunPolicyApplyConfiguration {
+	b.ManagedBy = &value
 	return b
 }
