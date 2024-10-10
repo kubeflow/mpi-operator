@@ -18,34 +18,29 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")
-MPI_OPERATOR_ROOT=$(realpath "${CURRENT_DIR}/..")
-MPI_OPERATOR_PKG="github.com/kubeflow/mpi-operator"
-CODEGEN_PKG=$(go list -m -mod=readonly -f "{{.Dir}}" k8s.io/code-generator)
+TMP_VENDOR_DIR=gen-vendor
 
-cd "${CURRENT_DIR}/.."
+GO_CMD=${1:-go}
+CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")
+MPIOP_ROOT=$(realpath "${CURRENT_DIR}/..")
+MPIOP_PKG="github.com/kubeflow/mpi-operator"
+
+# Generate clientset and informers
+CODEGEN_PKG=${CODEGEN_PKG:-$(ls -d -1 ./${TMP_VENDOR_DIR}/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+
+cd $(dirname ${BASH_SOURCE[0]})/..
 
 source "${CODEGEN_PKG}/kube_codegen.sh"
 
+# Generating conversion and defaults functions
 kube::codegen::gen_helpers \
-  --boilerplate "${MPI_OPERATOR_ROOT}/hack/custom-boilerplate.go.txt" \
-  "${MPI_OPERATOR_ROOT}/pkg/apis"
-
-# Generating OpenAPI
-cp "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1/zz_generated.openapi.go" \
-  "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1/zz_generated.openapi.go.backup"
-
-kube::codegen::gen_openapi \
-  --boilerplate "${MPI_OPERATOR_ROOT}/hack/custom-boilerplate.go.txt" \
-  --output-dir "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1" \
-  --output-pkg "${MPI_OPERATOR_PKG}/pkg/apis/kubeflow/v2beta1" \
-  --update-report \
-  "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1"
+  --boilerplate "${MPIOP_ROOT}/hack/custom-boilerplate.go.txt" \
+  "${MPIOP_ROOT}/pkg/apis"
 
 kube::codegen::gen_client \
+  --boilerplate "${MPIOP_ROOT}/hack/boilerplate.go.txt" \
+  --output-dir "${MPIOP_ROOT}/pkg/client" \
+  --output-pkg "${MPIOP_PKG}/pkg/client" \
   --with-watch \
   --with-applyconfig \
-  --output-dir "${MPI_OPERATOR_ROOT}/pkg/client" \
-  --output-pkg "${MPI_OPERATOR_PKG}/pkg/client" \
-  --boilerplate "${MPI_OPERATOR_ROOT}/hack/custom-boilerplate.go.txt" \
-  "${MPI_OPERATOR_ROOT}/pkg/apis"
+  "${MPIOP_ROOT}/pkg/apis"

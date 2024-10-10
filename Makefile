@@ -127,9 +127,30 @@ lint: bin/golangci-lint ## Run golangci-lint linter
 manifest: kustomize crd
 	hack/generate-manifest.sh $(KUSTOMIZE)
 
+API_BASE := pkg/apis
+
+CLIENT_APIS := kubeflow/v2beta1
+CLIENT_SOURCES += $(patsubst %, $(API_BASE)/%, $(CLIENT_APIS))
+
+DEEPCOPY_SOURCES = $(CLIENT_SOURCES)
+
+.PHONY: generate-deepcopy
+generate-deepcopy: .remove-deepcopy
+	for dir in $(DEEPCOPY_SOURCES); do \
+		$(CONTROLLER_GEN) \
+			object:headerFile=$(CURDIR)/hack/custom-boilerplate.go.txt,year=$(shell date +"%Y") \
+			paths=$(CURDIR)/$${dir}/ \
+			output:object:dir=$(CURDIR)/$${dir}; \
+	done
+
+.remove-deepcopy:
+	for dir in $(DEEPCOPY_SOURCES); do \
+		rm -f $(CURDIR)/$${dir}/zz_generated.deepcopy.go; \
+	done
+
 # Generate CRD
 crd: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=manifests/base
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./pkg/apis/..." output:crd:artifacts:config=manifests/base
 
 .PHONY: bin
 bin:
