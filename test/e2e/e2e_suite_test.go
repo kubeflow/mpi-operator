@@ -47,7 +47,7 @@ const (
 	envVolcanoSchedulerVersion = "VOLCANO_SCHEDULER_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.29.2"
+	defaultKindImage        = "kindest/node:v1.30.4"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
 	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
