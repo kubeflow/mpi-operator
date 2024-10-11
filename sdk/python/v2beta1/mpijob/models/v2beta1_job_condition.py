@@ -33,8 +33,8 @@ class V2beta1JobCondition(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'last_transition_time': 'V1Time',
-        'last_update_time': 'V1Time',
+        'last_transition_time': 'datetime',
+        'last_update_time': 'datetime',
         'message': 'str',
         'reason': 'str',
         'status': 'str',
@@ -79,9 +79,10 @@ class V2beta1JobCondition(object):
     def last_transition_time(self):
         """Gets the last_transition_time of this V2beta1JobCondition.  # noqa: E501
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :return: The last_transition_time of this V2beta1JobCondition.  # noqa: E501
-        :rtype: V1Time
+        :rtype: datetime
         """
         return self._last_transition_time
 
@@ -89,9 +90,10 @@ class V2beta1JobCondition(object):
     def last_transition_time(self, last_transition_time):
         """Sets the last_transition_time of this V2beta1JobCondition.
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :param last_transition_time: The last_transition_time of this V2beta1JobCondition.  # noqa: E501
-        :type last_transition_time: V1Time
+        :type last_transition_time: datetime
         """
 
         self._last_transition_time = last_transition_time
@@ -100,9 +102,10 @@ class V2beta1JobCondition(object):
     def last_update_time(self):
         """Gets the last_update_time of this V2beta1JobCondition.  # noqa: E501
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :return: The last_update_time of this V2beta1JobCondition.  # noqa: E501
-        :rtype: V1Time
+        :rtype: datetime
         """
         return self._last_update_time
 
@@ -110,9 +113,10 @@ class V2beta1JobCondition(object):
     def last_update_time(self, last_update_time):
         """Sets the last_update_time of this V2beta1JobCondition.
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :param last_update_time: The last_update_time of this V2beta1JobCondition.  # noqa: E501
-        :type last_update_time: V1Time
+        :type last_update_time: datetime
         """
 
         self._last_update_time = last_update_time

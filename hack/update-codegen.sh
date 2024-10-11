@@ -18,19 +18,34 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-pushd "${SCRIPT_ROOT}"
-SCRIPT_ROOT=$(pwd)
-popd
+CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")
+MPI_OPERATOR_ROOT=$(realpath "${CURRENT_DIR}/..")
+MPI_OPERATOR_PKG="github.com/kubeflow/mpi-operator"
+CODEGEN_PKG=$(go list -m -mod=readonly -f "{{.Dir}}" k8s.io/code-generator)
 
-# Note that we use code-generator from `${GOPATH}/pkg/mod/` because we cannot vendor it
-# via `go mod vendor` to the project's /vendor directory.
-# Reference: https://github.com/kubernetes/code-generator/issues/57
-CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
-CODEGEN_PKG=$(echo `go env GOPATH`"/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}")
-chmod +x "${CODEGEN_PKG}/generate-groups.sh"
-chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
+cd "${CURRENT_DIR}/.."
 
-"${CODEGEN_PKG}/generate-groups.sh" "deepcopy,client,informer,lister,applyconfiguration" \
-  github.com/kubeflow/mpi-operator/pkg/client github.com/kubeflow/mpi-operator/pkg/apis \
-  kubeflow:v2beta1 --go-header-file "${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt"
+source "${CODEGEN_PKG}/kube_codegen.sh"
+
+kube::codegen::gen_helpers \
+  --boilerplate "${MPI_OPERATOR_ROOT}/hack/custom-boilerplate.go.txt" \
+  "${MPI_OPERATOR_ROOT}/pkg/apis"
+
+# Generating OpenAPI
+cp "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1/zz_generated.openapi.go" \
+  "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1/zz_generated.openapi.go.backup"
+
+kube::codegen::gen_openapi \
+  --boilerplate "${MPI_OPERATOR_ROOT}/hack/custom-boilerplate.go.txt" \
+  --output-dir "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1" \
+  --output-pkg "${MPI_OPERATOR_PKG}/pkg/apis/kubeflow/v2beta1" \
+  --update-report \
+  "${MPI_OPERATOR_ROOT}/pkg/apis/kubeflow/v2beta1"
+
+kube::codegen::gen_client \
+  --with-watch \
+  --with-applyconfig \
+  --output-dir "${MPI_OPERATOR_ROOT}/pkg/client" \
+  --output-pkg "${MPI_OPERATOR_PKG}/pkg/client" \
+  --boilerplate "${MPI_OPERATOR_ROOT}/hack/custom-boilerplate.go.txt" \
+  "${MPI_OPERATOR_ROOT}/pkg/apis"

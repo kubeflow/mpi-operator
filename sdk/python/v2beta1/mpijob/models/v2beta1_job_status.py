@@ -33,11 +33,11 @@ class V2beta1JobStatus(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'completion_time': 'V1Time',
+        'completion_time': 'datetime',
         'conditions': 'list[V2beta1JobCondition]',
-        'last_reconcile_time': 'V1Time',
+        'last_reconcile_time': 'datetime',
         'replica_statuses': 'dict(str, V2beta1ReplicaStatus)',
-        'start_time': 'V1Time'
+        'start_time': 'datetime'
     }
 
     attribute_map = {
@@ -76,9 +76,10 @@ class V2beta1JobStatus(object):
     def completion_time(self):
         """Gets the completion_time of this V2beta1JobStatus.  # noqa: E501
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :return: The completion_time of this V2beta1JobStatus.  # noqa: E501
-        :rtype: V1Time
+        :rtype: datetime
         """
         return self._completion_time
 
@@ -86,9 +87,10 @@ class V2beta1JobStatus(object):
     def completion_time(self, completion_time):
         """Sets the completion_time of this V2beta1JobStatus.
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :param completion_time: The completion_time of this V2beta1JobStatus.  # noqa: E501
-        :type completion_time: V1Time
+        :type completion_time: datetime
         """
 
         self._completion_time = completion_time
@@ -120,9 +122,10 @@ class V2beta1JobStatus(object):
     def last_reconcile_time(self):
         """Gets the last_reconcile_time of this V2beta1JobStatus.  # noqa: E501
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :return: The last_reconcile_time of this V2beta1JobStatus.  # noqa: E501
-        :rtype: V1Time
+        :rtype: datetime
         """
         return self._last_reconcile_time
 
@@ -130,9 +133,10 @@ class V2beta1JobStatus(object):
     def last_reconcile_time(self, last_reconcile_time):
         """Sets the last_reconcile_time of this V2beta1JobStatus.
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :param last_reconcile_time: The last_reconcile_time of this V2beta1JobStatus.  # noqa: E501
-        :type last_reconcile_time: V1Time
+        :type last_reconcile_time: datetime
         """
 
         self._last_reconcile_time = last_reconcile_time
@@ -164,9 +168,10 @@ class V2beta1JobStatus(object):
     def start_time(self):
         """Gets the start_time of this V2beta1JobStatus.  # noqa: E501
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :return: The start_time of this V2beta1JobStatus.  # noqa: E501
-        :rtype: V1Time
+        :rtype: datetime
         """
         return self._start_time
 
@@ -174,9 +179,10 @@ class V2beta1JobStatus(object):
     def start_time(self, start_time):
         """Sets the start_time of this V2beta1JobStatus.
 
+        Time is a wrapper around time.Time which supports correct marshaling to YAML and JSON.  Wrappers are provided for many of the factory methods that the time package offers.  # noqa: E501
 
         :param start_time: The start_time of this V2beta1JobStatus.  # noqa: E501
-        :type start_time: V1Time
+        :type start_time: datetime
         """
 
         self._start_time = start_time
