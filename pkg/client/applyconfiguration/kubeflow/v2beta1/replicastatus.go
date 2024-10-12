@@ -17,17 +17,17 @@
 package v2beta1
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 // ReplicaStatusApplyConfiguration represents an declarative configuration of the ReplicaStatus type for use
 // with apply.
 type ReplicaStatusApplyConfiguration struct {
-	Active        *int32            `json:"active,omitempty"`
-	Succeeded     *int32            `json:"succeeded,omitempty"`
-	Failed        *int32            `json:"failed,omitempty"`
-	LabelSelector *v1.LabelSelector `json:"labelSelector,omitempty"`
-	Selector      *string           `json:"selector,omitempty"`
+	Active        *int32                              `json:"active,omitempty"`
+	Succeeded     *int32                              `json:"succeeded,omitempty"`
+	Failed        *int32                              `json:"failed,omitempty"`
+	LabelSelector *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
+	Selector      *string                             `json:"selector,omitempty"`
 }
 
 // ReplicaStatusApplyConfiguration constructs an declarative configuration of the ReplicaStatus type for use with
@@ -63,8 +63,8 @@ func (b *ReplicaStatusApplyConfiguration) WithFailed(value int32) *ReplicaStatus
 // WithLabelSelector sets the LabelSelector field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the LabelSelector field is set to the value of the last call.
-func (b *ReplicaStatusApplyConfiguration) WithLabelSelector(value v1.LabelSelector) *ReplicaStatusApplyConfiguration {
-	b.LabelSelector = &value
+func (b *ReplicaStatusApplyConfiguration) WithLabelSelector(value *v1.LabelSelectorApplyConfiguration) *ReplicaStatusApplyConfiguration {
+	b.LabelSelector = value
 	return b
 }
 

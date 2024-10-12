@@ -28,14 +28,6 @@ if [ -z "${GOPATH:-}" ]; then
     export GOPATH=$(go env GOPATH)
 fi
 
-# Backup existing v2 openapi_generated.go
-cp pkg/apis/kubeflow/v2beta1/openapi_generated.go pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup
-
-CODEGEN_VERSION=$(grep 'k8s.io/code-generator' go.sum | awk '{print $2}' | sed 's/\/go.mod//g' | head -1)
-GOBIN="${PWD}/bin" go install "k8s.io/code-generator/cmd/openapi-gen@${CODEGEN_VERSION}"
-echo "Generating V2 OpenAPI specification ..."
-"${PWD}/bin/openapi-gen" --input-dirs github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1 --output-package github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1 --go-header-file hack/boilerplate/boilerplate.go.txt
-
 echo "Generating V2 swagger file ..."
 go run hack/python-sdk/main.go v2beta1 > ${SWAGGER_V2_CODEGEN_FILE}
 
@@ -47,7 +39,7 @@ fi
 echo "Generating V2 Python SDK for Kubeflow MPI-Operator ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_V2_CODEGEN_FILE} -g python-legacy -o ${SDK_OUTPUT_PATH}/v2beta1 -c ${SWAGGER_CODEGEN_CONF}
 
-# Rollback the current V2 openapi_generated.go
-mv pkg/apis/kubeflow/v2beta1/openapi_generated.go.backup pkg/apis/kubeflow/v2beta1/openapi_generated.go
+# Rollback the current V2 zz_generated.openapi.go
+mv pkg/apis/kubeflow/v2beta1/zz_generated.openapi.go.backup pkg/apis/kubeflow/v2beta1/zz_generated.openapi.go
 
 echo "Kubeflow MPI-Operator Python SDK is generated successfully to folder ${SDK_OUTPUT_PATH}/."

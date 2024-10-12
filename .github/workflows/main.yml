@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kubernetes-version: ["v1.27.11", "v1.28.7", "v1.29.2"]
+        kubernetes-version: ["v1.28.13", "v1.29.8", "v1.30.4"]
     steps:
     - name: Clone the code
       uses: actions/checkout@v3
