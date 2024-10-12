@@ -14,16 +14,15 @@
 
 BIN_DIR=_output/cmd/bin
 REPO_PATH="github.com/kubeflow/mpi-operator"
-REL_OSARCH="linux/amd64"
 GitSHA=$(shell git rev-parse HEAD)
 Date=$(shell date "+%Y-%m-%d %H:%M:%S")
 RELEASE_VERSION?=v0.5.0
 CONTROLLER_VERSION?=v2
 BASE_IMAGE_SSH_PORT?=2222
 IMG_BUILDER=docker
-PLATFORMS ?= linux/amd64
+PLATFORMS ?= linux/amd64,linux/arm64,linux/ppc64le
 INTEL_PLATFORMS ?= linux/amd64
-MPICH_PLATFORMS ?= linux/amd64
+MPICH_PLATFORMS ?= linux/amd64,linux/arm64
 LD_FLAGS_V2=" \
     -X '${REPO_PATH}/pkg/version.GitSHA=${GitSHA}' \
     -X '${REPO_PATH}/pkg/version.Built=${Date}'   \

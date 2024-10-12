@@ -47,4 +47,11 @@ jobs:
       with:
         go-version-file: go.mod
     - name: Run tests
-      run: make RELEASE_VERSION=test CONTROLLER_VERSION=v2 TEST_KIND_IMAGE=kindest/node:${{ matrix.kubernetes-version }} test_e2e
+      env:
+        RELEASE_VERSION: test
+        CONTROLLER_VERSION: v2
+        TEST_KIND_IMAGE: kindest/node:${{ matrix.kubernetes-version }}
+        PLATFORMS: linux/amd64
+        INTEL_PLATFORMS: linux/amd64
+        MPICH_PLATFORMS: linux/amd64
+      run: make test_e2e
