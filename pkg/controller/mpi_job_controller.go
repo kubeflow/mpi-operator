@@ -111,10 +111,6 @@ const (
 	// From: k8s.io/kubernetes/pkg/apis/core/validation/events.go
 	eventMessageLimit = 1024
 
-	// jobBackoffLimitExceededReason is the reason that the k8s job controller
-	// uses when the backoff limit is exceeded.
-	jobBackoffLimitExceededReason = "BackoffLimitExceeded"
-
 	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
 	intelMPISlotsEnv = "I_MPI_PERHOST"
 )
@@ -1149,7 +1145,7 @@ func (c *MPIJobController) updateMPIJobFailedStatus(mpiJob *kubeflow.MPIJob, lau
 	if msg == "" {
 		msg = fmt.Sprintf("MPIJob %s/%s has failed", mpiJob.Namespace, mpiJob.Name)
 	}
-	if reason == jobBackoffLimitExceededReason {
+	if reason == batchv1.JobReasonBackoffLimitExceeded {
 		// Concatenate the reason and message from the last failed Pod.
 		var lastFailedPod *corev1.Pod
 		for _, p := range launcherPods {
