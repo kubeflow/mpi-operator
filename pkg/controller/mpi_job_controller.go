@@ -339,7 +339,7 @@ func NewMPIJobControllerWithClock(
 		priorityClassSynced: priorityClassSynced,
 		mpiJobLister:        mpiJobInformer.Lister(),
 		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
-		queue:               workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "MPIJobs"}),
+		queue:               workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"}),
 		recorder:            recorder,
 		clock:               clock,
 	}
