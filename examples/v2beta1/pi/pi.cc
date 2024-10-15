@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
     double pi = 4 * (double)total_count / (double)(worker_tests) / (double)(workers);
     printf("pi is approximately %.16lf\n", pi);
   }
+  MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();
   return 0;
 }
