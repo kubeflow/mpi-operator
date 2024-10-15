@@ -146,7 +146,7 @@ bin/envtest: bin ## Download envtest-setup locally if necessary.
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 bin/kubectl: bin
-	curl -L -o $(PROJECT_DIR)/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/$(GOOS)/$(GOARCH)/kubectl
+	curl -L -o $(PROJECT_DIR)/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/$(GOOS)/$(GOARCH)/kubectl 
 	chmod +x $(PROJECT_DIR)/bin/kubectl
 
 .PHONY: kind

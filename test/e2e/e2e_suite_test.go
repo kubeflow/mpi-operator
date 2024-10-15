@@ -61,7 +61,7 @@ const (
 	volcanoSchedulerManifestPath   = rootPath + "/dep-manifests/volcano-scheduler/" // all in one yaml of volcano-development.yaml
 	envUseExistingSchedulerPlugins = "USE_EXISTING_SCHEDULER_PLUGINS"
 	envUseExistingVolcanoScheduler = "USE_EXISTING_VOLCANO_SCHEDULER"
-	defaultSchedulerPluginsVersion = "v0.31.1"
+	defaultSchedulerPluginsVersion = "v0.29.8"
 	defaultVolcanoSchedulerVersion = "v1.10.0"
 
 	mpiOperator      = "mpi-operator"
