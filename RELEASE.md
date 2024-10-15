@@ -1,5 +1,15 @@
 # MPI Operator Releases
 
+## Release v0.6.0
+* Features:
+  * Support ManagedBy feature (`.spec.runPolicy.managedBy`) inspired by batch/v1 Job.
+    * This allows us to dispatch MPIJobs to the multiple clusters powered by Kueue's MultiKueue. (#650, @mszadkow)
+* Clean ups:
+  * Upgrade k8s libraries to v1.31 (#664, @ArangoGutierrez)
+  * Upgrade debian version to bookworm and MPI versions are upgraded in the following: (#661, @tenzen-y)
+    * OpenMPI: v4.1.0 -> v4.1.4
+    * MPICH: 3.4.1 -> 4.0.2
+
 ## Release v0.5.0
 * Features:
   * Add support for MPICH (#562, @sheevy)
