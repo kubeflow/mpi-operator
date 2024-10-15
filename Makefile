@@ -33,8 +33,8 @@ KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/ku
 KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
-KUBECTL_VERSION=v1.30.4
-ENVTEST_K8S_VERSION=1.30.0
+KUBECTL_VERSION=v1.31.1
+ENVTEST_K8S_VERSION=1.31.0
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
@@ -138,7 +138,7 @@ bin:
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: bin/golangci-lint
 bin/golangci-lint: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.57.2
+	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
@@ -146,7 +146,7 @@ bin/envtest: bin ## Download envtest-setup locally if necessary.
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 bin/kubectl: bin
-	curl -L -o $(PROJECT_DIR)/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/$(GOOS)/$(GOARCH)/kubectl
+	curl -L -o $(PROJECT_DIR)/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/$(GOOS)/$(GOARCH)/kubectl 
 	chmod +x $(PROJECT_DIR)/bin/kubectl
 
 .PHONY: kind
@@ -161,7 +161,7 @@ helm: bin
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
 controller-gen: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
 
 KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 .PHONY: kustomize

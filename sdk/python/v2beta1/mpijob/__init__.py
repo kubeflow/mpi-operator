@@ -40,6 +40,7 @@ from mpijob.models.v1_apply_options import V1ApplyOptions
 from mpijob.models.v1_condition import V1Condition
 from mpijob.models.v1_create_options import V1CreateOptions
 from mpijob.models.v1_delete_options import V1DeleteOptions
+from mpijob.models.v1_field_selector_requirement import V1FieldSelectorRequirement
 from mpijob.models.v1_get_options import V1GetOptions
 from mpijob.models.v1_group_kind import V1GroupKind
 from mpijob.models.v1_group_resource import V1GroupResource

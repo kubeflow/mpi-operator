@@ -247,7 +247,7 @@ type MPIJobController struct {
 	// means we can ensure we only process a fixed amount of resources at a
 	// time, and makes it easy to ensure we are never processing the same item
 	// simultaneously in two different workers.
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[any]
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
@@ -339,7 +339,7 @@ func NewMPIJobControllerWithClock(
 		priorityClassSynced: priorityClassSynced,
 		mpiJobLister:        mpiJobInformer.Lister(),
 		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
-		queue:               workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: "MPIJobs"}),
+		queue:               workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"}),
 		recorder:            recorder,
 		clock:               clock,
 	}
