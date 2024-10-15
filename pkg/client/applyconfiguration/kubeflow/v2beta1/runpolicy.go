@@ -20,7 +20,7 @@ import (
 	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
-// RunPolicyApplyConfiguration represents an declarative configuration of the RunPolicy type for use
+// RunPolicyApplyConfiguration represents a declarative configuration of the RunPolicy type for use
 // with apply.
 type RunPolicyApplyConfiguration struct {
 	CleanPodPolicy          *v2beta1.CleanPodPolicy             `json:"cleanPodPolicy,omitempty"`
@@ -32,7 +32,7 @@ type RunPolicyApplyConfiguration struct {
 	ManagedBy               *string                             `json:"managedBy,omitempty"`
 }
 
-// RunPolicyApplyConfiguration constructs an declarative configuration of the RunPolicy type for use with
+// RunPolicyApplyConfiguration constructs a declarative configuration of the RunPolicy type for use with
 // apply.
 func RunPolicy() *RunPolicyApplyConfiguration {
 	return &RunPolicyApplyConfiguration{}

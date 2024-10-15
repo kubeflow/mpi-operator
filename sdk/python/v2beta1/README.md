@@ -76,6 +76,7 @@ Class | Method | HTTP request | Description
  - [V1Condition](docs/V1Condition.md)
  - [V1CreateOptions](docs/V1CreateOptions.md)
  - [V1DeleteOptions](docs/V1DeleteOptions.md)
+ - [V1FieldSelectorRequirement](docs/V1FieldSelectorRequirement.md)
  - [V1GetOptions](docs/V1GetOptions.md)
  - [V1GroupKind](docs/V1GroupKind.md)
  - [V1GroupResource](docs/V1GroupResource.md)
