@@ -11,7 +11,7 @@ commonLabels:
 images:
   - name: mpioperator/mpi-operator
     newName: mpioperator/mpi-operator
-    newTag: "0.6"
+    newTag: "0.6.0"
 patches:
   - target:
       group: apps
