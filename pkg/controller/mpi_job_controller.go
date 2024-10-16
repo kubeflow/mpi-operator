@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -34,7 +35,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -359,7 +360,7 @@ func NewMPIJobControllerWithClock(
 			// Pipe to default handler first, which just logs the error
 			cache.DefaultWatchErrorHandler(r, err)
 
-			if errors.IsUnauthorized(err) || errors.IsForbidden(err) {
+			if apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err) {
 				klog.Fatalf("Unable to sync cache for informer %s: %s. Requesting controller to exit.", name, err)
 			}
 		})
@@ -564,7 +565,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 	sharedJob, err := c.mpiJobLister.MPIJobs(namespace).Get(name)
 	if err != nil {
 		// The MPIJob may no longer exist, in which case we stop processing.
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			klog.V(4).Infof("MPIJob has been deleted: %v", key)
 			return nil
 		}
@@ -714,7 +715,7 @@ func cleanUpWorkerPods(mpiJob *kubeflow.MPIJob, c *MPIJobController) error {
 // getLauncherJob gets the launcher Job controlled by this MPIJob.
 func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job, error) {
 	launcher, err := c.jobLister.Jobs(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -729,7 +730,7 @@ func (c *MPIJobController) getLauncherJob(mpiJob *kubeflow.MPIJob) (*batchv1.Job
 	if !metav1.IsControlledBy(launcher, mpiJob) {
 		msg := fmt.Sprintf(MessageResourceExists, launcher.Name, launcher.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return launcher, fmt.Errorf(msg)
+		return launcher, errors.New(msg)
 	}
 
 	return launcher, nil
@@ -740,7 +741,7 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1
 	newPodGroup := c.PodGroupCtrl.newPodGroup(mpiJob)
 	podGroup, err := c.PodGroupCtrl.getPodGroup(newPodGroup.GetNamespace(), newPodGroup.GetName())
 	// If the PodGroup doesn't exist, we'll create it.
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return c.PodGroupCtrl.createPodGroup(context.TODO(), newPodGroup)
 	}
 	// If an error occurs during Get/Create, we'll requeue the item so we
@@ -754,7 +755,7 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1
 	if !metav1.IsControlledBy(podGroup, mpiJob) {
 		msg := fmt.Sprintf(MessageResourceExists, podGroup.GetName(), "PodGroup")
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	if !c.PodGroupCtrl.pgSpecsAreEqual(podGroup, newPodGroup) {
@@ -767,7 +768,7 @@ func (c *MPIJobController) getOrCreatePodGroups(mpiJob *kubeflow.MPIJob) (metav1
 func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 	podGroup, err := c.PodGroupCtrl.getPodGroup(mpiJob.Namespace, mpiJob.Name)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil
 		}
 		return err
@@ -778,7 +779,7 @@ func (c *MPIJobController) deletePodGroups(mpiJob *kubeflow.MPIJob) error {
 	if !metav1.IsControlledBy(podGroup, mpiJob) {
 		msg := fmt.Sprintf(MessageResourceExists, podGroup.GetName(), "PodGroup")
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return fmt.Errorf(msg)
+		return errors.New(msg)
 	}
 
 	// If the PodGroup exist, we'll delete it.
@@ -839,7 +840,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev
 
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return c.kubeClient.CoreV1().ConfigMaps(mpiJob.Namespace).Create(context.TODO(), newCM, metav1.CreateOptions{})
 	}
 	if err != nil {
@@ -851,7 +852,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev
 	if !metav1.IsControlledBy(cm, mpiJob) {
 		msg := fmt.Sprintf(MessageResourceExists, cm.Name, cm.Kind)
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	// If the ConfigMap is changed, update it
@@ -869,7 +870,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev
 
 func (c *MPIJobController) getOrCreateService(job *kubeflow.MPIJob, newSvc *corev1.Service) (*corev1.Service, error) {
 	svc, err := c.serviceLister.Services(job.Namespace).Get(newSvc.Name)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		return c.kubeClient.CoreV1().Services(job.Namespace).Create(context.TODO(), newSvc, metav1.CreateOptions{})
 	}
 	if err != nil {
@@ -878,7 +879,7 @@ func (c *MPIJobController) getOrCreateService(job *kubeflow.MPIJob, newSvc *core
 	if !metav1.IsControlledBy(svc, job) {
 		msg := fmt.Sprintf(MessageResourceExists, svc.Name, svc.Kind)
 		c.recorder.Event(job, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	// If the Service selector is changed, update it.
@@ -895,7 +896,7 @@ func (c *MPIJobController) getOrCreateService(job *kubeflow.MPIJob, newSvc *core
 // or create one if it doesn't exist.
 func (c *MPIJobController) getOrCreateSSHAuthSecret(job *kubeflow.MPIJob) (*corev1.Secret, error) {
 	secret, err := c.secretLister.Secrets(job.Namespace).Get(job.Name + sshAuthSecretSuffix)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		secret, err := newSSHAuthSecret(job)
 		if err != nil {
 			return nil, err
@@ -908,7 +909,7 @@ func (c *MPIJobController) getOrCreateSSHAuthSecret(job *kubeflow.MPIJob) (*core
 	if !metav1.IsControlledBy(secret, job) {
 		msg := fmt.Sprintf(MessageResourceExists, secret.Name, secret.Kind)
 		c.recorder.Event(job, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 	newSecret, err := newSSHAuthSecret(job)
 	if err != nil {
@@ -973,7 +974,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(workerName(mpiJob, i))
 
 		// If the worker Pod doesn't exist, we'll create it.
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			worker := c.newWorker(mpiJob, i)
 			pod, err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Create(context.TODO(), worker, metav1.CreateOptions{})
 		}
@@ -989,7 +990,7 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		if pod != nil && !metav1.IsControlledBy(pod, mpiJob) {
 			msg := fmt.Sprintf(MessageResourceExists, pod.Name, pod.Kind)
 			c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-			return nil, fmt.Errorf(msg)
+			return nil, errors.New(msg)
 		}
 		workerPods = append(workerPods, pod)
 	}
@@ -1020,7 +1021,7 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 		pod, err := c.podLister.Pods(mpiJob.Namespace).Get(name)
 
 		// If the worker Pod doesn't exist, no need to remove it.
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			continue
 		}
 		// If the worker is not controlled by this MPIJob resource, we should log
@@ -1028,7 +1029,7 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 		if pod != nil && !metav1.IsControlledBy(pod, mpiJob) {
 			msg := fmt.Sprintf(MessageResourceExists, pod.Name, pod.Kind)
 			c.recorder.Event(mpiJob, corev1.EventTypeWarning, ErrResourceExists, msg)
-			return fmt.Errorf(msg)
+			return errors.New(msg)
 		}
 		// If the worker pod is not running and cleanupPolicy is
 		// set to CleanPodPolicyRunning, keep the pod.
@@ -1039,7 +1040,7 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 			continue
 		}
 		err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !apierrors.IsNotFound(err) {
 			klog.Errorf("Failed to delete pod[%s/%s]: %v", mpiJob.Namespace, name, err)
 			return err
 		}

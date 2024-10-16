@@ -121,7 +121,7 @@ tidy:
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run --new-from-rev=origin/master
+	$(GOLANGCI_LINT) run
 
 # Generate deploy/v2beta1/mpi-operator.yaml
 manifest: kustomize crd
@@ -146,7 +146,7 @@ bin/envtest: bin ## Download envtest-setup locally if necessary.
 	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 bin/kubectl: bin
-	curl -L -o $(PROJECT_DIR)/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/$(GOOS)/$(GOARCH)/kubectl 
+	curl -L -o $(PROJECT_DIR)/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/$(GOOS)/$(GOARCH)/kubectl
 	chmod +x $(PROJECT_DIR)/bin/kubectl
 
 .PHONY: kind
