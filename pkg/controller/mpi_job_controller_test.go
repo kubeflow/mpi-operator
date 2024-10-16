@@ -635,7 +635,7 @@ func TestLauncherFailed(t *testing.T) {
 	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
 		Type:    batchv1.JobFailed,
 		Status:  corev1.ConditionTrue,
-		Reason:  jobBackoffLimitExceededReason,
+		Reason:  batchv1.JobReasonBackoffLimitExceeded,
 		Message: "Job has reached the specified backoff limit",
 	})
 	launcher.Status.Failed = 2
@@ -668,7 +668,7 @@ func TestLauncherFailed(t *testing.T) {
 	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = "Job has reached the specified backoff limit: second message"
-	updateMPIJobConditions(mpiJobCopy, kubeflow.JobFailed, corev1.ConditionTrue, jobBackoffLimitExceededReason+"/FailedReason2", msg)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobFailed, corev1.ConditionTrue, batchv1.JobReasonBackoffLimitExceeded+"/FailedReason2", msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
