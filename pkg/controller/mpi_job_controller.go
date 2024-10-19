@@ -269,10 +269,13 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	namespace, gangSchedulingName string) (*MPIJobController, error) {
+	volcanoInformerFunc options.VolcanoInformerFunc, schedulerPluginsInformerFunc options.SchedulerPluginsInformerFunc,
+	namespaces []string, gangSchedulingName string) (*MPIJobController, error) {
 	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
 		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
-		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName)
+		priorityClassInformer, mpiJobInformer, &clock.RealClock{},
+		volcanoInformerFunc, schedulerPluginsInformerFunc,
+		namespaces, gangSchedulingName)
 }
 
 // NewMPIJobControllerWithClock returns a new MPIJob controller.
@@ -289,7 +292,8 @@ func NewMPIJobControllerWithClock(
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	clock clock.WithTicker,
-	namespace, gangSchedulingName string) (*MPIJobController, error) {
+	volcanoInformer options.VolcanoInformerFunc, schedulerPluginsInformer options.SchedulerPluginsInformerFunc,
+	namespaces []string, gangSchedulingName string) (*MPIJobController, error) {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -308,10 +312,12 @@ func NewMPIJobControllerWithClock(
 	priorityClassLister = priorityClassInformer.Lister()
 	priorityClassSynced = priorityClassInformer.Informer().HasSynced
 	if gangSchedulingName == options.GangSchedulerVolcano {
-		podGroupCtrl = NewVolcanoCtrl(volcanoClient, namespace, priorityClassLister)
+		volcanoInformer := volcanoInformer(namespaces, volcanoClient)
+		podGroupCtrl = NewVolcanoCtrl(volcanoClient, volcanoInformer, priorityClassLister)
 	} else if len(gangSchedulingName) != 0 {
 		// Use scheduler-plugins as a default gang-scheduler.
-		podGroupCtrl = NewSchedulerPluginsCtrl(schedClient, namespace, gangSchedulingName, priorityClassLister)
+		pgInformer := schedulerPluginsInformer(namespaces, schedClient)
+		podGroupCtrl = NewSchedulerPluginsCtrl(schedClient, pgInformer, gangSchedulingName, priorityClassLister)
 	}
 	if podGroupCtrl != nil {
 		podGroupSynced = podGroupCtrl.PodGroupSharedIndexInformer().HasSynced

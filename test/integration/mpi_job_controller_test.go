@@ -17,6 +17,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"github.com/kubeflow/mpi-operator/pkg/informers"
 	"testing"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/ptr"
@@ -41,7 +41,6 @@ import (
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
-	informers "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions"
 	"github.com/kubeflow/mpi-operator/pkg/controller"
 	"github.com/kubeflow/mpi-operator/test/util"
 )
@@ -907,8 +906,10 @@ func startController(
 	mpiClient clientset.Interface,
 	gangSchedulerCfg *gangSchedulerConfig,
 ) {
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kClient, 0)
-	mpiInformerFactory := informers.NewSharedInformerFactory(mpiClient, 0)
+	namespaces := []string{metav1.NamespaceAll}
+
+	kubeInformerFactory := informers.DefaultKubeInformer(namespaces, kClient)
+	mpiInformerFactory := informers.DefaultMpiJobInformer(namespaces, mpiClient)
 	var (
 		volcanoClient volcanoclient.Interface
 		schedClient   schedclientset.Interface
@@ -934,7 +935,8 @@ func startController(
 		kubeInformerFactory.Core().V1().Pods(),
 		kubeInformerFactory.Scheduling().V1().PriorityClasses(),
 		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-		metav1.NamespaceAll, schedulerName,
+		informers.DefaultVolcanoInformer, informers.DefaultSchedulerPluginsInformer,
+		namespaces, schedulerName,
 	)
 	if err != nil {
 		panic(err)
