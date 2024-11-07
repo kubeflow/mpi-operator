@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   validate:
     name: Validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       GOPATH: ${{ github.workspace }}/go
     defaults:
@@ -32,7 +32,7 @@ jobs:
         run: make test
   e2e:
     name: E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
