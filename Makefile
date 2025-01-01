@@ -30,7 +30,7 @@ LD_FLAGS_V2=" \
 REGISTRY?=docker.io/mpioperator
 IMAGE_NAME?=${REGISTRY}/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
-KIND_VERSION=v0.24.0
+KIND_VERSION=v0.26.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
 KUBECTL_VERSION=v1.31.1
