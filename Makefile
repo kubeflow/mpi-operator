@@ -102,6 +102,12 @@ images:
 	@echo "VERSION: ${RELEASE_VERSION}"
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg VERSION=${CONTROLLER_VERSION} --build-arg RELEASE_VERSION=${RELEASE_VERSION} -t ${IMAGE_NAME}:${RELEASE_VERSION} .
 
+.PHONY: ci_test_images
+ci_test_images: test_images
+	minikube image load ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-openmpi
+	minikube image load ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-intel
+	minikube image load ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-mpich
+
 .PHONY: test_images
 test_images:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t ${REGISTRY}/base:${RELEASE_VERSION} build/base

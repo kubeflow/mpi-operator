@@ -46,6 +46,14 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version-file: go.mod
+    - name: Setup Minikube Cluster
+      uses: medyagh/setup-minikube@latest
+      with:
+        driver: none
+        kubernetes-version: ${{ matrix.kubernetes-version }}
+        minikube-version: '1.34.0'
+        wait: 'all'
+        start-args: '--wait-timeout=120s'
     - name: Run tests
       env:
         RELEASE_VERSION: test
@@ -54,4 +62,8 @@ jobs:
         PLATFORMS: linux/amd64
         INTEL_PLATFORMS: linux/amd64
         MPICH_PLATFORMS: linux/amd64
-      run: make test_e2e
+        USE_EXISTING_CLUSTER: true
+      shell: bash
+      run: |
+        make ci_test_images
+        make test_e2e -o test_images -o kind
