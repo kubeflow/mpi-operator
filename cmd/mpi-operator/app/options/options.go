@@ -79,5 +79,5 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 	fs.IntVar(&s.Burst, "kube-api-burst", 10, "Maximum burst for throttle.")
 
 	fs.IntVar(&s.ControllerRateLimit, "controller-queue-rate-limit", 10, "Rate limit of the controller events queue .")
-	fs.IntVar(&s.ControllerBurst, "controller-queue--burst", 100, "Maximum burst of the controller events queue.")
+	fs.IntVar(&s.ControllerBurst, "controller-queue-burst", 100, "Maximum burst of the controller events queue.")
 }
