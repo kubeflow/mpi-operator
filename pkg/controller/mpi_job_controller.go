@@ -658,7 +658,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 				return err
 			}
 		}
-		if launcher == nil {
+		// If the job is suspended, the list of worker pods will be incorrect. We also do
+		// not want to start the launcher job if the MPIJob starts suspended.
+		if launcher == nil && !isMPIJobSuspended(mpiJob) {
 			if mpiJob.Spec.LauncherCreationPolicy == kubeflow.LauncherCreationPolicyAtStartup || c.countReadyWorkerPods(worker) == len(worker) {
 				launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
 				if err != nil {
