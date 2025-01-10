@@ -356,7 +356,12 @@ func calPGMinResource(minMember *int32, mpiJob *kubeflow.MPIJob, pcLister schedu
 
 	sort.Sort(sort.Reverse(order))
 	// Launcher + Worker > minMember
-	if minMember != nil && *order[0].Replicas+*order[1].Replicas > *minMember {
+	replicas := *order[0].Replicas
+	if len(order) > 1 {
+		// When using runLauncherAsWorker, there may be no worker.
+		replicas += *order[1].Replicas
+	}
+	if minMember != nil && replicas > *minMember {
 		// If the launcher and workers have the same priority, it treats workers as a lower priority.
 		if order[0].priority == order[1].priority {
 			wIndex := order.getWorkerIndex()
