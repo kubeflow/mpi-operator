@@ -28,16 +28,18 @@ const (
 
 // ServerOption is the main context object for the controller manager.
 type ServerOption struct {
-	Kubeconfig         string
-	MasterURL          string
-	Threadiness        int
-	MonitoringPort     int
-	PrintVersion       bool
-	GangSchedulingName string
-	Namespace          string
-	LockNamespace      string
-	QPS                int
-	Burst              int
+	Kubeconfig          string
+	MasterURL           string
+	Threadiness         int
+	MonitoringPort      int
+	PrintVersion        bool
+	GangSchedulingName  string
+	Namespace           string
+	LockNamespace       string
+	QPS                 int
+	Burst               int
+	ControllerRateLimit int
+	ControllerBurst     int
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -75,4 +77,7 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.IntVar(&s.QPS, "kube-api-qps", 5, "QPS indicates the maximum QPS to the master from this client.")
 	fs.IntVar(&s.Burst, "kube-api-burst", 10, "Maximum burst for throttle.")
+
+	fs.IntVar(&s.ControllerRateLimit, "controller-queue-rate-limit", 10, "Rate limit of the controller events queue .")
+	fs.IntVar(&s.ControllerBurst, "controller-queue-burst", 100, "Maximum burst of the controller events queue.")
 }

@@ -269,10 +269,11 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	namespace, gangSchedulingName string) (*MPIJobController, error) {
+	namespace, gangSchedulingName string,
+	workqueueRateLimiter workqueue.TypedRateLimiter[any]) (*MPIJobController, error) {
 	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
 		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
-		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName)
+		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName, workqueueRateLimiter)
 }
 
 // NewMPIJobControllerWithClock returns a new MPIJob controller.
@@ -289,7 +290,8 @@ func NewMPIJobControllerWithClock(
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	clock clock.WithTicker,
-	namespace, gangSchedulingName string) (*MPIJobController, error) {
+	namespace, gangSchedulingName string,
+	workqueueRateLimiter workqueue.TypedRateLimiter[any]) (*MPIJobController, error) {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -336,7 +338,7 @@ func NewMPIJobControllerWithClock(
 		priorityClassSynced: priorityClassSynced,
 		mpiJobLister:        mpiJobInformer.Lister(),
 		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
-		queue:               workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"}),
+		queue:               workqueue.NewTypedRateLimitingQueueWithConfig(workqueueRateLimiter, workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"}),
 		recorder:            recorder,
 		clock:               clock,
 	}

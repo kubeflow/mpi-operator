@@ -35,6 +35,7 @@ import (
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/clock"
 	clocktesting "k8s.io/utils/clock/testing"
 	"k8s.io/utils/ptr"
@@ -163,6 +164,7 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
+	workqueueRateLimiter := workqueue.DefaultTypedControllerRateLimiter[any]()
 
 	c, err := NewMPIJobControllerWithClock(
 		f.kubeClient,
@@ -179,6 +181,7 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 		clock,
 		metav1.NamespaceAll,
 		f.gangSchedulingName,
+		workqueueRateLimiter,
 	)
 	if err != nil {
 		fmt.Println("Failed to setup the controller")

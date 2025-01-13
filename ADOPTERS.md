@@ -19,4 +19,5 @@ This page contains a list of organizations who are using MPI Operator. If you'd 
 | [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/) | [Benjamin Trudeau](https://github.com/benjx1990) |
 | [Polyaxon](https://polyaxon.com/) | [Mourad Mourafiq](https://github.com/mouradmourafiq) |
 | [Qutoutiao](https://www.qutoutiao.net/) | [Zhaojing Yu](https://github.com/yuzhaojing) |
+| [Run:AI](https://www.run.ai/) | [Rotem Elad](https://github.com/roteme-runai) |
 | [Tencent](http://tencent.com/en-us/) | [Lei Xue](https://github.com/carmark) |
