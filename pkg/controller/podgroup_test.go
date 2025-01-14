@@ -520,7 +520,7 @@ func TestCalculatePGMinResources(t *testing.T) {
 			},
 		},
 		"without worker without priorityClass": {
-			minMember: 3,
+			minMember: 1,
 			job: &kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
