@@ -17,7 +17,7 @@
 package v2beta1
 
 import (
-	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,12 +25,12 @@ import (
 // JobConditionApplyConfiguration represents a declarative configuration of the JobCondition type for use
 // with apply.
 type JobConditionApplyConfiguration struct {
-	Type               *v2beta1.JobConditionType `json:"type,omitempty"`
-	Status             *v1.ConditionStatus       `json:"status,omitempty"`
-	Reason             *string                   `json:"reason,omitempty"`
-	Message            *string                   `json:"message,omitempty"`
-	LastUpdateTime     *metav1.Time              `json:"lastUpdateTime,omitempty"`
-	LastTransitionTime *metav1.Time              `json:"lastTransitionTime,omitempty"`
+	Type               *kubeflowv2beta1.JobConditionType `json:"type,omitempty"`
+	Status             *v1.ConditionStatus               `json:"status,omitempty"`
+	Reason             *string                           `json:"reason,omitempty"`
+	Message            *string                           `json:"message,omitempty"`
+	LastUpdateTime     *metav1.Time                      `json:"lastUpdateTime,omitempty"`
+	LastTransitionTime *metav1.Time                      `json:"lastTransitionTime,omitempty"`
 }
 
 // JobConditionApplyConfiguration constructs a declarative configuration of the JobCondition type for use with
@@ -42,7 +42,7 @@ func JobCondition() *JobConditionApplyConfiguration {
 // WithType sets the Type field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Type field is set to the value of the last call.
-func (b *JobConditionApplyConfiguration) WithType(value v2beta1.JobConditionType) *JobConditionApplyConfiguration {
+func (b *JobConditionApplyConfiguration) WithType(value kubeflowv2beta1.JobConditionType) *JobConditionApplyConfiguration {
 	b.Type = &value
 	return b
 }
