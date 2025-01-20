@@ -17,13 +17,13 @@
 package v2beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	apiskubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	versioned "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kubeflow/mpi-operator/pkg/client/informers/externalversions/internalinterfaces"
-	v2beta1 "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v2beta1"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/client/listers/kubeflow/v2beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -34,7 +34,7 @@ import (
 // MPIJobs.
 type MPIJobInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2beta1.MPIJobLister
+	Lister() kubeflowv2beta1.MPIJobLister
 }
 
 type mPIJobInformer struct {
@@ -69,7 +69,7 @@ func NewFilteredMPIJobInformer(client versioned.Interface, namespace string, res
 				return client.KubeflowV2beta1().MPIJobs(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&kubeflowv2beta1.MPIJob{},
+		&apiskubeflowv2beta1.MPIJob{},
 		resyncPeriod,
 		indexers,
 	)
@@ -80,9 +80,9 @@ func (f *mPIJobInformer) defaultInformer(client versioned.Interface, resyncPerio
 }
 
 func (f *mPIJobInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kubeflowv2beta1.MPIJob{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiskubeflowv2beta1.MPIJob{}, f.defaultInformer)
 }
 
-func (f *mPIJobInformer) Lister() v2beta1.MPIJobLister {
-	return v2beta1.NewMPIJobLister(f.Informer().GetIndexer())
+func (f *mPIJobInformer) Lister() kubeflowv2beta1.MPIJobLister {
+	return kubeflowv2beta1.NewMPIJobLister(f.Informer().GetIndexer())
 }

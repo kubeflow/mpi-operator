@@ -17,13 +17,13 @@
 package v2beta1
 
 import (
-	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 )
 
 // RunPolicyApplyConfiguration represents a declarative configuration of the RunPolicy type for use
 // with apply.
 type RunPolicyApplyConfiguration struct {
-	CleanPodPolicy          *v2beta1.CleanPodPolicy             `json:"cleanPodPolicy,omitempty"`
+	CleanPodPolicy          *kubeflowv2beta1.CleanPodPolicy     `json:"cleanPodPolicy,omitempty"`
 	TTLSecondsAfterFinished *int32                              `json:"ttlSecondsAfterFinished,omitempty"`
 	ActiveDeadlineSeconds   *int64                              `json:"activeDeadlineSeconds,omitempty"`
 	BackoffLimit            *int32                              `json:"backoffLimit,omitempty"`
@@ -41,7 +41,7 @@ func RunPolicy() *RunPolicyApplyConfiguration {
 // WithCleanPodPolicy sets the CleanPodPolicy field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CleanPodPolicy field is set to the value of the last call.
-func (b *RunPolicyApplyConfiguration) WithCleanPodPolicy(value v2beta1.CleanPodPolicy) *RunPolicyApplyConfiguration {
+func (b *RunPolicyApplyConfiguration) WithCleanPodPolicy(value kubeflowv2beta1.CleanPodPolicy) *RunPolicyApplyConfiguration {
 	b.CleanPodPolicy = &value
 	return b
 }
