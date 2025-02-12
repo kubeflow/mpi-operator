@@ -19,7 +19,7 @@ RUN apt update \
     && apt update \
     && apt install -y --no-install-recommends \
         dnsutils \
-        intel-oneapi-mpi-2021.13 \
+        intel-oneapi-mpi-2021.14.5 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /entrypoint.sh
