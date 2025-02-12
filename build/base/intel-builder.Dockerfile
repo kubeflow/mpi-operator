@@ -18,7 +18,7 @@ RUN apt update \
     && apt install -y --no-install-recommends \
         libstdc++-12-dev binutils procps clang \
         intel-oneapi-compiler-dpcpp-cpp \
-        intel-oneapi-mpi-devel-2021.14.5 \
+        intel-oneapi-mpi-devel-2021.14 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV I_MPI_CC=clang I_MPI_CXX=clang++
