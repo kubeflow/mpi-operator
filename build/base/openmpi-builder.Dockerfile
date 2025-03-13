@@ -1,4 +1,4 @@
-FROM debian:bookworm as builder
+FROM debian:trixie as builder
 
 RUN apt update \
     && apt install -y --no-install-recommends \
