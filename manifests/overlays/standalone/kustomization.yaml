@@ -4,19 +4,21 @@ resources:
 - ../../base
 - namespace.yaml
 namespace: mpi-operator
-commonLabels:
-  kustomize.component: mpi-operator
-  app: mpi-operator
-  app.kubernetes.io/name: mpi-operator
-  app.kubernetes.io/component: mpijob
 images:
 - name: mpioperator/mpi-operator
   newName: mpioperator/mpi-operator
   newTag: master
 patches:
-  - target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: mpi-operator
-    path: ./patch.yaml
+- path: ./patch.yaml
+  target:
+    group: apps
+    kind: Deployment
+    name: mpi-operator
+    version: v1
+labels:
+- includeSelectors: true
+  pairs:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
