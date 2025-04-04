@@ -12,6 +12,7 @@ on:
 
 env:
   IMAGE_NAME: mpioperator/mpi-operator
+  GHCR_IMAGE_NAME: ghcr.io/mpioperator/mpi-operator
 
 jobs:
   build-push-docker-image:
@@ -26,6 +27,7 @@ jobs:
         with:
           images: |
             ${{ env.IMAGE_NAME }}
+            ${{ env.GHCR_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -38,6 +40,14 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker Setup QEMU
         uses: docker/setup-qemu-action@v2.1.0
