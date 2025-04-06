@@ -1391,6 +1391,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 								kubeflow.OperatorNameLabel: kubeflow.OperatorName,
 								kubeflow.JobNameLabel:      "foo",
 								kubeflow.JobRoleLabel:      "launcher",
+								kubeflow.ReplicaIndexLabel: "0",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1445,7 +1446,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 						kubeflow.OperatorNameLabel: kubeflow.OperatorName,
 						kubeflow.JobNameLabel:      "foo",
 						kubeflow.JobRoleLabel:      "worker",
-						kubeflow.ReplicaIndexLabel: "0",
+						kubeflow.ReplicaIndexLabel: "1",
 					},
 				},
 				Spec: corev1.PodSpec{
