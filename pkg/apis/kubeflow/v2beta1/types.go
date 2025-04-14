@@ -15,7 +15,7 @@
 package v2beta1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,7 +75,7 @@ type SchedulingPolicy struct {
 	// If the gang-scheduling isn't empty,
 	// input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.
 	// +optional
-	MinResources *v1.ResourceList `json:"minResources,omitempty"`
+	MinResources *corev1.ResourceList `json:"minResources,omitempty"`
 
 	// PriorityClass defines the PodGroup's PriorityClass.
 	// If the gang-scheduling is set to the volcano,
@@ -286,7 +286,7 @@ type JobCondition struct {
 
 	// status of the condition, one of True, False, Unknown.
 	// +kubebuilder:validation:Enum:=True;False;Unknown
-	Status v1.ConditionStatus `json:"status"`
+	Status corev1.ConditionStatus `json:"status"`
 
 	// The reason for the condition's last transition.
 	// +optional
@@ -321,7 +321,7 @@ const (
 
 	// JobRestarting means one or more sub-resources (e.g. services/pods) of this job
 	// reached phase failed but maybe restarted according to it's restart policy
-	// which specified by user in v1.PodTemplateSpec.
+	// which specified by user in corev1.PodTemplateSpec.
 	// The training is freezing/pending.
 	JobRestarting JobConditionType = "Restarting"
 
@@ -353,7 +353,7 @@ type ReplicaSpec struct {
 	// Template is the object that describes the pod that
 	// will be created for this replica. RestartPolicy in PodTemplateSpec
 	// will be overide by RestartPolicy in ReplicaSpec
-	Template v1.PodTemplateSpec `json:"template,omitempty"`
+	Template corev1.PodTemplateSpec `json:"template,omitempty"`
 
 	// Restart policy for all replicas within the job.
 	// One of Always, OnFailure, Never and ExitCode.
