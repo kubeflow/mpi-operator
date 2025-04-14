@@ -148,7 +148,7 @@ bin:
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: bin/golangci-lint
 bin/golangci-lint: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
