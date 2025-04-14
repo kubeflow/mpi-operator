@@ -105,12 +105,22 @@ images:
 .PHONY: test_images
 test_images:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg port=${BASE_IMAGE_SSH_PORT} -t ${REGISTRY}/base:${RELEASE_VERSION} build/base
+	$(MAKE) -j3 test_images_openmpi test_images_intel test_images_mpich
+
+.PHONY: test_images_openmpi
+test_images_openmpi:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/openmpi:${RELEASE_VERSION} build/base -f build/base/openmpi.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) -t ${REGISTRY}/openmpi-builder:${RELEASE_VERSION} build/base -f build/base/openmpi-builder.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-openmpi examples/v2beta1/pi
+
+.PTHONY: test_images_intel
+test_images_intel:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/intel:${RELEASE_VERSION} build/base -f build/base/intel.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) -t ${REGISTRY}/intel-builder:${RELEASE_VERSION} build/base -f build/base/intel-builder.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(INTEL_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-intel examples/v2beta1/pi -f examples/v2beta1/pi/intel.Dockerfile
+
+.PHOTNY: test_images_mpich
+test_images_mpich:
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpich:${RELEASE_VERSION} build/base -f build/base/mpich.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) -t ${REGISTRY}/mpich-builder:${RELEASE_VERSION} build/base -f build/base/mpich-builder.Dockerfile
 	${IMG_BUILDER} build $(BUILD_ARGS) --platform $(MPICH_PLATFORMS) --build-arg BASE_LABEL=${RELEASE_VERSION} -t ${REGISTRY}/mpi-pi:${RELEASE_VERSION}-mpich examples/v2beta1/pi -f examples/v2beta1/pi/mpich.Dockerfile

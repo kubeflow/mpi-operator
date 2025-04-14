@@ -15,7 +15,8 @@ env:
 
 jobs:
   build-push-docker-image:
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: ubuntu-latest-16-cores
     steps:
       - name: Checkout
         uses: actions/checkout@v3
