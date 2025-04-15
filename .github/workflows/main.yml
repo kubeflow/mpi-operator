@@ -43,8 +43,7 @@ jobs:
         run: make test
   e2e:
     name: E2E
-    runs-on:
-      labels: ubuntu-latest-16-cores
+    runs-on: cncf-ubuntu-16-64-x86
     strategy:
       fail-fast: false
       matrix:
