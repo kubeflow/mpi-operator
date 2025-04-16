@@ -3,7 +3,7 @@ ARG BASE_LABEL
 FROM mpioperator/intel-builder:${BASE_LABEL} as builder
 
 # Add Intel repository key and update apt sources
-RUN curl -fsSL https://apt.repos.intel.com/oneapi/gpgkey | gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg \
+RUN curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" \
     > /etc/apt/sources.list.d/oneapi.list \
     && apt update \
