@@ -11,6 +11,7 @@ COPY --from=downloader key.PUB /tmp/key.PUB
 
 # Install Intel oneAPI keys.
 <<<<<<< HEAD
+<<<<<<< HEAD
 RUN apt update \
 <<<<<<< HEAD
     && apt install -y --no-install-recommends gnupg2 ca-certificates apt-transport-https \
@@ -26,10 +27,13 @@ RUN apt update \
 RUN gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
     && apt update \
 >>>>>>> 2376f4e (trying gog dearmour first)
+=======
+RUN apt update \
+>>>>>>> 242bbc7 (adding trusted-yes as found on stackoverflow.com)
     && apt install -y --no-install-recommends gnupg2 ca-certificates apt-transport-https \
-    #&& gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
+    && gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
     && rm /tmp/key.PUB \
-    && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
+    && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg trusted=yes] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
     && apt update \
     && apt install -y --no-install-recommends \
         dnsutils \
