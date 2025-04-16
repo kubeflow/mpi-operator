@@ -11,7 +11,6 @@ RUN apt update \
     && apt install -y --no-install-recommends gnupg2 ca-certificates apt-transport-https \
     && gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
     && rm /tmp/key.PUB \
-    && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg trusted=yes] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
     # TODO (tenzen-y): Once Intel OneAPI supports new parsable PGP format for apt, we should remove `trusted=yes` option.
     # REF: https://github.com/kubeflow/mpi-operator/issues/691
     && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg trusted=yes] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
