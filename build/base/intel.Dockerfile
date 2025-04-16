@@ -10,6 +10,7 @@ FROM mpioperator/base:${BASE_LABEL}
 COPY --from=downloader key.PUB /tmp/key.PUB
 
 # Install Intel oneAPI keys.
+<<<<<<< HEAD
 RUN apt update \
 <<<<<<< HEAD
     && apt install -y --no-install-recommends gnupg2 ca-certificates apt-transport-https \
@@ -21,8 +22,12 @@ RUN apt update \
     && apt update \
 =======
 >>>>>>> db26b7e (Revert "updating new intel oneAPI key")
+=======
+RUN gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
+    && apt update \
+>>>>>>> 2376f4e (trying gog dearmour first)
     && apt install -y --no-install-recommends gnupg2 ca-certificates apt-transport-https \
-    && gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
+    #&& gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg /tmp/key.PUB \
     && rm /tmp/key.PUB \
     && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
     && apt update \
