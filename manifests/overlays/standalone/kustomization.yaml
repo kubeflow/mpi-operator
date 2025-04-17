@@ -10,8 +10,8 @@ commonLabels:
   app.kubernetes.io/name: mpi-operator
   app.kubernetes.io/component: mpijob
 images:
-- name: mpioperator/mpi-operator
-  newName: mpioperator/mpi-operator
+- name: ghcr.io/kubeflow/mpi-operator/controller
+  newName: ghcr.io/kubeflow/mpi-operator/controller
   newTag: master
 patches:
   - target:
