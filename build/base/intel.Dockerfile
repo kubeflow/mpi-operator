@@ -2,6 +2,7 @@ ARG BASE_LABEL
 
 FROM bash AS downloader
 
+# switch to use the new gpg key
 RUN wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB -O key.PUB
 
 FROM mpioperator/base:${BASE_LABEL}
@@ -18,9 +19,10 @@ RUN apt update \
     && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg trusted=yes] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
     && apt update \
     && apt install -y --no-install-recommends \
-        dnsutils \
-        intel-oneapi-mpi-2021.13 \
-    && apt remove -y gnupg2 ca-certificates \
+        libstdc++-12-dev binutils procps clang \
+        intel-oneapi-compiler-dpcpp-cpp \
+        intel-oneapi-mpi-devel-2021.13 \
+    && apt remove -y gnupg2 ca-certificates apt-transport-https \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

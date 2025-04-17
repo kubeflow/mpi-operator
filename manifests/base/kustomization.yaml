@@ -7,12 +7,14 @@ resources:
 - kubeflow.org_mpijobs.yaml
 - deployment.yaml
 - service-account.yaml
-commonLabels:
-  kustomize.component: mpi-operator
-  app: mpi-operator
-  app.kubernetes.io/name: mpi-operator
-  app.kubernetes.io/component: mpijob
 images:
 - name: mpioperator/mpi-operator
   newName: mpioperator/mpi-operator
   newTag: latest
+labels:
+- includeSelectors: true
+  pairs:
+    app: mpi-operator
+    app.kubernetes.io/component: mpijob
+    app.kubernetes.io/name: mpi-operator
+    kustomize.component: mpi-operator
