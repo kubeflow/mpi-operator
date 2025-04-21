@@ -1,0 +1,32 @@
+apiVersion: kubeflow.org/v2beta1
+kind: MPIJob
+metadata:
+  name: deepspeed-helloworld
+spec:
+  slotsPerWorker: 1
+  runPolicy:
+    cleanPodPolicy: Running
+  mpiReplicaSpecs:
+    Launcher:
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - image: registry.cn-beijing.aliyuncs.com/acs/deepspeed:hello-deepspeed
+            name: deepspeed-helloworld
+            command:
+            - deepspeed
+            args:
+            - /workspace/DeepSpeedExamples/HelloDeepSpeed/train_bert_ds.py
+            - --checkpoint_dir
+            - /workspace
+    Worker:
+      replicas: 2
+      template:
+        spec:
+          containers:
+           - image: registry.cn-beijing.aliyuncs.com/acs/deepspeed:hello-deepspeed
+            name: deepspeed-helloworld
+            resources:
+              limits:
+                nvidia.com/gpu: 8
