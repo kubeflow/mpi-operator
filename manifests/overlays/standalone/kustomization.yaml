@@ -5,8 +5,8 @@ resources:
 - namespace.yaml
 namespace: mpi-operator
 images:
-- name: mpioperator/mpi-operator
-  newName: mpioperator/mpi-operator
+- name: ghcr.io/kubeflow/mpi-operator/controller
+  newName: ghcr.io/kubeflow/mpi-operator/controller
   newTag: master
 patches:
 - path: ./patch.yaml
