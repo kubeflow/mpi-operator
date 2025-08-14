@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/time/rate"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -117,7 +118,10 @@ const (
 )
 
 var (
-	mpiJobsCreatedCount = promauto.NewCounter(prometheus.CounterOpts{
+	//exponential workqueue rate limiting config
+	workqueueExponentialBaseDelay = 5 * time.Millisecond
+	workqueueExponentialMaxDelay  = 1000 * time.Second
+	mpiJobsCreatedCount           = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "mpi_operator_jobs_created_total",
 		Help: "Counts number of MPI jobs created",
 	})
@@ -252,6 +256,9 @@ type MPIJobController struct {
 	// To allow injection of updateStatus for testing.
 	updateStatusHandler func(mpijob *kubeflow.MPIJob) error
 
+	// clusterDomain is the FQDN for the HostFile.
+	clusterDomain string
+
 	// Clock for internal use of unit-testing
 	clock clock.WithTicker
 }
@@ -269,11 +276,10 @@ func NewMPIJobController(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	namespace, gangSchedulingName string,
-	workqueueRateLimiter workqueue.TypedRateLimiter[any]) (*MPIJobController, error) {
+	opt *options.ServerOption) (*MPIJobController, error) {
 	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
 		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
-		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, namespace, gangSchedulingName, workqueueRateLimiter)
+		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, opt)
 }
 
 // NewMPIJobControllerWithClock returns a new MPIJob controller.
@@ -289,9 +295,7 @@ func NewMPIJobControllerWithClock(
 	podInformer coreinformers.PodInformer,
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
-	clock clock.WithTicker,
-	namespace, gangSchedulingName string,
-	workqueueRateLimiter workqueue.TypedRateLimiter[any]) (*MPIJobController, error) {
+	clock clock.WithTicker, opt *options.ServerOption) (*MPIJobController, error) {
 
 	// Create event broadcaster.
 	klog.V(4).Info("Creating event broadcaster")
@@ -309,11 +313,11 @@ func NewMPIJobControllerWithClock(
 	)
 	priorityClassLister = priorityClassInformer.Lister()
 	priorityClassSynced = priorityClassInformer.Informer().HasSynced
-	if gangSchedulingName == options.GangSchedulerVolcano {
-		podGroupCtrl = NewVolcanoCtrl(volcanoClient, namespace, priorityClassLister)
-	} else if len(gangSchedulingName) != 0 {
+	if opt.GangSchedulingName == options.GangSchedulerVolcano {
+		podGroupCtrl = NewVolcanoCtrl(volcanoClient, opt.Namespace, priorityClassLister)
+	} else if len(opt.GangSchedulingName) != 0 {
 		// Use scheduler-plugins as a default gang-scheduler.
-		podGroupCtrl = NewSchedulerPluginsCtrl(schedClient, namespace, gangSchedulingName, priorityClassLister)
+		podGroupCtrl = NewSchedulerPluginsCtrl(schedClient, opt.Namespace, opt.GangSchedulingName, priorityClassLister)
 	}
 	if podGroupCtrl != nil {
 		podGroupSynced = podGroupCtrl.PodGroupSharedIndexInformer().HasSynced
@@ -338,9 +342,15 @@ func NewMPIJobControllerWithClock(
 		priorityClassSynced: priorityClassSynced,
 		mpiJobLister:        mpiJobInformer.Lister(),
 		mpiJobSynced:        mpiJobInformer.Informer().HasSynced,
-		queue:               workqueue.NewTypedRateLimitingQueueWithConfig(workqueueRateLimiter, workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"}),
-		recorder:            recorder,
-		clock:               clock,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.NewTypedMaxOfRateLimiter(
+				workqueue.NewTypedItemExponentialFailureRateLimiter[any](workqueueExponentialBaseDelay, workqueueExponentialMaxDelay),
+				&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(opt.ControllerRateLimit), opt.ControllerBurst)},
+			),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"},
+		),
+		recorder: recorder,
+		clock:    clock,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
@@ -833,7 +843,7 @@ func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) int {
 // getOrCreateConfigMap gets the ConfigMap controlled by this MPIJob, or creates
 // one if it doesn't exist.
 func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev1.ConfigMap, error) {
-	newCM := newConfigMap(mpiJob, workerReplicas(mpiJob))
+	newCM := newConfigMap(mpiJob, workerReplicas(mpiJob), c.clusterDomain)
 	podList, err := c.getRunningWorkerPods(mpiJob)
 	if err != nil {
 		return nil, err
@@ -1271,9 +1281,13 @@ func (c *MPIJobController) doUpdateJobStatus(mpiJob *kubeflow.MPIJob) error {
 // newConfigMap creates a new ConfigMap containing configurations for an MPIJob
 // resource. It also sets the appropriate OwnerReferences on the resource so
 // handleObject can discover the MPIJob resource that 'owns' it.
-func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigMap {
+func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, clusterDomain string) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 	slots := ptr.Deref(mpiJob.Spec.SlotsPerWorker, 1)
+	domainFormat := "%s.%s.%s.svc"
+	if len(clusterDomain) > 0 {
+		domainFormat += fmt.Sprintf(".%s", clusterDomain)
+	}
 	// note that pod.spec.dnsConfig also affect the svc resolution
 	// ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 	// launcher can be reach with hostname or service name
@@ -1281,9 +1295,9 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 		name := mpiJob.Name + launcherSuffix
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc slots=%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc:%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
 		}
 	}
 
@@ -1291,9 +1305,9 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32) *corev1.ConfigM
 		name := workerName(mpiJob, i)
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc slots=%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s.%s.%s.svc:%d\n", name, mpiJob.Name, mpiJob.Namespace, slots))
+			buffer.WriteString(fmt.Sprintf("%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
 		}
 	}
 

@@ -23,7 +23,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +38,6 @@ import (
 	election "k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
@@ -69,9 +67,6 @@ var (
 	// allowed for timeout. Checks within the timeout period after the lease
 	// expires will still return healthy.
 	leaderHealthzAdaptorTimeout = time.Second * 20
-	//exponential workqueue rate limiting config
-	workqueueExponentialBaseDelay = 5 * time.Millisecond
-	workqueueExponentialMaxDelay  = 1000 * time.Second
 )
 
 var (
@@ -146,11 +141,6 @@ func Run(opt *options.ServerOption) error {
 		kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeInformerFactoryOpts...)
 		kubeflowInformerFactory := informers.NewSharedInformerFactoryWithOptions(mpiJobClientSet, 0, kubeflowInformerFactoryOpts...)
 
-		workqueueRateLimiter := workqueue.NewTypedMaxOfRateLimiter(
-			workqueue.NewTypedItemExponentialFailureRateLimiter[any](workqueueExponentialBaseDelay, workqueueExponentialMaxDelay),
-			&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(opt.ControllerRateLimit), opt.ControllerBurst)},
-		)
-
 		controller, err := controllersv1.NewMPIJobController(
 			kubeClient,
 			mpiJobClientSet,
@@ -163,8 +153,7 @@ func Run(opt *options.ServerOption) error {
 			kubeInformerFactory.Core().V1().Pods(),
 			kubeInformerFactory.Scheduling().V1().PriorityClasses(),
 			kubeflowInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-			namespace, opt.GangSchedulingName,
-			workqueueRateLimiter)
+			opt)
 		if err != nil {
 			klog.Fatalf("Failed to setup the controller")
 		}

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -32,7 +33,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/reference"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
@@ -910,7 +910,6 @@ func startController(
 ) {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kClient, 0)
 	mpiInformerFactory := informers.NewSharedInformerFactory(mpiClient, 0)
-	workqueueRateLimiter := workqueue.DefaultTypedControllerRateLimiter[any]()
 	var (
 		volcanoClient volcanoclient.Interface
 		schedClient   schedclientset.Interface
@@ -936,8 +935,12 @@ func startController(
 		kubeInformerFactory.Core().V1().Pods(),
 		kubeInformerFactory.Scheduling().V1().PriorityClasses(),
 		mpiInformerFactory.Kubeflow().V2beta1().MPIJobs(),
-		metav1.NamespaceAll, schedulerName,
-		workqueueRateLimiter,
+		&options.ServerOption{
+			Namespace:           metav1.NamespaceAll,
+			GangSchedulingName:  schedulerName,
+			ControllerRateLimit: 10,
+			ControllerBurst:     100,
+		},
 	)
 	if err != nil {
 		panic(err)

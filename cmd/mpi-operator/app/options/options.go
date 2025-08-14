@@ -40,6 +40,7 @@ type ServerOption struct {
 	Burst               int
 	ControllerRateLimit int
 	ControllerBurst     int
+	ClusterDomain       string
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -80,4 +81,8 @@ func (s *ServerOption) AddFlags(fs *flag.FlagSet) {
 
 	fs.IntVar(&s.ControllerRateLimit, "controller-queue-rate-limit", 10, "Rate limit of the controller events queue .")
 	fs.IntVar(&s.ControllerBurst, "controller-queue-burst", 100, "Maximum burst of the controller events queue.")
+
+	fs.StringVar(&s.ClusterDomain, "cluster-domain", "", `
+			The cluster domain is used to construct MPI HostFile. When this is specified, the HostFile is built with "<pod-name>.<mpi-job-name>.<namespace>.svc.<cluster-domain>". 
+			Otherwise, that is built with <pod-name>.<mpi-job-name>.<namespace>.svc`)
 }
