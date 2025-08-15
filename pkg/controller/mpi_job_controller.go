@@ -349,8 +349,9 @@ func NewMPIJobControllerWithClock(
 			),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: "MPIJob"},
 		),
-		recorder: recorder,
-		clock:    clock,
+		recorder:      recorder,
+		clusterDomain: opt.ClusterDomain,
+		clock:         clock,
 	}
 
 	controller.updateStatusHandler = controller.doUpdateJobStatus
