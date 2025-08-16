@@ -32,8 +32,7 @@ jobs:
         run: make test
   e2e:
     name: E2E
-    runs-on:
-      labels: ubuntu-latest-16-cores
+    runs-on: oracle-16cpu-64gb-x86-64
     # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
