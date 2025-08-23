@@ -17,10 +17,10 @@
 package v2beta1
 
 import (
-	"net/http"
+	http "net/http"
 
-	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
-	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	scheme "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -83,10 +83,10 @@ func New(c rest.Interface) *KubeflowV2beta1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v2beta1.SchemeGroupVersion
+	gv := kubeflowv2beta1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
