@@ -30,7 +30,6 @@ LD_FLAGS_V2=" \
 REGISTRY?=docker.io/mpioperator
 IMAGE_NAME?=${REGISTRY}/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
-KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
 KUBECTL_VERSION=v1.32.0
@@ -42,6 +41,7 @@ GOOS=$(shell go env GOOS)
 SCHEDULER_PLUGINS_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/scheduler-plugins)
 VOLCANO_SCHEDULER_VERSION?=$(shell go list -m -f "{{.Version}}" volcano.sh/apis)
 GOTOOLS_VERSION?=$(shell go list -m -f "{{.Version}}" golang.org/x/tools)
+KIND_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/kind)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
