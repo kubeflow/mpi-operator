@@ -17,7 +17,7 @@
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

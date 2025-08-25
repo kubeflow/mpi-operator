@@ -47,7 +47,7 @@ const (
 	envVolcanoSchedulerVersion = "VOLCANO_SCHEDULER_VERSION"
 
 	defaultMPIOperatorImage = "mpioperator/mpi-operator:local"
-	defaultKindImage        = "kindest/node:v1.31.0"
+	defaultKindImage        = "kindest/node:v1.32.5"
 	defaultOpenMPIImage     = "mpioperator/mpi-pi:openmpi"
 	defaultIntelMPIImage    = "mpioperator/mpi-pi:intel"
 	defaultMPICHImage       = "mpioperator/mpi-pi:mpich"
@@ -61,8 +61,8 @@ const (
 	volcanoSchedulerManifestPath   = rootPath + "/dep-manifests/volcano-scheduler/" // all in one yaml of volcano-development.yaml
 	envUseExistingSchedulerPlugins = "USE_EXISTING_SCHEDULER_PLUGINS"
 	envUseExistingVolcanoScheduler = "USE_EXISTING_VOLCANO_SCHEDULER"
-	defaultSchedulerPluginsVersion = "v0.29.8"
-	defaultVolcanoSchedulerVersion = "v1.10.0"
+	defaultSchedulerPluginsVersion = "v0.32.7"
+	defaultVolcanoSchedulerVersion = "v1.12.2"
 
 	mpiOperator      = "mpi-operator"
 	schedulerPlugins = "scheduler-plugins"

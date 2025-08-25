@@ -30,17 +30,18 @@ LD_FLAGS_V2=" \
 REGISTRY?=docker.io/mpioperator
 IMAGE_NAME?=${REGISTRY}/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
-KIND_VERSION=v0.18.0
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
-KUBECTL_VERSION=v1.31.1
-ENVTEST_K8S_VERSION=1.31.0
+KUBECTL_VERSION=v1.32.0
+ENVTEST_K8S_VERSION=1.32.0
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
 # Use go.mod go version as a single source of truth of scheduler-plugins version.
 SCHEDULER_PLUGINS_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/scheduler-plugins)
 VOLCANO_SCHEDULER_VERSION?=$(shell go list -m -f "{{.Version}}" volcano.sh/apis)
+GOTOOLS_VERSION?=$(shell go list -m -f "{{.Version}}" golang.org/x/tools)
+KIND_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/kind)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
@@ -83,9 +84,11 @@ dev_manifest:
 	sed -e "s~%IMAGE_NAME%~${IMAGE_NAME}~g" -e "s~%IMAGE_TAG%~${RELEASE_VERSION}~g" manifests/overlays/dev/kustomization.yaml.template > manifests/overlays/dev/kustomization.yaml
 
 .PHONY: generate
-generate:
+generate: goimports
 	go generate ./pkg/... ./cmd/...
 	hack/update-codegen.sh
+	# Workaround for https://github.com/kubernetes/kubernetes/issues/129774
+	$(GOIMPORTS) -w pkg/apis/kubeflow/v2beta1/zz_generated.defaults.go
 	$(MAKE) manifest
 	hack/python-sdk/gen-sdk.sh
 
@@ -167,11 +170,16 @@ kind: bin
 helm: bin
 	@GOBIN=$(PROJECT_DIR)/bin go install helm.sh/helm/v3/cmd/helm@${HELM_VERSION}
 
+GOIMPORTS = $(PROJECT_DIR)/bin/goimports
+.PHONY: goimports
+goimports:
+	@GOBIN=$(PROJECT_DIR)/bin go install golang.org/x/tools/cmd/goimports@$(GOTOOLS_VERSION)
+
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
 controller-gen: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.3
 
 KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 .PHONY: kustomize

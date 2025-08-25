@@ -17,16 +17,16 @@
 package v2beta1
 
 import (
-	v2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	v1 "k8s.io/api/core/v1"
 )
 
 // ReplicaSpecApplyConfiguration represents a declarative configuration of the ReplicaSpec type for use
 // with apply.
 type ReplicaSpecApplyConfiguration struct {
-	Replicas      *int32                 `json:"replicas,omitempty"`
-	Template      *v1.PodTemplateSpec    `json:"template,omitempty"`
-	RestartPolicy *v2beta1.RestartPolicy `json:"restartPolicy,omitempty"`
+	Replicas      *int32                         `json:"replicas,omitempty"`
+	Template      *v1.PodTemplateSpec            `json:"template,omitempty"`
+	RestartPolicy *kubeflowv2beta1.RestartPolicy `json:"restartPolicy,omitempty"`
 }
 
 // ReplicaSpecApplyConfiguration constructs a declarative configuration of the ReplicaSpec type for use with
@@ -54,7 +54,7 @@ func (b *ReplicaSpecApplyConfiguration) WithTemplate(value v1.PodTemplateSpec) *
 // WithRestartPolicy sets the RestartPolicy field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the RestartPolicy field is set to the value of the last call.
-func (b *ReplicaSpecApplyConfiguration) WithRestartPolicy(value v2beta1.RestartPolicy) *ReplicaSpecApplyConfiguration {
+func (b *ReplicaSpecApplyConfiguration) WithRestartPolicy(value kubeflowv2beta1.RestartPolicy) *ReplicaSpecApplyConfiguration {
 	b.RestartPolicy = &value
 	return b
 }
