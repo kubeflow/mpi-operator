@@ -24,6 +24,8 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -191,6 +193,20 @@ func installSchedulerPlugins() error {
 		"--set", overwriteSchedulerImage, "--set", overwriteControllerImage)
 	if err != nil {
 		return fmt.Errorf("installing scheduler-plugins Helm Chart: %w", err)
+	}
+	// The following ClusterRole patch is workaround for the https://github.com/kubernetes-sigs/scheduler-plugins/commit/2aaf10fb0f6f657f21429a864268fa1ec0a3c29a.
+	// TODO: Once the new scheduler-plugins version is released, we should remove the following workaround.
+	cr, err := k8sClient.RbacV1().ClusterRoles().Get(context.Background(), "scheduler-plugins-scheduler", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	cr.Rules = append(cr.Rules, rbacv1.PolicyRule{
+		APIGroups: []string{storagev1.GroupName},
+		Resources: []string{"volumeattachments"},
+		Verbs:     []string{"get", "list", "watch"},
+	})
+	if _, err = k8sClient.RbacV1().ClusterRoles().Update(context.Background(), cr, metav1.UpdateOptions{}); err != nil {
+		return err
 	}
 	return wait.PollUntilContextTimeout(context.Background(), waitInterval, foreverTimeout, false, func(ctx context.Context) (bool, error) {
 		controllerName := fmt.Sprintf("%s-controller", schedulerPlugins)
