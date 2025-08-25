@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -44,6 +43,7 @@ import (
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	volcanofake "volcano.sh/apis/pkg/client/clientset/versioned/fake"
 
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/fake"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
@@ -599,10 +599,17 @@ func TestLauncherSucceeded(t *testing.T) {
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
 	launcher := fmjc.newLauncherJob(mpiJobCopy)
-	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
-		Type:   batchv1.JobComplete,
-		Status: corev1.ConditionTrue,
-	})
+	launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
+		{
+			Type:   batchv1.JobSuccessCriteriaMet,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   batchv1.JobComplete,
+			Status: corev1.ConditionTrue,
+		},
+	}...)
+	launcher.Status.StartTime = &startTime
 	f.setUpLauncher(launcher)
 
 	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
@@ -637,12 +644,21 @@ func TestLauncherFailed(t *testing.T) {
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
 	launcher := fmjc.newLauncherJob(mpiJobCopy)
-	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
-		Type:    batchv1.JobFailed,
-		Status:  corev1.ConditionTrue,
-		Reason:  batchv1.JobReasonBackoffLimitExceeded,
-		Message: "Job has reached the specified backoff limit",
-	})
+	launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
+		{
+			Type:    batchv1.JobFailureTarget,
+			Status:  corev1.ConditionTrue,
+			Reason:  batchv1.JobReasonBackoffLimitExceeded,
+			Message: "Job has reached the specified backoff limit",
+		},
+		{
+			Type:    batchv1.JobFailed,
+			Status:  corev1.ConditionTrue,
+			Reason:  batchv1.JobReasonBackoffLimitExceeded,
+			Message: "Job has reached the specified backoff limit",
+		},
+	}...)
+	launcher.Status.StartTime = &startTime
 	launcher.Status.Failed = 2
 	f.setUpLauncher(launcher)
 
@@ -790,10 +806,17 @@ func TestShutdownWorker(t *testing.T) {
 	mpiJobCopy := mpiJob.DeepCopy()
 	scheme.Scheme.Default(mpiJobCopy)
 	launcher := fmjc.newLauncherJob(mpiJobCopy)
-	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
-		Type:   batchv1.JobComplete,
-		Status: corev1.ConditionTrue,
-	})
+	launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
+		{
+			Type:   batchv1.JobSuccessCriteriaMet,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   batchv1.JobComplete,
+			Status: corev1.ConditionTrue,
+		},
+	}...)
+	launcher.Status.StartTime = &startTime
 	f.setUpLauncher(launcher)
 
 	for i := 0; i < int(replicas); i++ {

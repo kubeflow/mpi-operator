@@ -17,8 +17,8 @@
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
 	kubeflowv2beta1 "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/typed/kubeflow/v2beta1"
 	discovery "k8s.io/client-go/discovery"

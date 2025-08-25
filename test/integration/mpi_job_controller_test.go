@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -39,6 +38,7 @@ import (
 	volcanov1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 	volcanoclient "volcano.sh/apis/pkg/client/clientset/versioned"
 
+	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
 	kubeflow "github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
 	clientset "github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned"
 	"github.com/kubeflow/mpi-operator/pkg/client/clientset/versioned/scheme"
@@ -150,10 +150,17 @@ func TestMPIJobSuccess(t *testing.T) {
 		Type:   corev1.EventTypeNormal,
 		Reason: "MPIJobSucceeded",
 	}, mpiJob))
-	launcherJob.Status.Conditions = append(launcherJob.Status.Conditions, batchv1.JobCondition{
-		Type:   batchv1.JobComplete,
-		Status: corev1.ConditionTrue,
-	})
+	launcherJob.Status.Conditions = append(launcherJob.Status.Conditions, []batchv1.JobCondition{
+		{
+			Type:   batchv1.JobSuccessCriteriaMet,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   batchv1.JobComplete,
+			Status: corev1.ConditionTrue,
+		},
+	}...)
+	launcherJob.Status.StartTime = ptr.To(metav1.Now())
 	launcherJob.Status.Succeeded = 1
 	launcherJob.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	_, err = s.kClient.BatchV1().Jobs(launcherJob.Namespace).UpdateStatus(ctx, launcherJob, metav1.UpdateOptions{})
@@ -570,10 +577,17 @@ func TestMPIJobFailure(t *testing.T) {
 		Type:   corev1.EventTypeWarning,
 		Reason: "MPIJobFailed",
 	}, mpiJob))
-	launcherJob.Status.Conditions = append(launcherJob.Status.Conditions, batchv1.JobCondition{
-		Type:   batchv1.JobFailed,
-		Status: corev1.ConditionTrue,
-	})
+	launcherJob.Status.Conditions = append(launcherJob.Status.Conditions, []batchv1.JobCondition{
+		{
+			Type:   batchv1.JobFailureTarget,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   batchv1.JobFailed,
+			Status: corev1.ConditionTrue,
+		},
+	}...)
+	launcherJob.Status.StartTime = ptr.To(metav1.Now())
 	launcherJob.Status.Failed = 2
 	_, err = s.kClient.BatchV1().Jobs(launcherJob.Namespace).UpdateStatus(ctx, launcherJob, metav1.UpdateOptions{})
 	if err != nil {

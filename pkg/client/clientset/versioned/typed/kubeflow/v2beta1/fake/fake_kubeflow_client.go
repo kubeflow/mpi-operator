@@ -27,7 +27,7 @@ type FakeKubeflowV2beta1 struct {
 }
 
 func (c *FakeKubeflowV2beta1) MPIJobs(namespace string) v2beta1.MPIJobInterface {
-	return &FakeMPIJobs{c, namespace}
+	return newFakeMPIJobs(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
