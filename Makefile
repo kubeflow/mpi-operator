@@ -134,7 +134,7 @@ tidy:
 
 .PHONY: lint
 lint: bin/golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --timeout=5m
 
 # Generate deploy/v2beta1/mpi-operator.yaml
 manifest: kustomize crd
