@@ -72,6 +72,14 @@
           "type": "string",
           "default": ""
         },
+        "emulationMajor": {
+          "description": "EmulationMajor is the major version of the emulation version",
+          "type": "string"
+        },
+        "emulationMinor": {
+          "description": "EmulationMinor is the minor version of the emulation version",
+          "type": "string"
+        },
         "gitCommit": {
           "type": "string",
           "default": ""
@@ -89,10 +97,20 @@
           "default": ""
         },
         "major": {
+          "description": "Major is the major version of the binary version",
           "type": "string",
           "default": ""
         },
+        "minCompatibilityMajor": {
+          "description": "MinCompatibilityMajor is the major version of the minimum compatibility version",
+          "type": "string"
+        },
+        "minCompatibilityMinor": {
+          "description": "MinCompatibilityMinor is the minor version of the minimum compatibility version",
+          "type": "string"
+        },
         "minor": {
+          "description": "Minor is the minor version of the binary version",
           "type": "string",
           "default": ""
         },

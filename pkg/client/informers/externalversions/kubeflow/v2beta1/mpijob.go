@@ -60,13 +60,25 @@ func NewFilteredMPIJobInformer(client versioned.Interface, namespace string, res
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeflowV2beta1().MPIJobs(namespace).List(context.TODO(), options)
+				return client.KubeflowV2beta1().MPIJobs(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeflowV2beta1().MPIJobs(namespace).Watch(context.TODO(), options)
+				return client.KubeflowV2beta1().MPIJobs(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KubeflowV2beta1().MPIJobs(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.KubeflowV2beta1().MPIJobs(namespace).Watch(ctx, options)
 			},
 		},
 		&apiskubeflowv2beta1.MPIJob{},

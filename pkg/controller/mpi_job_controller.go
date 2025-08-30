@@ -265,6 +265,7 @@ type MPIJobController struct {
 
 // NewMPIJobController returns a new MPIJob controller.
 func NewMPIJobController(
+	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
 	volcanoClient volcanoclient.Interface,
@@ -277,13 +278,14 @@ func NewMPIJobController(
 	priorityClassInformer schedulinginformers.PriorityClassInformer,
 	mpiJobInformer informers.MPIJobInformer,
 	opt *options.ServerOption) (*MPIJobController, error) {
-	return NewMPIJobControllerWithClock(kubeClient, kubeflowClient, volcanoClient, schedClient,
+	return NewMPIJobControllerWithClock(ctx, kubeClient, kubeflowClient, volcanoClient, schedClient,
 		configMapInformer, secretInformer, serviceInformer, jobInformer, podInformer,
 		priorityClassInformer, mpiJobInformer, &clock.RealClock{}, opt)
 }
 
 // NewMPIJobControllerWithClock returns a new MPIJob controller.
 func NewMPIJobControllerWithClock(
+	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	kubeflowClient clientset.Interface,
 	volcanoClient volcanoclient.Interface,
@@ -371,7 +373,7 @@ func NewMPIJobControllerWithClock(
 	for name, informer := range informers {
 		err := informer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 			// Pipe to default handler first, which just logs the error
-			cache.DefaultWatchErrorHandler(r, err)
+			cache.DefaultWatchErrorHandler(ctx, r, err)
 
 			if apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err) {
 				klog.Fatalf("Unable to sync cache for informer %s: %s. Requesting controller to exit.", name, err)
