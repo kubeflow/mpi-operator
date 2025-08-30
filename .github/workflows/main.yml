@@ -1,5 +1,16 @@
 name: build
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - "master"
+    - "release-*"
+    tags:
+    - "v*"
+  pull_request:
+    branches:
+    - "master"
+    - "release-*"
+
 jobs:
   validate:
     name: Validate
@@ -9,8 +20,6 @@ jobs:
     defaults:
       run:
         working-directory: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator
-    # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     steps:
       - name: Clone the code
         uses: actions/checkout@v3
@@ -34,8 +43,6 @@ jobs:
     name: E2E
     runs-on:
       labels: ubuntu-latest-16-cores
-    # Pull requests from the same repository won't trigger this checks as they were already triggered by the push
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       fail-fast: false
       matrix:

@@ -3,12 +3,14 @@ name: build and publish mpi multi-arch docker image
 on:
   push:
     branches:
-      - "master"
+    - "master"
+    - "release-*"
     tags:
-      - "v*"
+    - "v*"
   pull_request:
     branches:
-      - "master"
+    - "master"
+    - "release-*"
 
 env:
   IMAGE_NAME: mpioperator/mpi-operator
