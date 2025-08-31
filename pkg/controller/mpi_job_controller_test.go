@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -159,13 +160,14 @@ func newMPIJob(name string, replicas *int32, startTime, completionTime *metav1.T
 	return mpiJob
 }
 
-func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
+func (f *fixture) newController(ctx context.Context, clock clock.WithTicker) (*MPIJobController, informers.SharedInformerFactory, kubeinformers.SharedInformerFactory) {
 	f.client = fake.NewSimpleClientset(f.objects...)
 	f.kubeClient = k8sfake.NewSimpleClientset(f.kubeObjects...)
 	i := informers.NewSharedInformerFactory(f.client, noResyncPeriodFunc())
 	k8sI := kubeinformers.NewSharedInformerFactory(f.kubeClient, noResyncPeriodFunc())
 
 	c, err := NewMPIJobControllerWithClock(
+		ctx,
 		f.kubeClient,
 		f.client,
 		f.volcanoClient,
@@ -263,20 +265,20 @@ func (f *fixture) newController(clock clock.WithTicker) (*MPIJobController, info
 	return c, i, k8sI
 }
 
-func (f *fixture) run(mpiJobName string) {
-	f.runWithClock(mpiJobName, clock.RealClock{})
+func (f *fixture) run(ctx context.Context, mpiJobName string) {
+	f.runWithClock(ctx, mpiJobName, clock.RealClock{})
 }
 
-func (f *fixture) runWithClock(mpiJobName string, clock clock.WithTicker) {
-	f.runController(mpiJobName, true, false, clock)
+func (f *fixture) runWithClock(ctx context.Context, mpiJobName string, clock clock.WithTicker) {
+	f.runController(ctx, mpiJobName, true, false, clock)
 }
 
-func (f *fixture) runExpectError(mpiJobName string) {
-	f.runController(mpiJobName, true, true, clock.RealClock{})
+func (f *fixture) runExpectError(ctx context.Context, mpiJobName string) {
+	f.runController(ctx, mpiJobName, true, true, clock.RealClock{})
 }
 
-func (f *fixture) runController(mpiJobName string, startInformers, expectError bool, clock clock.WithTicker) {
-	c, i, k8sI := f.newController(clock)
+func (f *fixture) runController(ctx context.Context, mpiJobName string, startInformers, expectError bool, clock clock.WithTicker) {
+	c, i, k8sI := f.newController(ctx, clock)
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
@@ -490,7 +492,7 @@ func getKey(mpiJob *kubeflow.MPIJob, t *testing.T) string {
 
 func TestDoNothingWithInvalidKey(t *testing.T) {
 	f := newFixture(t, "")
-	f.run("foo/bar/baz")
+	f.run(t.Context(), "foo/bar/baz")
 }
 
 func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
@@ -498,7 +500,7 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	startTime := metav1.Now()
 	completionTime := metav1.Now()
 	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestDoNothingWithInvalidMPIJob(t *testing.T) {
@@ -511,7 +513,7 @@ func TestDoNothingWithInvalidMPIJob(t *testing.T) {
 		},
 	}
 	f.setUpMPIJob(mpiJob)
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestDoNothingWithMPIJobManagedExternally(t *testing.T) {
@@ -523,7 +525,7 @@ func TestDoNothingWithMPIJobManagedExternally(t *testing.T) {
 	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationOpenMPI
 	mpiJob.Spec.RunPolicy.ManagedBy = ptr.To(kubeflow.MultiKueueController)
 	f.setUpMPIJob(mpiJob)
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 	if !f.expectNoKubeActions() {
 		t.Fatalf("Expected no kubeActions (secrets, pods, services etc.)")
 	}
@@ -563,7 +565,7 @@ func TestAllResourcesCreated(t *testing.T) {
 			}
 			f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-			f.run(getKey(mpiJob, t))
+			f.run(t.Context(), getKey(mpiJob, t))
 		})
 	}
 }
@@ -583,7 +585,7 @@ func TestLauncherNotControlledByUs(t *testing.T) {
 	launcher.OwnerReferences = nil
 	f.setUpLauncher(launcher)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(t.Context(), getKey(mpiJob, t))
 }
 
 func TestLauncherSucceeded(t *testing.T) {
@@ -629,7 +631,7 @@ func TestLauncherSucceeded(t *testing.T) {
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestLauncherFailed(t *testing.T) {
@@ -693,7 +695,7 @@ func TestLauncherFailed(t *testing.T) {
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestConfigMapNotControlledByUs(t *testing.T) {
@@ -711,7 +713,7 @@ func TestConfigMapNotControlledByUs(t *testing.T) {
 	configMap.OwnerReferences = nil
 	f.setUpConfigMap(configMap)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(t.Context(), getKey(mpiJob, t))
 }
 
 func TestWorkerServiceNotControlledByUs(t *testing.T) {
@@ -729,7 +731,7 @@ func TestWorkerServiceNotControlledByUs(t *testing.T) {
 	service.OwnerReferences = nil
 	f.setUpService(service)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(t.Context(), getKey(mpiJob, t))
 }
 
 func TestLauncherServiceNotControlledByUs(t *testing.T) {
@@ -761,7 +763,7 @@ func TestLauncherServiceNotControlledByUs(t *testing.T) {
 		f.setUpPod(worker)
 	}
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(t.Context(), getKey(mpiJob, t))
 }
 
 func TestSecretNotControlledByUs(t *testing.T) {
@@ -787,7 +789,7 @@ func TestSecretNotControlledByUs(t *testing.T) {
 	secret.OwnerReferences = nil
 	f.setUpSecret(secret)
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(t.Context(), getKey(mpiJob, t))
 }
 
 func TestShutdownWorker(t *testing.T) {
@@ -839,7 +841,7 @@ func TestShutdownWorker(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestCreateSuspendedMPIJob(t *testing.T) {
@@ -886,7 +888,7 @@ func TestCreateSuspendedMPIJob(t *testing.T) {
 			updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
 			f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-			f.run(getKey(mpiJob, t))
+			f.run(t.Context(), getKey(mpiJob, t))
 		})
 	}
 }
@@ -975,7 +977,7 @@ func TestSuspendedRunningMPIJob(t *testing.T) {
 	}
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestResumeMPIJob(t *testing.T) {
@@ -1039,7 +1041,7 @@ func TestResumeMPIJob(t *testing.T) {
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, corev1.ConditionFalse, "MPIJobResumed", "MPIJob resumed")
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.runWithClock(getKey(mpiJob, t), fakeClock)
+	f.runWithClock(t.Context(), getKey(mpiJob, t), fakeClock)
 }
 
 func TestWorkerNotControlledByUs(t *testing.T) {
@@ -1070,7 +1072,7 @@ func TestWorkerNotControlledByUs(t *testing.T) {
 		f.setUpPod(worker)
 	}
 
-	f.runExpectError(getKey(mpiJob, t))
+	f.runExpectError(t.Context(), getKey(mpiJob, t))
 }
 
 func TestLauncherActiveWorkerNotReady(t *testing.T) {
@@ -1123,7 +1125,7 @@ func TestLauncherActiveWorkerNotReady(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestLauncherActiveWorkerReady(t *testing.T) {
@@ -1182,7 +1184,7 @@ func TestLauncherActiveWorkerReady(t *testing.T) {
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestWorkerReady(t *testing.T) {
@@ -1237,7 +1239,7 @@ func TestWorkerReady(t *testing.T) {
 	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
-	f.run(getKey(mpiJob, t))
+	f.run(t.Context(), getKey(mpiJob, t))
 }
 
 func TestNewLauncherAndWorker(t *testing.T) {

@@ -229,16 +229,19 @@ func TestValidateMPIJob(t *testing.T) {
 					Field: "spec.runPolicy.cleanPodPolicy",
 				},
 				{
-					Type:  field.ErrorTypeInvalid,
-					Field: "spec.runPolicy.ttlSecondsAfterFinished",
+					Type:   field.ErrorTypeInvalid,
+					Field:  "spec.runPolicy.ttlSecondsAfterFinished",
+					Origin: "minimum",
 				},
 				{
-					Type:  field.ErrorTypeInvalid,
-					Field: "spec.runPolicy.activeDeadlineSeconds",
+					Type:   field.ErrorTypeInvalid,
+					Field:  "spec.runPolicy.activeDeadlineSeconds",
+					Origin: "minimum",
 				},
 				{
-					Type:  field.ErrorTypeInvalid,
-					Field: "spec.runPolicy.backoffLimit",
+					Type:   field.ErrorTypeInvalid,
+					Field:  "spec.runPolicy.backoffLimit",
+					Origin: "minimum",
 				},
 				{
 					Type:  field.ErrorTypeNotSupported,

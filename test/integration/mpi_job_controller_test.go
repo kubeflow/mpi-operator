@@ -938,6 +938,7 @@ func startController(
 		}
 	}
 	ctrl, err := controller.NewMPIJobController(
+		ctx,
 		kClient,
 		mpiClient,
 		volcanoClient,

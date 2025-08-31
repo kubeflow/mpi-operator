@@ -283,8 +283,9 @@ func TestNewPodGroup(t *testing.T) {
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
 			volcanoFixture := newFixture(t, "default-scheduler")
-			jobController, _, _ := volcanoFixture.newController(clock.RealClock{})
+			jobController, _, _ := volcanoFixture.newController(ctx, clock.RealClock{})
 			volcanoPGCtrl := &VolcanoCtrl{
 				Client:              volcanoFixture.volcanoClient,
 				PriorityClassLister: jobController.priorityClassLister,
@@ -294,7 +295,7 @@ func TestNewPodGroup(t *testing.T) {
 				t.Errorf("Unexpected volcano PodGroup (-want,+got):\n%s", diff)
 			}
 			schedFixture := newFixture(t, "default-scheduler")
-			schedController, _, _ := schedFixture.newController(clock.RealClock{})
+			schedController, _, _ := schedFixture.newController(ctx, clock.RealClock{})
 			schedPGCtrl := &SchedulerPluginsCtrl{
 				Client:              schedFixture.schedClient,
 				PriorityClassLister: schedController.priorityClassLister,
@@ -555,13 +556,14 @@ func TestCalculatePGMinResources(t *testing.T) {
 	}
 	for name, tc := range volcanoTests {
 		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
 			f := newFixture(t, "volcano-scheduler")
 			if tc.priorityClasses != nil {
 				for _, pc := range tc.priorityClasses {
 					f.setUpPriorityClass(pc)
 				}
 			}
-			jobController, _, _ := f.newController(clock.RealClock{})
+			jobController, _, _ := f.newController(ctx, clock.RealClock{})
 			pgCtrl := VolcanoCtrl{Client: f.volcanoClient, PriorityClassLister: jobController.priorityClassLister}
 			got := pgCtrl.calculatePGMinResources(&tc.minMember, tc.job)
 			if diff := cmp.Diff(tc.want, got); len(diff) != 0 {
@@ -778,13 +780,14 @@ func TestCalculatePGMinResources(t *testing.T) {
 	}
 	for name, tc := range schedTests {
 		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
 			f := newFixture(t, "default-scheduler")
 			if tc.priorityClasses != nil {
 				for _, pc := range tc.priorityClasses {
 					f.setUpPriorityClass(pc)
 				}
 			}
-			jobController, _, _ := f.newController(clock.RealClock{})
+			jobController, _, _ := f.newController(ctx, clock.RealClock{})
 			pgCtrl := SchedulerPluginsCtrl{
 				Client:              f.schedClient,
 				PriorityClassLister: jobController.priorityClassLister,

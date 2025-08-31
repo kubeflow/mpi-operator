@@ -32,8 +32,8 @@ IMAGE_NAME?=${REGISTRY}/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
-KUBECTL_VERSION=v1.32.0
-ENVTEST_K8S_VERSION=1.32.0
+KUBECTL_VERSION=v1.33.0
+ENVTEST_K8S_VERSION=1.33.0
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
@@ -179,7 +179,7 @@ goimports:
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
 controller-gen: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.3
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
 
 KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 .PHONY: kustomize
