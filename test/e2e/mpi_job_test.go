@@ -563,9 +563,10 @@ func waitForCompletion(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.M
 		return mpiJob.Status.CompletionTime != nil, nil
 	})
 	if err != nil {
-		err := debugJob(ctx, mpiJob)
+		err = debugJob(ctx, mpiJob)
 		if err != nil {
-			fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to debug job: %v\n", err)
+			_, err = fmt.Fprintf(ginkgo.GinkgoWriter, "Failed to debug job: %v\n", err)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		}
 	}
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -650,20 +651,28 @@ func debugJob(ctx context.Context, mpiJob *kubeflow.MPIJob) error {
 	return nil
 }
 
-func podLogs(ctx context.Context, p *corev1.Pod) error {
+func podLogs(ctx context.Context, p *corev1.Pod) (err error) {
 	req := k8sClient.CoreV1().Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{})
-	stream, err := req.Stream(ctx)
-	if err != nil {
-		return fmt.Errorf("reading logs: %v", err)
+	stream, streamErr := req.Stream(ctx)
+	if streamErr != nil {
+		err = fmt.Errorf("reading logs: %v", streamErr)
+		return
 	}
-	defer stream.Close()
-	fmt.Fprintf(ginkgo.GinkgoWriter, "== BEGIN %s pod logs ==\n", p.Name)
+	defer func() {
+		err = stream.Close()
+	}()
+	if _, err = fmt.Fprintf(ginkgo.GinkgoWriter, "== BEGIN %s pod logs ==\n", p.Name); err != nil {
+		return
+	}
 	_, err = io.Copy(ginkgo.GinkgoWriter, stream)
 	if err != nil {
-		return fmt.Errorf("writing logs: %v", err)
+		err = fmt.Errorf("writing logs: %v", err)
+		return
 	}
-	fmt.Fprintf(ginkgo.GinkgoWriter, "\n== END %s pod logs ==\n", p.Name)
-	return nil
+	if _, err = fmt.Fprintf(ginkgo.GinkgoWriter, "\n== END %s pod logs ==\n", p.Name); err != nil {
+		return
+	}
+	return
 }
 
 func expectConditionToBeTrue(mpiJob *kubeflow.MPIJob, condType kubeflow.JobConditionType) {
