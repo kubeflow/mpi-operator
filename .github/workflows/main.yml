@@ -30,7 +30,7 @@ jobs:
         with:
           go-version-file: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator/go.mod
       - name: fmt check
-        run: make fmt
+        run: make fmt lint
       - name: go mod tidy
         run: make tidy
       - name: Build
