@@ -1,0 +1,16 @@
+version: 2
+updates:
+- package-ecosystem: "gomod"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  labels: ["ok-to-test"]
+  ignore:
+  - dependency-name: "k8s.io/*"
+  - dependency-name: "sigs.k8s.io/*"
+  - dependency-name: "volcano.sh/*"
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  labels: ["ok-to-test"]
