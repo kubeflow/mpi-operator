@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	schedulinglisters "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	schedv1alpha1 "sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	schedclientset "sigs.k8s.io/scheduler-plugins/pkg/generated/clientset/versioned"
