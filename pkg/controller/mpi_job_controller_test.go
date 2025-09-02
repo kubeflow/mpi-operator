@@ -330,7 +330,7 @@ func (f *fixture) runController(ctx context.Context, mpiJobName string, startInf
 // checkAction verifies that expected and actual actions are equal and both have
 // same attached resources
 func checkAction(expected, actual core.Action, t *testing.T) {
-	if !(expected.Matches(actual.GetVerb(), actual.GetResource().Resource) && actual.GetSubresource() == expected.GetSubresource()) {
+	if !expected.Matches(actual.GetVerb(), actual.GetResource().Resource) || actual.GetSubresource() != expected.GetSubresource() {
 		t.Errorf("Expected\n\t%#v\ngot\n\t%#v", expected, actual)
 		return
 	}

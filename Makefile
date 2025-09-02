@@ -42,6 +42,7 @@ SCHEDULER_PLUGINS_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/sche
 VOLCANO_SCHEDULER_VERSION?=$(shell go list -m -f "{{.Version}}" volcano.sh/apis)
 GOTOOLS_VERSION?=$(shell go list -m -f "{{.Version}}" golang.org/x/tools)
 KIND_VERSION?=$(shell go list -m -f "{{.Version}}" sigs.k8s.io/kind)
+GOLANGCI_LINT_VERSION?=$(shell go list -m -f "{{.Version}}" github.com/golangci/golangci-lint/v2)
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
@@ -151,7 +152,7 @@ bin:
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
 .PHONY: bin/golangci-lint
 bin/golangci-lint: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	@GOBIN=$(PROJECT_DIR)/bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 ENVTEST = $(shell pwd)/bin/setup-envtest
 .PHONY: envtest
