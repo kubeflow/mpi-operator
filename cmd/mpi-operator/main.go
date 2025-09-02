@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app"
 	"github.com/kubeflow/mpi-operator/cmd/mpi-operator/app/options"
