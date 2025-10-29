@@ -1,6 +1,6 @@
 module github.com/kubeflow/mpi-operator
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/golangci/golangci-lint/v2 v2.5.0
