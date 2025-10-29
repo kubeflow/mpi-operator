@@ -9,7 +9,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/prometheus/client_golang v1.23.2
 	golang.org/x/crypto v0.42.0
-	golang.org/x/time v0.13.0
+	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.37.0
 	k8s.io/api v0.33.4
 	k8s.io/apimachinery v0.33.4
