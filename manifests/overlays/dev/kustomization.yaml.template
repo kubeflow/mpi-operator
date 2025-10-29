@@ -4,11 +4,12 @@ resources:
 - ../../base
 - namespace.yaml
 namespace: mpi-operator
-commonLabels:
-  kustomize.component: mpi-operator
-  app: mpi-operator
-  app.kubernetes.io/name: mpi-operator
-  app.kubernetes.io/component: mpijob
+labels:
+- pairs:
+    kustomize.component: mpi-operator
+    app: mpi-operator
+    app.kubernetes.io/name: mpi-operator
+    app.kubernetes.io/component: mpijob
 images:
 - name: mpioperator/mpi-operator
   newName: %IMAGE_NAME%
