@@ -851,7 +851,7 @@ func (c *MPIJobController) getOrCreateConfigMap(mpiJob *kubeflow.MPIJob) (*corev
 	if err != nil {
 		return nil, err
 	}
-	updateDiscoverHostsInConfigMap(newCM, mpiJob, podList)
+	updateDiscoverHostsInConfigMap(newCM, mpiJob, podList, c.clusterDomain)
 
 	cm, err := c.configMapLister.ConfigMaps(mpiJob.Namespace).Get(mpiJob.Name + configSuffix)
 	// If the ConfigMap doesn't exist, we'll create it.
@@ -1333,7 +1333,7 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, clusterDomain s
 }
 
 // updateDiscoverHostsInConfigMap updates the ConfigMap if the content of `discover_hosts.sh` changes.
-func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod) {
+func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflow.MPIJob, runningPods []*corev1.Pod, clusterDomain string) {
 	// Sort the slice of Pods to make sure the order of entries in `discover_hosts.sh` is maintained.
 	sort.Slice(runningPods, func(i, j int) bool {
 		return runningPods[i].Name < runningPods[j].Name
@@ -1341,15 +1341,19 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 
 	var buffer bytes.Buffer
 	buffer.WriteString("#!/bin/sh\n")
+	domainFormat := "%s.%s.%s.svc"
+	if len(clusterDomain) > 0 {
+		domainFormat += fmt.Sprintf(".%s", clusterDomain)
+	}
 
 	// We don't check if launcher is running here, launcher should always be there or the job failed
 	if runLauncherAsWorker(mpiJob) {
 		name := mpiJob.Name + launcherSuffix
-		buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", name, mpiJob.Name, mpiJob.Namespace))
+		buffer.WriteString(fmt.Sprintf("echo %s\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace)))
 	}
 
 	for _, p := range runningPods {
-		buffer.WriteString(fmt.Sprintf("echo %s.%s.%s.svc\n", p.Name, mpiJob.Name, p.Namespace))
+		buffer.WriteString(fmt.Sprintf("echo %s\n", fmt.Sprintf(domainFormat, p.Name, mpiJob.Name, p.Namespace)))
 	}
 
 	configMap.Data[discoverHostsScriptName] = buffer.String()
