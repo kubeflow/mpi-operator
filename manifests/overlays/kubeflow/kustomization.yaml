@@ -17,3 +17,7 @@ labels:
     app.kubernetes.io/component: mpijob
     app.kubernetes.io/name: mpi-operator
     kustomize.component: mpi-operator
+images:
+- name: mpioperator/mpi-operator
+  newName: mpioperator/mpi-operator
+  newTag: "0.7"
