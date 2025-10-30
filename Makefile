@@ -32,8 +32,8 @@ IMAGE_NAME?=${REGISTRY}/mpi-operator
 KUBEBUILDER_ASSETS_PATH := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))bin/kubebuilder/bin
 HELM_VERSION=v3.11.2
 # This kubectl version supports -k for kustomization.
-KUBECTL_VERSION=v1.33.0
-ENVTEST_K8S_VERSION=1.33.0
+KUBECTL_VERSION=v1.34.0
+ENVTEST_K8S_VERSION=1.34.0
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 GOARCH=$(shell go env GOARCH)
 GOOS=$(shell go env GOOS)
@@ -180,12 +180,12 @@ goimports:
 CONTROLLER_GEN = $(PROJECT_DIR)/bin/controller-gen
 .PHONY: controller-gen
 controller-gen: bin
-	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0
 
 KUSTOMIZE = $(PROJECT_DIR)/bin/kustomize
 .PHONY: kustomize
 kustomize:
-	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
+	@GOBIN=$(PROJECT_DIR)/bin go install sigs.k8s.io/kustomize/kustomize/v5@v5.7.1
 
 # The build via `go install` will fail with the following err:
 # > The go.mod file for the module providing named packages contains one or
