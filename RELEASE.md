@@ -1,5 +1,20 @@
 # MPI Operator Releases
 
+## Release v0.7.0
+* Features:
+    * Support custom cluster domain in MPI hostfile generation. (#704, #707, #738, @tenzen-y)
+    * Enable Service `publishNotReadyAddresses` when `runLauncherAsWorker` to improve DNS discovery for workers. (#703, @tenzen-y)
+    * Expose job controller workqueue rate-limiting configuration via operator flags to improve scalability tuning. (#674, @rotemelad)
+* Bug fixes:
+    * Fix crash in PodGroup when `runLauncherAsWorker=true`. (#669, @GonzaloSaez)
+    * Fix missing ReplicaIndexLabel when `runLauncherAsWorker=true` so the launcher pod gets the expected pod index label (helps Kueue/TAS rank discovery). (#690, @GonzaloSaez)
+* Clean ups:
+    * Upgrade Kubernetes dependencies to v1.34. (#742, @tenzen-y)
+    * Fix kustomize v5 warnings in manifests. (#700, @vikas-saxena02)
+    * Upgrade Debian version to trixie and MPI versions are upgraded in the following: (#685, @tenzen-y)
+      * OpenMPI: v4.1.4 -> v5.0.7
+      * MPICH: v3.4.1 -> v4.2.1
+
 ## Release v0.6.0
 * Features:
   * Support ManagedBy feature (`.spec.runPolicy.managedBy`) inspired by batch/v1 Job.
