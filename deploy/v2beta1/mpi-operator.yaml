@@ -9143,6 +9143,6 @@ spec:
       - args:
         - -alsologtostderr
         - --lock-namespace=mpi-operator
-        image: mpioperator/mpi-operator:0.7
+        image: mpioperator/mpi-operator:0.7.0
         name: mpi-operator
       serviceAccountName: mpi-operator

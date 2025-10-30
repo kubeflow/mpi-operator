@@ -7,7 +7,7 @@ namespace: mpi-operator
 images:
 - name: mpioperator/mpi-operator
   newName: mpioperator/mpi-operator
-  newTag: "0.7"
+  newTag: "0.7.0"
 patches:
 - path: ./patch.yaml
   target:
