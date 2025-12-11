@@ -18,8 +18,8 @@ RUN apt update \
     && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg trusted=yes] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
     && apt update \
     && apt install -y --no-install-recommends \
-    dnsutils \
-    intel-oneapi-mpi-2021.14 \
+        dnsutils \
+        intel-oneapi-mpi-2021.14 \
     && apt remove -y gnupg2 ca-certificates \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*

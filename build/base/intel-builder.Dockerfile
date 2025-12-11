@@ -16,9 +16,9 @@ RUN apt update \
     && echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg trusted=yes] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list \
     && apt update \
     && apt install -y --no-install-recommends \
-    libstdc++-12-dev binutils procps clang \
-    intel-oneapi-compiler-dpcpp-cpp \
-    intel-oneapi-mpi-devel-2021.14 \
+        libstdc++-12-dev binutils procps clang \
+        intel-oneapi-compiler-dpcpp-cpp \
+        intel-oneapi-mpi-devel-2021.14 \
     && apt remove -y gnupg2 ca-certificates apt-transport-https \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*

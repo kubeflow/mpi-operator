@@ -17,10 +17,11 @@ function resolve_host() {
       echo "Couldn't resolve $host"
       return
     fi
+    echo "Couldn't resolve $host. Sleeping ${backoff}s before retry..."
     sleep $backoff
-    echo "Couldn't resolve $host... Retrying"
+    echo "Retrying resolution of $host..."
     ((counter++))
-    backoff=$(echo - | awk "{print $backoff + $backoff}")
+    backoff=$((backoff + backoff))
   done
   echo "Resolved $host"
 }
