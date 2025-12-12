@@ -10,7 +10,7 @@ function resolve_host() {
   check="nslookup $host"
   max_retry=10
   counter=0
-  backoff=1
+  backoff=3
   until $check > /dev/null
   do
     if [ $counter -eq $max_retry ]; then
