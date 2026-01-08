@@ -17,6 +17,6 @@ spec:
       containers:
       - args:
         - -alsologtostderr
-        image: mpioperator/mpi-operator:latest
+        image: ghcr.io/kubeflow/mpi-operator/controller:latest
         name: mpi-operator
       serviceAccountName: mpi-operator
