@@ -116,7 +116,6 @@ aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       rbac.authorization.kubeflow.org/aggregate-to-kubeflow-mpijobs-admin: "true"
-rules: []
 
 ---
 
