@@ -23,9 +23,21 @@ import (
 
 // ReplicaSpecApplyConfiguration represents a declarative configuration of the ReplicaSpec type for use
 // with apply.
+//
+// Following is merge from common.v1
+// reference https://github.com/kubeflow/training-operator/blob/master/pkg/apis/kubeflow.org/v1/common_types.go
+// ReplicaSpec is a description of the replica
 type ReplicaSpecApplyConfiguration struct {
-	Replicas      *int32                         `json:"replicas,omitempty"`
-	Template      *v1.PodTemplateSpec            `json:"template,omitempty"`
+	// Replicas is the desired number of replicas of the given template.
+	// If unspecified, defaults to 1.
+	Replicas *int32 `json:"replicas,omitempty"`
+	// Template is the object that describes the pod that
+	// will be created for this replica. RestartPolicy in PodTemplateSpec
+	// will be overide by RestartPolicy in ReplicaSpec
+	Template *v1.PodTemplateSpec `json:"template,omitempty"`
+	// Restart policy for all replicas within the job.
+	// One of Always, OnFailure, Never and ExitCode.
+	// Default to Never.
 	RestartPolicy *kubeflowv2beta1.RestartPolicy `json:"restartPolicy,omitempty"`
 }
 

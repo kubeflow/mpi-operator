@@ -41,6 +41,7 @@ func MPIJob(name, namespace string) *MPIJobApplyConfiguration {
 	b.WithAPIVersion("kubeflow.org/v2beta1")
 	return b
 }
+
 func (b MPIJobApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value

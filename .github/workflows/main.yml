@@ -39,8 +39,7 @@ jobs:
         run: make verify-generate
       - name: Run tests
         env:
-          # TODO: Once the volcano v1.14.0 is released, we should remove the following fixed volcano version.
-          VOLCANO_SCHEDULER_VERSION: v1.13.0
+          VOLCANO_SCHEDULER_VERSION: v1.14.0
         run: make test
   e2e:
     name: E2E
@@ -49,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kubernetes-version: ["v1.31.12", "v1.32.8", "v1.33.4", "v1.34.0"]
+        kubernetes-version: ["v1.32.11", "v1.33.7", "v1.34.3", "v1.35.0"]
     steps:
     - name: Clone the code
       uses: actions/checkout@v6
@@ -65,6 +64,4 @@ jobs:
         PLATFORMS: linux/amd64
         INTEL_PLATFORMS: linux/amd64
         MPICH_PLATFORMS: linux/amd64
-        # TODO: Once the volcano v1.14.0 is released, we should remove the following fixed volcano version.
-        VOLCANO_SCHEDULER_VERSION: v1.13.0
       run: make test_e2e

@@ -22,14 +22,45 @@ import (
 
 // RunPolicyApplyConfiguration represents a declarative configuration of the RunPolicy type for use
 // with apply.
+//
+// RunPolicy encapsulates various runtime policies of the distributed training
+// job, for example how to clean up resources and how long the job can stay
+// active.
 type RunPolicyApplyConfiguration struct {
-	CleanPodPolicy          *kubeflowv2beta1.CleanPodPolicy     `json:"cleanPodPolicy,omitempty"`
-	TTLSecondsAfterFinished *int32                              `json:"ttlSecondsAfterFinished,omitempty"`
-	ActiveDeadlineSeconds   *int64                              `json:"activeDeadlineSeconds,omitempty"`
-	BackoffLimit            *int32                              `json:"backoffLimit,omitempty"`
-	SchedulingPolicy        *SchedulingPolicyApplyConfiguration `json:"schedulingPolicy,omitempty"`
-	Suspend                 *bool                               `json:"suspend,omitempty"`
-	ManagedBy               *string                             `json:"managedBy,omitempty"`
+	// CleanPodPolicy defines the policy to kill pods after the job completes.
+	// Default to Running.
+	CleanPodPolicy *kubeflowv2beta1.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
+	// TTLSecondsAfterFinished is the TTL to clean up jobs.
+	// It may take extra ReconcilePeriod seconds for the cleanup, since
+	// reconcile gets called periodically.
+	// Default to infinite.
+	TTLSecondsAfterFinished *int32 `json:"ttlSecondsAfterFinished,omitempty"`
+	// Specifies the duration in seconds relative to the startTime that the job may be active
+	// before the system tries to terminate it; value must be positive integer.
+	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty"`
+	// Optional number of retries before marking this job failed.
+	BackoffLimit *int32 `json:"backoffLimit,omitempty"`
+	// SchedulingPolicy defines the policy related to scheduling, e.g. gang-scheduling
+	SchedulingPolicy *SchedulingPolicyApplyConfiguration `json:"schedulingPolicy,omitempty"`
+	// suspend specifies whether the MPIJob controller should create Pods or not.
+	// If a MPIJob is created with suspend set to true, no Pods are created by
+	// the MPIJob controller. If a MPIJob is suspended after creation (i.e. the
+	// flag goes from false to true), the MPIJob controller will delete all
+	// active Pods and PodGroups associated with this MPIJob. Also, it will suspend the
+	// Launcher Job. Users must design their workload to gracefully handle this.
+	// Suspending a Job will reset the StartTime field of the MPIJob.
+	//
+	// Defaults to false.
+	Suspend *bool `json:"suspend,omitempty"`
+	// ManagedBy is used to indicate the controller or entity that manages a MPIJob.
+	// The value must be either empty, 'kubeflow.org/mpi-operator' or
+	// 'kueue.x-k8s.io/multikueue'.
+	// The mpi-operator reconciles a MPIJob which doesn't have this
+	// field at all or the field value is the reserved string
+	// 'kubeflow.org/mpi-operator', but delegates reconciling the MPIJob
+	// with 'kueue.x-k8s.io/multikueue' to the Kueue.
+	// The field is immutable.
+	ManagedBy *string `json:"managedBy,omitempty"`
 }
 
 // RunPolicyApplyConfiguration constructs a declarative configuration of the RunPolicy type for use with

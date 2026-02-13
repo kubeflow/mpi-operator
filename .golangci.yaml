@@ -1,0 +1,11 @@
+# golangci-lint configuration file
+# see: https://golangci-lint.run/usage/configuration/
+
+version: "2"
+linters:
+  exclusions:
+    rules:
+      - linters:
+          - staticcheck
+        # TODO: Once https://github.com/kubernetes/kubernetes/pull/136455 is released, we should remove the following exclusion rule.
+        text: 'SA1019: .*\.NewSimpleClientset is deprecated: NewClientset replaces this with support for field management, which significantly improves server side apply testing.'

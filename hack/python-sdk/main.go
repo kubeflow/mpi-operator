@@ -50,6 +50,26 @@ func main() {
 	for defName, val := range oAPIDefs {
 		defs[swaggify(defName)] = val.Schema
 	}
+	// Swagger 2.0 does not support "oneOf". For definitions that have oneOf
+	// (e.g., resource.Quantity in K8s 1.35+), use the x-kubernetes-v2-schema
+	// extension as the Swagger 2.0 fallback.
+	for defName, schema := range defs {
+		if len(schema.OneOf) > 0 {
+			if v2Schema, ok := schema.Extensions["x-kubernetes-v2-schema"]; ok {
+				if v2Map, ok := v2Schema.(map[string]interface{}); ok {
+					if typStr, ok := v2Map["type"].(string); ok {
+						schema.Type = spec.StringOrArray{typStr}
+					}
+					if desc, ok := v2Map["description"].(string); ok {
+						schema.Description = desc
+					}
+				}
+			}
+			schema.OneOf = nil
+			delete(schema.Extensions, "x-kubernetes-v2-schema")
+			defs[defName] = schema
+		}
+	}
 	swagger := spec.Swagger{
 		SwaggerProps: spec.SwaggerProps{
 			Swagger:     "2.0",

@@ -23,12 +23,26 @@ import (
 
 // JobStatusApplyConfiguration represents a declarative configuration of the JobStatus type for use
 // with apply.
+//
+// JobStatus represents the current observed state of the training Job.
 type JobStatusApplyConfiguration struct {
-	Conditions        []JobConditionApplyConfiguration                                  `json:"conditions,omitempty"`
-	ReplicaStatuses   map[kubeflowv2beta1.MPIReplicaType]*kubeflowv2beta1.ReplicaStatus `json:"replicaStatuses,omitempty"`
-	StartTime         *v1.Time                                                          `json:"startTime,omitempty"`
-	CompletionTime    *v1.Time                                                          `json:"completionTime,omitempty"`
-	LastReconcileTime *v1.Time                                                          `json:"lastReconcileTime,omitempty"`
+	// conditions is a list of current observed job conditions.
+	Conditions []JobConditionApplyConfiguration `json:"conditions,omitempty"`
+	// replicaStatuses is map of ReplicaType and ReplicaStatus,
+	// specifies the status of each replica.
+	ReplicaStatuses map[kubeflowv2beta1.MPIReplicaType]*kubeflowv2beta1.ReplicaStatus `json:"replicaStatuses,omitempty"`
+	// Represents time when the job was acknowledged by the job controller.
+	// It is not guaranteed to be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	StartTime *v1.Time `json:"startTime,omitempty"`
+	// Represents time when the job was completed. It is not guaranteed to
+	// be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	CompletionTime *v1.Time `json:"completionTime,omitempty"`
+	// Represents last time when the job was reconciled. It is not guaranteed to
+	// be set in happens-before order across separate operations.
+	// It is represented in RFC3339 form and is in UTC.
+	LastReconcileTime *v1.Time `json:"lastReconcileTime,omitempty"`
 }
 
 // JobStatusApplyConfiguration constructs a declarative configuration of the JobStatus type for use with

@@ -36,7 +36,7 @@ class V2beta1MPIJobList(object):
         'api_version': 'str',
         'items': 'list[V2beta1MPIJob]',
         'kind': 'str',
-        'metadata': 'V1ListMeta'
+        'metadata': 'IoK8sApimachineryPkgApisMetaV1ListMeta'
     }
 
     attribute_map = {
@@ -140,7 +140,7 @@ class V2beta1MPIJobList(object):
 
 
         :return: The metadata of this V2beta1MPIJobList.  # noqa: E501
-        :rtype: V1ListMeta
+        :rtype: IoK8sApimachineryPkgApisMetaV1ListMeta
         """
         return self._metadata
 
@@ -150,7 +150,7 @@ class V2beta1MPIJobList(object):
 
 
         :param metadata: The metadata of this V2beta1MPIJobList.  # noqa: E501
-        :type metadata: V1ListMeta
+        :type metadata: IoK8sApimachineryPkgApisMetaV1ListMeta
         """
         if self.local_vars_configuration.client_side_validation and metadata is None:  # noqa: E501
             raise ValueError("Invalid value for `metadata`, must not be `None`")  # noqa: E501
