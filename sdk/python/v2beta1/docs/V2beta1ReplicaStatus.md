@@ -7,7 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **active** | **int** | The number of actively running pods. | [optional] 
 **failed** | **int** | The number of pods which reached phase failed. | [optional] 
-**label_selector** | [**V1LabelSelector**](V1LabelSelector.md) |  | [optional] 
+**label_selector** | [**IoK8sApimachineryPkgApisMetaV1LabelSelector**](IoK8sApimachineryPkgApisMetaV1LabelSelector.md) |  | [optional] 
 **selector** | **str** | A selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty selector matches all objects. A null selector matches no objects. | [optional] 
 **succeeded** | **int** | The number of pods which reached phase succeeded. | [optional] 
 

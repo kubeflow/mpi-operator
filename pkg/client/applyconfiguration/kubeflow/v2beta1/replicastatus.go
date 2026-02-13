@@ -22,12 +22,21 @@ import (
 
 // ReplicaStatusApplyConfiguration represents a declarative configuration of the ReplicaStatus type for use
 // with apply.
+//
+// ReplicaStatus represents the current observed state of the replica.
 type ReplicaStatusApplyConfiguration struct {
-	Active        *int32                              `json:"active,omitempty"`
-	Succeeded     *int32                              `json:"succeeded,omitempty"`
-	Failed        *int32                              `json:"failed,omitempty"`
+	// The number of actively running pods.
+	Active *int32 `json:"active,omitempty"`
+	// The number of pods which reached phase succeeded.
+	Succeeded *int32 `json:"succeeded,omitempty"`
+	// The number of pods which reached phase failed.
+	Failed *int32 `json:"failed,omitempty"`
+	// Deprecated: Use selector instead
 	LabelSelector *v1.LabelSelectorApplyConfiguration `json:"labelSelector,omitempty"`
-	Selector      *string                             `json:"selector,omitempty"`
+	// A selector is a label query over a set of resources. The result of matchLabels and
+	// matchExpressions are ANDed. An empty selector matches all objects. A null
+	// selector matches no objects.
+	Selector *string `json:"selector,omitempty"`
 }
 
 // ReplicaStatusApplyConfiguration constructs a declarative configuration of the ReplicaStatus type for use with

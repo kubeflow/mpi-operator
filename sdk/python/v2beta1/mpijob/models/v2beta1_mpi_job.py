@@ -35,7 +35,7 @@ class V2beta1MPIJob(object):
     openapi_types = {
         'api_version': 'str',
         'kind': 'str',
-        'metadata': 'V1ObjectMeta',
+        'metadata': 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
         'spec': 'V2beta1MPIJobSpec',
         'status': 'V2beta1JobStatus'
     }
@@ -124,7 +124,7 @@ class V2beta1MPIJob(object):
 
 
         :return: The metadata of this V2beta1MPIJob.  # noqa: E501
-        :rtype: V1ObjectMeta
+        :rtype: IoK8sApimachineryPkgApisMetaV1ObjectMeta
         """
         return self._metadata
 
@@ -134,7 +134,7 @@ class V2beta1MPIJob(object):
 
 
         :param metadata: The metadata of this V2beta1MPIJob.  # noqa: E501
-        :type metadata: V1ObjectMeta
+        :type metadata: IoK8sApimachineryPkgApisMetaV1ObjectMeta
         """
 
         self._metadata = metadata

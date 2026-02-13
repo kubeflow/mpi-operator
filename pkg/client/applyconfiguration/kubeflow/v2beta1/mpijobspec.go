@@ -23,13 +23,25 @@ import (
 // MPIJobSpecApplyConfiguration represents a declarative configuration of the MPIJobSpec type for use
 // with apply.
 type MPIJobSpecApplyConfiguration struct {
-	SlotsPerWorker         *int32                                                          `json:"slotsPerWorker,omitempty"`
-	RunLauncherAsWorker    *bool                                                           `json:"runLauncherAsWorker,omitempty"`
-	RunPolicy              *RunPolicyApplyConfiguration                                    `json:"runPolicy,omitempty"`
-	MPIReplicaSpecs        map[kubeflowv2beta1.MPIReplicaType]*kubeflowv2beta1.ReplicaSpec `json:"mpiReplicaSpecs,omitempty"`
-	SSHAuthMountPath       *string                                                         `json:"sshAuthMountPath,omitempty"`
-	LauncherCreationPolicy *kubeflowv2beta1.LauncherCreationPolicy                         `json:"launcherCreationPolicy,omitempty"`
-	MPIImplementation      *kubeflowv2beta1.MPIImplementation                              `json:"mpiImplementation,omitempty"`
+	// Specifies the number of slots per worker used in hostfile.
+	// Defaults to 1.
+	SlotsPerWorker *int32 `json:"slotsPerWorker,omitempty"`
+	// RunLauncherAsWorker indicates whether to run worker process in launcher
+	// Defaults to false.
+	RunLauncherAsWorker *bool `json:"runLauncherAsWorker,omitempty"`
+	// RunPolicy encapsulates various runtime policies of the job.
+	RunPolicy *RunPolicyApplyConfiguration `json:"runPolicy,omitempty"`
+	// MPIReplicaSpecs contains maps from `MPIReplicaType` to `ReplicaSpec` that
+	// specify the MPI replicas to run.
+	MPIReplicaSpecs map[kubeflowv2beta1.MPIReplicaType]*kubeflowv2beta1.ReplicaSpec `json:"mpiReplicaSpecs,omitempty"`
+	// SSHAuthMountPath is the directory where SSH keys are mounted.
+	// Defaults to "/root/.ssh".
+	SSHAuthMountPath *string `json:"sshAuthMountPath,omitempty"`
+	// launcherCreationPolicy if WaitForWorkersReady, the launcher is created only after all workers are in Ready state. Defaults to AtStartup.
+	LauncherCreationPolicy *kubeflowv2beta1.LauncherCreationPolicy `json:"launcherCreationPolicy,omitempty"`
+	// MPIImplementation is the MPI implementation.
+	// Options are "OpenMPI" (default), "Intel" and "MPICH".
+	MPIImplementation *kubeflowv2beta1.MPIImplementation `json:"mpiImplementation,omitempty"`
 }
 
 // MPIJobSpecApplyConfiguration constructs a declarative configuration of the MPIJobSpec type for use with

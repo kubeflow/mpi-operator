@@ -22,12 +22,39 @@ import (
 
 // SchedulingPolicyApplyConfiguration represents a declarative configuration of the SchedulingPolicy type for use
 // with apply.
+//
+// SchedulingPolicy encapsulates various scheduling policies of the distributed training
+// job, for example `minAvailable` for gang-scheduling.
+// Now, it supports only for volcano and scheduler-plugins.
 type SchedulingPolicyApplyConfiguration struct {
-	MinAvailable           *int32           `json:"minAvailable,omitempty"`
-	Queue                  *string          `json:"queue,omitempty"`
-	MinResources           *v1.ResourceList `json:"minResources,omitempty"`
-	PriorityClass          *string          `json:"priorityClass,omitempty"`
-	ScheduleTimeoutSeconds *int32           `json:"scheduleTimeoutSeconds,omitempty"`
+	// MinAvailable defines the minimal number of member to run the PodGroup.
+	// If the gang-scheduling isn't empty, input is passed to `.spec.minMember` in PodGroup.
+	// Note that, when using this field,
+	// you need to make sure the application supports resizing (e.g., Elastic Horovod).
+	//
+	// If not set, it defaults to the number of workers.
+	MinAvailable *int32 `json:"minAvailable,omitempty"`
+	// Queue defines the queue name to allocate resource for PodGroup.
+	// If the gang-scheduling is set to the volcano,
+	// input is passed to `.spec.queue` in PodGroup for the volcano,
+	// and if it is set to the scheduler-plugins,
+	// input isn't passed to PodGroup.
+	Queue *string `json:"queue,omitempty"`
+	// MinResources defines the minimal resources of members to run the PodGroup.
+	// If the gang-scheduling isn't empty,
+	// input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.
+	MinResources *v1.ResourceList `json:"minResources,omitempty"`
+	// PriorityClass defines the PodGroup's PriorityClass.
+	// If the gang-scheduling is set to the volcano,
+	// input is passed to `.spec.priorityClassName` in PodGroup for volcano,
+	// and if it is set to the scheduler-plugins,
+	// input isn't passed to PodGroup for scheduler-plugins.
+	PriorityClass *string `json:"priorityClass,omitempty"`
+	// SchedulerTimeoutSeconds defines the maximal time of members to wait before run the PodGroup.
+	// If the gang-scheduling is set to the scheduler-plugins,
+	// input is passed to `.spec.scheduleTimeoutSeconds` in PodGroup for the scheduler-plugins,
+	// and if it is set to the volcano, input isn't passed to PodGroup.
+	ScheduleTimeoutSeconds *int32 `json:"scheduleTimeoutSeconds,omitempty"`
 }
 
 // SchedulingPolicyApplyConfiguration constructs a declarative configuration of the SchedulingPolicy type for use with

@@ -35,7 +35,7 @@ class V2beta1ReplicaStatus(object):
     openapi_types = {
         'active': 'int',
         'failed': 'int',
-        'label_selector': 'V1LabelSelector',
+        'label_selector': 'IoK8sApimachineryPkgApisMetaV1LabelSelector',
         'selector': 'str',
         'succeeded': 'int'
     }
@@ -124,7 +124,7 @@ class V2beta1ReplicaStatus(object):
 
 
         :return: The label_selector of this V2beta1ReplicaStatus.  # noqa: E501
-        :rtype: V1LabelSelector
+        :rtype: IoK8sApimachineryPkgApisMetaV1LabelSelector
         """
         return self._label_selector
 
@@ -134,7 +134,7 @@ class V2beta1ReplicaStatus(object):
 
 
         :param label_selector: The label_selector of this V2beta1ReplicaStatus.  # noqa: E501
-        :type label_selector: V1LabelSelector
+        :type label_selector: IoK8sApimachineryPkgApisMetaV1LabelSelector
         """
 
         self._label_selector = label_selector

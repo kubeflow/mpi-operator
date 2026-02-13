@@ -34,7 +34,7 @@ class V2beta1SchedulingPolicy(object):
     """
     openapi_types = {
         'min_available': 'int',
-        'min_resources': 'dict(str, ResourceQuantity)',
+        'min_resources': 'dict(str, object)',
         'priority_class': 'str',
         'queue': 'str',
         'schedule_timeout_seconds': 'int'
@@ -102,7 +102,7 @@ class V2beta1SchedulingPolicy(object):
         MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling isn't empty, input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.  # noqa: E501
 
         :return: The min_resources of this V2beta1SchedulingPolicy.  # noqa: E501
-        :rtype: dict(str, ResourceQuantity)
+        :rtype: dict(str, object)
         """
         return self._min_resources
 
@@ -113,7 +113,7 @@ class V2beta1SchedulingPolicy(object):
         MinResources defines the minimal resources of members to run the PodGroup. If the gang-scheduling isn't empty, input is passed to `.spec.minResources` in PodGroup for scheduler-plugins.  # noqa: E501
 
         :param min_resources: The min_resources of this V2beta1SchedulingPolicy.  # noqa: E501
-        :type min_resources: dict(str, ResourceQuantity)
+        :type min_resources: dict(str, object)
         """
 
         self._min_resources = min_resources
