@@ -240,7 +240,7 @@ For example `kube_pod_info * on(pod,namespace) group_left label_replace(mpi_oper
 
 ## Docker Images
 
-We push Docker images of [mpioperator on Dockerhub](https://hub.docker.com/u/mpioperator) for every release.
+We push Docker images of [mpioperator on Github Container Registry](https://github.com/orgs/kubeflow/packages?repo_name=mpi-operator) for every release.
 You can use the following Dockerfile to build the image yourself:
 
 - [mpi-operator](https://github.com/kubeflow/mpi-operator/blob/master/Dockerfile)
