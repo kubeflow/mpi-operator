@@ -385,13 +385,36 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 		t.Errorf("MPIJob missing Suspended condition")
 	}
 	if !isJobSuspended(launcherJob) {
-		t.Errorf("LauncherJob is suspended")
+		t.Errorf("LauncherJob is not suspended")
 	}
 	if mpiJob.Status.StartTime != nil {
 		t.Errorf("MPIJob has unexpected start time: %v", mpiJob.Status.StartTime)
 	}
 
 	s.events.verify(t)
+
+	// Simulate Kueue injecting scheduling directives into the MPIJob template
+	// while suspended. When resumed, these must propagate to the launcher Job.
+	launcherTemplate := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template
+	launcherTemplate.Labels = map[string]string{
+		"foo": "bar",
+	}
+	launcherTemplate.Annotations = map[string]string{
+		"kueue.x-k8s.io/workload": "my-workload",
+	}
+	launcherTemplate.Spec.NodeSelector = map[string]string{
+		"example.com/accelerator": "example-model",
+	}
+	launcherTemplate.Spec.Tolerations = []corev1.Toleration{
+		{Key: "gpu", Operator: corev1.TolerationOpEqual, Value: "true", Effect: corev1.TaintEffectNoSchedule},
+	}
+	launcherTemplate.Spec.SchedulingGates = []corev1.PodSchedulingGate{
+		{Name: "kueue.x-k8s.io/topology"},
+	}
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update the MPIJob: %v", err)
+	}
 
 	// 2. Resume the MPIJob
 	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
@@ -421,6 +444,24 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	}
 
 	s.events.verify(t)
+
+	// Verify all scheduling directives were propagated to the launcher Job's pod template.
+	launcherTmpl := &launcherJob.Spec.Template
+	if launcherTmpl.Labels["foo"] != "bar" {
+		t.Errorf("expected label 'foo=bar' on launcher Job template, got labels: %v", launcherTmpl.Labels)
+	}
+	if launcherTmpl.Annotations["kueue.x-k8s.io/workload"] != "my-workload" {
+		t.Errorf("expected annotation 'kueue.x-k8s.io/workload' on launcher Job template, got annotations: %v", launcherTmpl.Annotations)
+	}
+	if launcherTmpl.Spec.NodeSelector["example.com/accelerator"] != "example-model" {
+		t.Errorf("expected nodeSelector 'example.com/accelerator=example-model' on launcher Job template, got: %v", launcherTmpl.Spec.NodeSelector)
+	}
+	if len(launcherTmpl.Spec.Tolerations) == 0 || launcherTmpl.Spec.Tolerations[len(launcherTmpl.Spec.Tolerations)-1].Key != "gpu" {
+		t.Errorf("expected toleration with key 'gpu' on launcher Job template, got: %v", launcherTmpl.Spec.Tolerations)
+	}
+	if len(launcherTmpl.Spec.SchedulingGates) == 0 || launcherTmpl.Spec.SchedulingGates[len(launcherTmpl.Spec.SchedulingGates)-1].Name != "kueue.x-k8s.io/topology" {
+		t.Errorf("expected schedulingGate 'kueue.x-k8s.io/topology' on launcher Job template, got: %v", launcherTmpl.Spec.SchedulingGates)
+	}
 
 	// 3. Set the pods to be running
 	err = updatePodsToPhase(ctx, s.kClient, workerPods, corev1.PodRunning)
@@ -472,6 +513,25 @@ func TestMPIJobResumingAndSuspending(t *testing.T) {
 	}
 	if !mpiJobHasConditionWithStatus(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse) {
 		t.Errorf("MPIJob has unexpected Running condition")
+	}
+
+	// Update the MPIJob launcher template again and resume, verifying the
+	// launcher Job gets the updated scheduling directives on second resume.
+	mpiJobLauncherTemplate := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template
+	mpiJobLauncherTemplate.Labels["foo"] = "baz"
+	mpiJobLauncherTemplate.Spec.NodeSelector["example.com/accelerator"] = "example-model-v2"
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to update the MPIJob: %v", err)
+	}
+
+	_, launcherJob = validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 2, nil)
+	if launcherJob.Spec.Template.Labels["foo"] != "baz" {
+		t.Errorf("expected label 'foo=baz' on launcher Job template, got labels: %v", launcherJob.Spec.Template.Labels)
+	}
+	if launcherJob.Spec.Template.Spec.NodeSelector["example.com/accelerator"] != "example-model-v2" {
+		t.Errorf("expected nodeSelector 'example.com/accelerator=example-model-v2' on launcher Job template, got: %v", launcherJob.Spec.Template.Spec.NodeSelector)
 	}
 }
 

@@ -24,6 +24,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strconv"
@@ -687,9 +688,29 @@ func (c *MPIJobController) syncHandler(key string) error {
 	}
 
 	if launcher != nil {
-		if isMPIJobSuspended(mpiJob) != isJobSuspended(launcher) {
-			// align the suspension state of launcher with the MPIJob
-			launcher.Spec.Suspend = ptr.To(isMPIJobSuspended(mpiJob))
+		if !isMPIJobSuspended(mpiJob) && isJobSuspended(launcher) {
+			// We are unsuspending, hence we need to sync the pod template with the current MPIJob spec.
+			// This is important for interop with Kueue as it may have injected schedulingGates.
+			// Kubernetes validates that a Job template is immutable once StartTime is set,
+			// so we must clear it first via a status sub-resource update (consistent with JobSet).
+			if launcher.Status.StartTime != nil {
+				launcher.Status.StartTime = nil
+				var err error
+				if launcher, err = c.kubeClient.BatchV1().Jobs(namespace).UpdateStatus(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+					return err
+				}
+			}
+
+			// Sync mutable scheduling directives (KEP-2926) and unsuspend.
+			desiredPodTemplate := c.newLauncherPodTemplate(mpiJob)
+			syncLauncherSchedulingDirectives(launcher, &desiredPodTemplate)
+			launcher.Spec.Suspend = ptr.To(false)
+			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		} else if isMPIJobSuspended(mpiJob) && !isJobSuspended(launcher) {
+			// align the suspension state of launcher with the MPIJob.
+			launcher.Spec.Suspend = ptr.To(true)
 			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
@@ -1621,6 +1642,24 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 		},
 		Spec: podTemplate.Spec,
 	}
+}
+
+func mergeMaps[K comparable, V any](a, b map[K]V) map[K]V {
+	merged := make(map[K]V, max(len(a), len(b)))
+	maps.Copy(merged, a)
+	maps.Copy(merged, b)
+	return merged
+}
+
+// syncLauncherSchedulingDirectives updates the mutable scheduling directives (as per KEP-2926) on
+// the launcher Job's pod template to match the desired template.
+func syncLauncherSchedulingDirectives(launcher *batchv1.Job, desired *corev1.PodTemplateSpec) {
+	launcher.Spec.Template.Labels = mergeMaps(launcher.Spec.Template.Labels, desired.Labels)
+	launcher.Spec.Template.Annotations = mergeMaps(launcher.Spec.Template.Annotations, desired.Annotations)
+
+	launcher.Spec.Template.Spec.NodeSelector = desired.Spec.NodeSelector
+	launcher.Spec.Template.Spec.Tolerations = desired.Spec.Tolerations
+	launcher.Spec.Template.Spec.SchedulingGates = desired.Spec.SchedulingGates
 }
 
 func (c *MPIJobController) jobPods(j *batchv1.Job) ([]*corev1.Pod, error) {
