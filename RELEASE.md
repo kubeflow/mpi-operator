@@ -1,5 +1,12 @@
 # MPI Operator Releases
 
+## Release v0.8.0
+* Features:
+  * Support [Mutable Scheduling Directives for suspended Jobs](https://kubernetes.io/docs/concepts/workloads/controllers/job/#mutable-scheduling-directives-for-suspended-jobs)
+on Launcher Job, which allows us to propagate the scheduling directives from the MPIJob Launcher template to the Launcher batch/v1 Job only when in the suspended state. (#772, @GonzaloSaez)
+* Clean ups: 
+  * Upgrade Kubernetes dependencies to v1.35. (#769, @tenzen-y)
+
 ## Release v0.7.0
 * Features:
     * Support custom cluster domain in MPI hostfile generation. (#704, #707, #738, @tenzen-y)
