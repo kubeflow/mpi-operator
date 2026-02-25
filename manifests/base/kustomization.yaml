@@ -8,8 +8,8 @@ resources:
 - deployment.yaml
 - service-account.yaml
 images:
-- name: mpioperator/mpi-operator
-  newName: mpioperator/mpi-operator
+- name: ghcr.io/kubeflow/mpi-operator/controller
+  newName: ghcr.io/kubeflow/mpi-operator/controller
   newTag: latest
 labels:
 - includeSelectors: true
