@@ -181,6 +181,27 @@ func TestMPIJobSuccess(t *testing.T) {
 }
 
 func TestMPIJobWaitWorkers(t *testing.T) {
+	testcases := []struct {
+		name           string
+		startSuspended bool
+	}{
+		{
+			name:           "don't start suspended",
+			startSuspended: false,
+		},
+		{
+			name:           "start suspended",
+			startSuspended: true,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			testMpiJobWaitWorkers(t, tc.startSuspended)
+		})
+	}
+}
+
+func testMpiJobWaitWorkers(t *testing.T, startSuspended bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	s := newTestSetup(ctx, t)
@@ -195,6 +216,7 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 			SlotsPerWorker:         ptr.To[int32](1),
 			LauncherCreationPolicy: "WaitForWorkersReady",
 			RunPolicy: kubeflow.RunPolicy{
+				Suspend:        ptr.To(startSuspended),
 				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
 			},
 			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
@@ -245,9 +267,37 @@ func TestMPIJobWaitWorkers(t *testing.T) {
 	}
 	s.events.verify(t)
 
-	workerPods, err := getPodsForJob(ctx, s.kClient, mpiJob)
+	// The launcher job should not be created until all workers are ready even when we start in suspended mode.
+	job, err := getLauncherJobForMPIJob(ctx, s.kClient, mpiJob)
 	if err != nil {
-		t.Fatalf("Cannot get worker pods from job: %v", err)
+		t.Fatalf("Cannot get launcher job from job: %v", err)
+	}
+	if job != nil {
+		t.Fatalf("Launcher is created before workers")
+	}
+
+	if startSuspended {
+		// Resume the MPIJob so that the test can follow the normal path.
+		mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
+		mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatalf("Error Updating MPIJob: %v", err)
+		}
+	}
+
+	var workerPods []corev1.Pod
+	if err = wait.PollUntilContextTimeout(ctx, util.WaitInterval, wait.ForeverTestTimeout, false, func(ctx context.Context) (bool, error) {
+		var err error
+		workerPods, err = getPodsForJob(ctx, s.kClient, mpiJob)
+		if err != nil {
+			return false, err
+		}
+		if len(workerPods) != 2 {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		t.Errorf("Failed updating scheduler-plugins PodGroup: %v", err)
 	}
 
 	err = updatePodsToPhase(ctx, s.kClient, workerPods, corev1.PodRunning)
