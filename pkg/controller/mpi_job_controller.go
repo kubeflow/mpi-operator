@@ -1018,8 +1018,13 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 		// If an error occurs during Get/Create, we'll requeue the item so we
 		// can attempt processing again later. This could have been caused by a
 		// temporary network failure, or any other transient reason.
+		// But, if err is about pod spec invalid, retrying would be
+		// futile, the status of job should turn to failed.
 		if err != nil {
 			c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "worker pod created failed: %v", err)
+			if errors.IsInvalid(err) {
+				return workerPods, nil
+			}
 			return nil, err
 		}
 		// If the worker is not controlled by this MPIJob resource, we should log
@@ -1133,7 +1138,6 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		running = 0
 		evict   = 0
 	)
-
 	initializeMPIJobStatuses(mpiJob, kubeflow.MPIReplicaTypeWorker)
 	//spec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
 	for i := 0; i < len(worker); i++ {
@@ -1157,7 +1161,19 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobEvict, msg)
 	}
 
-	if isMPIJobSuspended(mpiJob) {
+	// When workerSpec != nil and workerSpec.Replicas != 0 and len(worker) == 0,
+	// pod spec must be wrong, job failed.
+	workerSpec := mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker]
+	if workerSpec != nil && len(worker) == 0 && *workerSpec.Replicas != 0 {
+		msg := "invalid pod spec"
+		c.recorder.Event(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, msg)
+		if mpiJob.Status.CompletionTime == nil {
+			now := metav1.Now()
+			mpiJob.Status.CompletionTime = &now
+		}
+		updateMPIJobConditions(mpiJob, kubeflow.JobFailed, corev1.ConditionTrue, mpiJobFailedReason, msg)
+		mpiJobsFailureCount.Inc()
+	} else if isMPIJobSuspended(mpiJob) {
 		msg := fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
 	} else if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {
