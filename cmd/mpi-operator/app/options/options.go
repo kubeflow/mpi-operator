@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/kubeflow/mpi-operator/pkg/apis/kubeflow/v2beta1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -47,6 +48,13 @@ type ServerOption struct {
 func NewServerOption() *ServerOption {
 	s := ServerOption{}
 	return &s
+}
+
+func init() {
+	klog.InitFlags(nil)
+	// Opt into fixed stderrthreshold behavior (kubernetes/klog#212).
+	_ = flag.CommandLine.Set("legacy_stderr_threshold_behavior", "false")
+	_ = flag.CommandLine.Set("stderrthreshold", "INFO")
 }
 
 // AddFlags adds flags for a specific CMServer to the specified FlagSet.
