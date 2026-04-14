@@ -40,7 +40,6 @@ func startMonitoring(monitoringPort int) {
 }
 
 func main() {
-	klog.InitFlags(nil)
 	s := options.NewServerOption()
 	s.AddFlags(flag.CommandLine)
 
