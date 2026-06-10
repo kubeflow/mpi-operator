@@ -1174,14 +1174,10 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 				Reason:  mpiJobRunningReason,
 				Message: msg,
 			}
-			if mpiJob.Status.CompletionTime != nil {
-				cond.LastTransitionTime = *mpiJob.Status.CompletionTime
-				cond.LastUpdateTime = *mpiJob.Status.CompletionTime
-			} else {
-				now := metav1.Now()
-				cond.LastTransitionTime = now
-				cond.LastUpdateTime = now
-			}
+			updateTime := ptr.Deref(mpiJob.Status.CompletionTime, metav1.NewTime(c.clock.Now()))
+			cond.LastTransitionTime = updateTime
+			cond.LastUpdateTime = updateTime
+
 			mpiJob.Status.Conditions = append(mpiJob.Status.Conditions, cond)
 		}
 	} else if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {

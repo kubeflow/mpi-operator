@@ -350,6 +350,10 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		if diff := cmp.Diff(expObject, object, ignoreSecretEntries, ignoreConditionTimes); diff != "" {
 			t.Errorf("Action %s %s has wrong object (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
+
+		if mpiJob, ok := object.(*kubeflow.MPIJob); ok {
+			assertRunningConditionNotBeforeCompletionTime(t, mpiJob)
+		}
 	case core.CreateAction:
 		e, _ := expected.(core.CreateAction)
 		expObject := e.GetObject()
@@ -366,6 +370,27 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		if diff := cmp.Diff(expPatch, patch); diff != "" {
 			t.Errorf("Action %s %s has wrong patch (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
+	}
+}
+
+func assertRunningConditionNotBeforeCompletionTime(t *testing.T, mpiJob *kubeflow.MPIJob) {
+	t.Helper()
+
+	if mpiJob == nil || mpiJob.Status.CompletionTime == nil {
+		return
+	}
+
+	running := getCondition(mpiJob.Status, kubeflow.JobRunning)
+	if running == nil {
+		return
+	}
+
+	completionTime := mpiJob.Status.CompletionTime.Time
+	if running.LastTransitionTime.Time.Before(completionTime) {
+		t.Errorf("MPIJob %s/%s Running LastTransitionTime %s is before CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastTransitionTime.Time, completionTime)
+	}
+	if running.LastUpdateTime.Time.Before(completionTime) {
+		t.Errorf("MPIJob %s/%s Running LastUpdateTime %s is before CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastUpdateTime.Time, completionTime)
 	}
 }
 
@@ -641,10 +666,11 @@ func TestLauncherSucceeded(t *testing.T) {
 // informer lag). Workers have been cleaned up. The Running condition is set to False rather than being re-emitted as True alongside
 // Succeeded.
 func TestLauncherSucceededWithRunningPod(t *testing.T) {
+	fakeClock := clocktesting.NewFakeClock(time.Now().Truncate(time.Second))
 	f := newFixture(t, "")
 
-	startTime := metav1.Now()
-	completionTime := metav1.Now()
+	startTime := metav1.NewTime(fakeClock.Now())
+	completionTime := metav1.NewTime(fakeClock.Now())
 
 	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
 	// Pre-set the Running condition to simulate a job that was running before completion.
