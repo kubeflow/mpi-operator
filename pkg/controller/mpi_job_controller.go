@@ -1542,6 +1542,14 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob) *batchv1.Job 
 			ActiveDeadlineSeconds:   mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
 			BackoffLimit:            mpiJob.Spec.RunPolicy.BackoffLimit,
 			Template:                c.newLauncherPodTemplate(mpiJob),
+			// Make sure we don't run into https://github.com/kubernetes/kubernetes/issues/115844 where
+			// terminating pods are recreated under certain conditions.
+			// This was initially fixed in https://github.com/kubernetes/kubernetes/pull/117015 which landed
+			// in 1.28. PodReplacementPolicy became GA in k8s 1.34 and the check for PodFailurePolicy was
+			// removed in the middle. Whether the workarounds work depend on the k8s version and the
+			// feature flags being active but it's the best we can do.
+			PodReplacementPolicy: ptr.To(batchv1.Failed),
+			PodFailurePolicy:     &batchv1.PodFailurePolicy{},
 		},
 	}
 	if isMPIJobSuspended(mpiJob) {
