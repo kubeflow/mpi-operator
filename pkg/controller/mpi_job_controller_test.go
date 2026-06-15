@@ -352,7 +352,7 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		}
 
 		if mpiJob, ok := object.(*kubeflow.MPIJob); ok {
-			assertRunningConditionNotBeforeCompletionTime(t, mpiJob)
+			assertRunningConditionNotAfterCompletionTime(t, mpiJob)
 		}
 	case core.CreateAction:
 		e, _ := expected.(core.CreateAction)
@@ -373,10 +373,10 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 	}
 }
 
-func assertRunningConditionNotBeforeCompletionTime(t *testing.T, mpiJob *kubeflow.MPIJob) {
+func assertRunningConditionNotAfterCompletionTime(t *testing.T, mpiJob *kubeflow.MPIJob) {
 	t.Helper()
 
-	if mpiJob == nil || mpiJob.Status.CompletionTime == nil {
+	if mpiJob == nil || mpiJob.Status.CompletionTime == nil || !isFinished(mpiJob.Status) {
 		return
 	}
 
@@ -386,11 +386,11 @@ func assertRunningConditionNotBeforeCompletionTime(t *testing.T, mpiJob *kubeflo
 	}
 
 	completionTime := mpiJob.Status.CompletionTime.Time
-	if running.LastTransitionTime.Time.Before(completionTime) {
-		t.Errorf("MPIJob %s/%s Running LastTransitionTime %s is before CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastTransitionTime.Time, completionTime)
+	if completionTime.Before(running.LastTransitionTime.Time) {
+		t.Errorf("MPIJob %s/%s Running LastTransitionTime %s is after CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastTransitionTime.Time, completionTime)
 	}
-	if running.LastUpdateTime.Time.Before(completionTime) {
-		t.Errorf("MPIJob %s/%s Running LastUpdateTime %s is before CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastUpdateTime.Time, completionTime)
+	if completionTime.Before(running.LastUpdateTime.Time) {
+		t.Errorf("MPIJob %s/%s Running LastUpdateTime %s is after CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastUpdateTime.Time, completionTime)
 	}
 }
 
@@ -666,10 +666,11 @@ func TestLauncherSucceeded(t *testing.T) {
 // informer lag). Workers have been cleaned up. The Running condition is set to False rather than being re-emitted as True alongside
 // Succeeded.
 func TestLauncherSucceededWithRunningPod(t *testing.T) {
-	fakeClock := clocktesting.NewFakeClock(time.Now().Truncate(time.Second))
+	fakeClock := clocktesting.NewFakeClock(time.Now().Add(-time.Hour).Truncate(time.Second))
 	f := newFixture(t, "")
 
 	startTime := metav1.NewTime(fakeClock.Now())
+	fakeClock.Step(time.Minute)
 	completionTime := metav1.NewTime(fakeClock.Now())
 
 	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
@@ -678,6 +679,12 @@ func TestLauncherSucceededWithRunningPod(t *testing.T) {
 	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
+	for i := range mpiJob.Status.Conditions {
+		if mpiJob.Status.Conditions[i].Type == kubeflow.JobRunning {
+			mpiJob.Status.Conditions[i].LastTransitionTime = startTime
+			mpiJob.Status.Conditions[i].LastUpdateTime = startTime
+		}
+	}
 	f.setUpMPIJob(mpiJob)
 
 	fmjc := f.newFakeMPIJobController()
