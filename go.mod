@@ -6,7 +6,7 @@ require (
 	github.com/golangci/golangci-lint/v2 v2.9.0
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.41.0
+	github.com/onsi/gomega v1.42.0
 	github.com/prometheus/client_golang v1.23.2
 	golang.org/x/crypto v0.53.0
 	golang.org/x/time v0.15.0
