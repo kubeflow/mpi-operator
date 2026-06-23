@@ -1320,9 +1320,9 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, clusterDomain s
 		name := mpiJob.Name + launcherSuffix
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		}
 	}
 
@@ -1330,9 +1330,9 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, clusterDomain s
 		name := workerName(mpiJob, i)
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		}
 	}
 
@@ -1370,11 +1370,11 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	// We don't check if launcher is running here, launcher should always be there or the job failed
 	if runLauncherAsWorker(mpiJob) {
 		name := mpiJob.Name + launcherSuffix
-		buffer.WriteString(fmt.Sprintf("echo %s\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace)))
+		fmt.Fprintf(&buffer, "echo %s\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace))
 	}
 
 	for _, p := range runningPods {
-		buffer.WriteString(fmt.Sprintf("echo %s\n", fmt.Sprintf(domainFormat, p.Name, mpiJob.Name, p.Namespace)))
+		fmt.Fprintf(&buffer, "echo %s\n", fmt.Sprintf(domainFormat, p.Name, mpiJob.Name, p.Namespace))
 	}
 
 	configMap.Data[discoverHostsScriptName] = buffer.String()
