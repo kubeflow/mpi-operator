@@ -1563,6 +1563,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: batchv1.JobSpec{
+					PodReplacementPolicy: ptr.To(batchv1.Failed),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1692,6 +1693,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					},
 				},
 				Spec: batchv1.JobSpec{
+					PodReplacementPolicy: ptr.To(batchv1.Failed),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
@@ -1862,6 +1864,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 					TTLSecondsAfterFinished: ptr.To[int32](1),
 					ActiveDeadlineSeconds:   ptr.To[int64](2),
 					BackoffLimit:            ptr.To[int32](3),
+					PodReplacementPolicy:    ptr.To(batchv1.Failed),
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{

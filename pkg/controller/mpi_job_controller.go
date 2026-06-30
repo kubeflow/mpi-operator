@@ -1562,6 +1562,9 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob) *batchv1.Job 
 			ActiveDeadlineSeconds:   mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
 			BackoffLimit:            mpiJob.Spec.RunPolicy.BackoffLimit,
 			Template:                c.newLauncherPodTemplate(mpiJob),
+			// Make sure we don't run into https://github.com/kubernetes/kubernetes/issues/115844 where
+			// terminating pods are recreated under certain conditions.
+			PodReplacementPolicy: ptr.To(batchv1.Failed),
 		},
 	}
 	if isMPIJobSuspended(mpiJob) {
