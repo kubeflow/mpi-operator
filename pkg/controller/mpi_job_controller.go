@@ -689,31 +689,37 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	if launcher != nil {
 		if !isMPIJobSuspended(mpiJob) && isJobSuspended(launcher) {
+			launcherCopy := launcher.DeepCopy()
 			// We are unsuspending, hence we need to sync the pod template with the current MPIJob spec.
 			// This is important for interop with Kueue as it may have injected schedulingGates.
 			// Kubernetes validates that a Job template is immutable once StartTime is set,
 			// so we must clear it first via a status sub-resource update (consistent with JobSet).
-			if launcher.Status.StartTime != nil {
-				launcher.Status.StartTime = nil
+			if launcherCopy.Status.StartTime != nil {
+				launcherCopy.Status.StartTime = nil
 				var err error
-				if launcher, err = c.kubeClient.BatchV1().Jobs(namespace).UpdateStatus(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+				if launcherCopy, err = c.kubeClient.BatchV1().Jobs(namespace).UpdateStatus(context.TODO(), launcherCopy, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			}
 
 			// Sync mutable scheduling directives (KEP-2926) and unsuspend.
 			desiredPodTemplate := c.newLauncherPodTemplate(mpiJob)
-			syncLauncherSchedulingDirectives(launcher, &desiredPodTemplate)
-			launcher.Spec.Suspend = ptr.To(false)
-			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+			syncLauncherSchedulingDirectives(launcherCopy, &desiredPodTemplate)
+			launcherCopy.Spec.Suspend = ptr.To(false)
+			updated, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcherCopy, metav1.UpdateOptions{})
+			if err != nil {
 				return err
 			}
+			launcher = updated
 		} else if isMPIJobSuspended(mpiJob) && !isJobSuspended(launcher) {
+			launcherCopy := launcher.DeepCopy()
 			// align the suspension state of launcher with the MPIJob.
-			launcher.Spec.Suspend = ptr.To(true)
-			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+			launcherCopy.Spec.Suspend = ptr.To(true)
+			updated, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcherCopy, metav1.UpdateOptions{})
+			if err != nil {
 				return err
 			}
+			launcher = updated
 		}
 	}
 
