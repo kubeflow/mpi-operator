@@ -1160,6 +1160,26 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	if isMPIJobSuspended(mpiJob) {
 		msg := fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
+	} else if isFinished(mpiJob.Status) {
+		// Job reached a terminal state. Do not re-emit Running=True to avoid having a LastTransition time after
+		// the completion time.
+		// If Running was never set (e.g. job completed before the operator observed it running), add Running=False
+		// using the completionTime so that consumers computing duration still find the condition and can make
+		// some guesses about the job lifecycle.
+		if getCondition(mpiJob.Status, kubeflow.JobRunning) == nil {
+			msg := fmt.Sprintf("MPIJob %s/%s is finished but Running condition was never set.", mpiJob.Namespace, mpiJob.Name)
+			cond := kubeflow.JobCondition{
+				Type:    kubeflow.JobRunning,
+				Status:  corev1.ConditionFalse,
+				Reason:  mpiJobRunningReason,
+				Message: msg,
+			}
+			updateTime := ptr.Deref(mpiJob.Status.CompletionTime, metav1.NewTime(c.clock.Now()))
+			cond.LastTransitionTime = updateTime
+			cond.LastUpdateTime = updateTime
+
+			mpiJob.Status.Conditions = append(mpiJob.Status.Conditions, cond)
+		}
 	} else if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)

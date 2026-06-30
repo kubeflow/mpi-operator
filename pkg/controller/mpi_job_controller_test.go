@@ -350,6 +350,10 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		if diff := cmp.Diff(expObject, object, ignoreSecretEntries, ignoreConditionTimes); diff != "" {
 			t.Errorf("Action %s %s has wrong object (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
+
+		if mpiJob, ok := object.(*kubeflow.MPIJob); ok {
+			assertRunningConditionNotAfterCompletionTime(t, mpiJob)
+		}
 	case core.CreateAction:
 		e, _ := expected.(core.CreateAction)
 		expObject := e.GetObject()
@@ -366,6 +370,27 @@ func checkAction(expected, actual core.Action, t *testing.T) {
 		if diff := cmp.Diff(expPatch, patch); diff != "" {
 			t.Errorf("Action %s %s has wrong patch (-want +got):\n %s", a.GetVerb(), a.GetResource().Resource, diff)
 		}
+	}
+}
+
+func assertRunningConditionNotAfterCompletionTime(t *testing.T, mpiJob *kubeflow.MPIJob) {
+	t.Helper()
+
+	if mpiJob == nil || mpiJob.Status.CompletionTime == nil || !isFinished(mpiJob.Status) {
+		return
+	}
+
+	running := getCondition(mpiJob.Status, kubeflow.JobRunning)
+	if running == nil {
+		return
+	}
+
+	completionTime := mpiJob.Status.CompletionTime.Time
+	if completionTime.Before(running.LastTransitionTime.Time) {
+		t.Errorf("MPIJob %s/%s Running LastTransitionTime %s is after CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastTransitionTime.Time, completionTime)
+	}
+	if completionTime.Before(running.LastUpdateTime.Time) {
+		t.Errorf("MPIJob %s/%s Running LastUpdateTime %s is after CompletionTime %s", mpiJob.Namespace, mpiJob.Name, running.LastUpdateTime.Time, completionTime)
 	}
 }
 
@@ -629,6 +654,79 @@ func TestLauncherSucceeded(t *testing.T) {
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
+	// Running=False is added when the job finishes without Running ever being set.
+	msg = fmt.Sprintf("MPIJob %s/%s is finished but Running condition was never set.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobRunningReason, msg)
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(t.Context(), getKey(mpiJob, t))
+}
+
+// TestLauncherSucceededWithRunningPod tests that when a launcher Job has succeeded but its pod is still observed as Running due to
+// informer lag). Workers have been cleaned up. The Running condition is set to False rather than being re-emitted as True alongside
+// Succeeded.
+func TestLauncherSucceededWithRunningPod(t *testing.T) {
+	fakeClock := clocktesting.NewFakeClock(time.Now().Add(-time.Hour).Truncate(time.Second))
+	f := newFixture(t, "")
+
+	startTime := metav1.NewTime(fakeClock.Now())
+	fakeClock.Step(time.Minute)
+	completionTime := metav1.NewTime(fakeClock.Now())
+
+	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
+	// Pre-set the Running condition to simulate a job that was running before completion.
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
+	for i := range mpiJob.Status.Conditions {
+		if mpiJob.Status.Conditions[i].Type == kubeflow.JobRunning {
+			mpiJob.Status.Conditions[i].LastTransitionTime = startTime
+			mpiJob.Status.Conditions[i].LastUpdateTime = startTime
+		}
+	}
+	f.setUpMPIJob(mpiJob)
+
+	fmjc := f.newFakeMPIJobController()
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
+	// Launcher Job has succeeded.
+	launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
+		{
+			Type:   batchv1.JobSuccessCriteriaMet,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   batchv1.JobComplete,
+			Status: corev1.ConditionTrue,
+		},
+	}...)
+	launcher.Status.StartTime = &startTime
+	launcher.Status.CompletionTime = &completionTime
+	f.setUpLauncher(launcher)
+
+	// Launcher pod is still observed as Running despite the Job having completed.
+	launcherPod := mockJobPod(launcher)
+	launcherPod.Status.Phase = corev1.PodRunning
+	f.setUpPod(launcherPod)
+
+	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
+			Active:    0,
+			Succeeded: 1,
+			Failed:    0,
+		},
+		kubeflow.MPIReplicaTypeWorker: {},
+	}
+	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+
+	msg = fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobRunningReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
 	f.run(t.Context(), getKey(mpiJob, t))
@@ -692,6 +790,9 @@ func TestLauncherFailed(t *testing.T) {
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
 	msg = "Job has reached the specified backoff limit: second message"
 	updateMPIJobConditions(mpiJobCopy, kubeflow.JobFailed, corev1.ConditionTrue, batchv1.JobReasonBackoffLimitExceeded+"/FailedReason2", msg)
+	// Running=False is added when the job finishes without Running ever being set.
+	msg = fmt.Sprintf("MPIJob %s/%s is finished but Running condition was never set.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobRunningReason, msg)
 
 	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
 
