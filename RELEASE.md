@@ -1,5 +1,12 @@
 # MPI Operator Releases
 
+## Release v0.8.1
+* Bug fixes:
+  * Fix missing DeepCopy when mutating the launcher Job, which prevents accidental mutation of the shared informer cache. (#819, @GonzaloLuminary)
+  * Prevent terminating launcher pods from being recreated. (#810, @GonzaloLuminary)
+  * Fix the Running condition being re-emitted when the pod and Job informers are out-of-sync. (#787, @GonzaloSaez)
+  * Honor `stderrthreshold` when `logtostderr` is enabled by opting into the fixed klog behavior. (#794, @pierluigilenoci)
+
 ## Release v0.8.0
 * Features:
   * Support [Mutable Scheduling Directives for suspended Jobs](https://kubernetes.io/docs/concepts/workloads/controllers/job/#mutable-scheduling-directives-for-suspended-jobs)
