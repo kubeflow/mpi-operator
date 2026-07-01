@@ -48,16 +48,15 @@ cd mpi-operator
 kustomize build manifests/overlays/kubeflow | kubectl apply -f -
 ```
 
-Note that since Kubernetes v1.14, `kustomize` became a subcommand in `kubectl` so you can also run the following command instead:
-
-Since Kubernetes v1.21, you can use:
+Note that since Kubernetes v1.14, `kustomize` became a subcommand in `kubectl`.
+Since Kubernetes v1.21, you can also use:
 
 ```bash
 kubectl apply -k manifests/overlays/kubeflow
 ```
 
 ```bash
-kubectl kustomize base | kubectl apply -f -
+kubectl kustomize manifests/overlays/kubeflow | kubectl apply -f -
 ```
 
 ## Creating an MPI Job
@@ -215,13 +214,13 @@ total images/sec: 308.27
 For a sample that uses Intel MPI, see:
 
 ```bash
-cat examples/pi/pi-intel.yaml
+cat examples/v2beta1/pi/pi-intel.yaml
 ```
 
 For a sample that uses MPICH, see:
 
 ```bash
-cat examples/pi/pi-mpich.yaml
+cat examples/v2beta1/pi/pi-mpich.yaml
 ```
 
 ## Exposed Metrics
