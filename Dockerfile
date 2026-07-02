@@ -1,4 +1,4 @@
-FROM golang:1.25 AS build
+FROM golang:1.26 AS build
 
 # Set mpi-operator version
 # Defaults to v2

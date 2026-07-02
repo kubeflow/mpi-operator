@@ -22,7 +22,7 @@ jobs:
         working-directory: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: ${{ env.GOPATH }}/src/github.com/kubeflow/mpi-operator
       - name: Setup Go
@@ -51,7 +51,7 @@ jobs:
         kubernetes-version: ["v1.32.11", "v1.33.7", "v1.34.3", "v1.35.0"]
     steps:
     - name: Clone the code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Setup Go
       uses: actions/setup-go@v6
       with:

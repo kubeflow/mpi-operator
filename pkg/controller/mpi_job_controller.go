@@ -689,31 +689,37 @@ func (c *MPIJobController) syncHandler(key string) error {
 
 	if launcher != nil {
 		if !isMPIJobSuspended(mpiJob) && isJobSuspended(launcher) {
+			launcherCopy := launcher.DeepCopy()
 			// We are unsuspending, hence we need to sync the pod template with the current MPIJob spec.
 			// This is important for interop with Kueue as it may have injected schedulingGates.
 			// Kubernetes validates that a Job template is immutable once StartTime is set,
 			// so we must clear it first via a status sub-resource update (consistent with JobSet).
-			if launcher.Status.StartTime != nil {
-				launcher.Status.StartTime = nil
+			if launcherCopy.Status.StartTime != nil {
+				launcherCopy.Status.StartTime = nil
 				var err error
-				if launcher, err = c.kubeClient.BatchV1().Jobs(namespace).UpdateStatus(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+				if launcherCopy, err = c.kubeClient.BatchV1().Jobs(namespace).UpdateStatus(context.TODO(), launcherCopy, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 			}
 
 			// Sync mutable scheduling directives (KEP-2926) and unsuspend.
 			desiredPodTemplate := c.newLauncherPodTemplate(mpiJob)
-			syncLauncherSchedulingDirectives(launcher, &desiredPodTemplate)
-			launcher.Spec.Suspend = ptr.To(false)
-			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+			syncLauncherSchedulingDirectives(launcherCopy, &desiredPodTemplate)
+			launcherCopy.Spec.Suspend = ptr.To(false)
+			updated, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcherCopy, metav1.UpdateOptions{})
+			if err != nil {
 				return err
 			}
+			launcher = updated
 		} else if isMPIJobSuspended(mpiJob) && !isJobSuspended(launcher) {
+			launcherCopy := launcher.DeepCopy()
 			// align the suspension state of launcher with the MPIJob.
-			launcher.Spec.Suspend = ptr.To(true)
-			if _, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcher, metav1.UpdateOptions{}); err != nil {
+			launcherCopy.Spec.Suspend = ptr.To(true)
+			updated, err := c.kubeClient.BatchV1().Jobs(namespace).Update(context.TODO(), launcherCopy, metav1.UpdateOptions{})
+			if err != nil {
 				return err
 			}
+			launcher = updated
 		}
 	}
 
@@ -1160,6 +1166,26 @@ func (c *MPIJobController) updateMPIJobStatus(mpiJob *kubeflow.MPIJob, launcher 
 	if isMPIJobSuspended(mpiJob) {
 		msg := fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
+	} else if isFinished(mpiJob.Status) {
+		// Job reached a terminal state. Do not re-emit Running=True to avoid having a LastTransition time after
+		// the completion time.
+		// If Running was never set (e.g. job completed before the operator observed it running), add Running=False
+		// using the completionTime so that consumers computing duration still find the condition and can make
+		// some guesses about the job lifecycle.
+		if getCondition(mpiJob.Status, kubeflow.JobRunning) == nil {
+			msg := fmt.Sprintf("MPIJob %s/%s is finished but Running condition was never set.", mpiJob.Namespace, mpiJob.Name)
+			cond := kubeflow.JobCondition{
+				Type:    kubeflow.JobRunning,
+				Status:  corev1.ConditionFalse,
+				Reason:  mpiJobRunningReason,
+				Message: msg,
+			}
+			updateTime := ptr.Deref(mpiJob.Status.CompletionTime, metav1.NewTime(c.clock.Now()))
+			cond.LastTransitionTime = updateTime
+			cond.LastUpdateTime = updateTime
+
+			mpiJob.Status.Conditions = append(mpiJob.Status.Conditions, cond)
+		}
 	} else if launcher != nil && launcherPodsCnt >= 1 && running == len(worker) {
 		msg := fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
 		updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
@@ -1320,9 +1346,9 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, clusterDomain s
 		name := mpiJob.Name + launcherSuffix
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		}
 	}
 
@@ -1330,9 +1356,9 @@ func newConfigMap(mpiJob *kubeflow.MPIJob, workerReplicas int32, clusterDomain s
 		name := workerName(mpiJob, i)
 		switch mpiJob.Spec.MPIImplementation {
 		case kubeflow.MPIImplementationOpenMPI:
-			buffer.WriteString(fmt.Sprintf("%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s slots=%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		case kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH:
-			buffer.WriteString(fmt.Sprintf("%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots))
+			fmt.Fprintf(&buffer, "%s:%d\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace), slots)
 		}
 	}
 
@@ -1370,11 +1396,11 @@ func updateDiscoverHostsInConfigMap(configMap *corev1.ConfigMap, mpiJob *kubeflo
 	// We don't check if launcher is running here, launcher should always be there or the job failed
 	if runLauncherAsWorker(mpiJob) {
 		name := mpiJob.Name + launcherSuffix
-		buffer.WriteString(fmt.Sprintf("echo %s\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace)))
+		fmt.Fprintf(&buffer, "echo %s\n", fmt.Sprintf(domainFormat, name, mpiJob.Name, mpiJob.Namespace))
 	}
 
 	for _, p := range runningPods {
-		buffer.WriteString(fmt.Sprintf("echo %s\n", fmt.Sprintf(domainFormat, p.Name, mpiJob.Name, p.Namespace)))
+		fmt.Fprintf(&buffer, "echo %s\n", fmt.Sprintf(domainFormat, p.Name, mpiJob.Name, p.Namespace))
 	}
 
 	configMap.Data[discoverHostsScriptName] = buffer.String()
@@ -1542,6 +1568,9 @@ func (c *MPIJobController) newLauncherJob(mpiJob *kubeflow.MPIJob) *batchv1.Job 
 			ActiveDeadlineSeconds:   mpiJob.Spec.RunPolicy.ActiveDeadlineSeconds,
 			BackoffLimit:            mpiJob.Spec.RunPolicy.BackoffLimit,
 			Template:                c.newLauncherPodTemplate(mpiJob),
+			// Make sure we don't run into https://github.com/kubernetes/kubernetes/issues/115844 where
+			// terminating pods are recreated under certain conditions.
+			PodReplacementPolicy: ptr.To(batchv1.Failed),
 		},
 	}
 	if isMPIJobSuspended(mpiJob) {
