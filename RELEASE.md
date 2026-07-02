@@ -1,6 +1,13 @@
 # MPI Operator Releases
 
+## Release v0.8.2
+This version is the same as v0.8.1. 
+This v0.8.2 was released due to release process changes.
+
 ## Release v0.8.1
+> [!NOTE]
+> This version was not out and the changes were shipped as the v0.8.2.
+
 * Bug fixes:
   * Fix missing DeepCopy when mutating the launcher Job, which prevents accidental mutation of the shared informer cache. (#819, @GonzaloLuminary)
   * Prevent terminating launcher pods from being recreated. (#810, @GonzaloLuminary)
