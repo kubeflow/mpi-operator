@@ -482,7 +482,7 @@ func schema_pkg_apis_kubeflow_v2beta1_RunPolicy(ref common.ReferenceCallback) co
 				Properties: map[string]spec.Schema{
 					"cleanPodPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CleanPodPolicy defines the policy to kill pods after the job completes. Default to Running.",
+							Description: "CleanPodPolicy defines the policy to kill pods after the job completes. Defaults to None.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

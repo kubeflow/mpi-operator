@@ -28,7 +28,7 @@ import (
 // active.
 type RunPolicyApplyConfiguration struct {
 	// CleanPodPolicy defines the policy to kill pods after the job completes.
-	// Default to Running.
+	// Defaults to None.
 	CleanPodPolicy *kubeflowv2beta1.CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
 	// TTLSecondsAfterFinished is the TTL to clean up jobs.
 	// It may take extra ReconcilePeriod seconds for the cleanup, since

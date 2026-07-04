@@ -8721,7 +8721,7 @@ spec:
                   cleanPodPolicy:
                     description: |-
                       CleanPodPolicy defines the policy to kill pods after the job completes.
-                      Default to Running.
+                      Defaults to None.
                     type: string
                   managedBy:
                     description: |-

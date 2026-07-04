@@ -106,7 +106,7 @@ const (
 // active.
 type RunPolicy struct {
 	// CleanPodPolicy defines the policy to kill pods after the job completes.
-	// Default to Running.
+	// Defaults to None.
 	CleanPodPolicy *CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
 
 	// TTLSecondsAfterFinished is the TTL to clean up jobs.
