@@ -60,6 +60,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions

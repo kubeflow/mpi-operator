@@ -129,6 +129,47 @@ var _ = ginkgo.Describe("MPIJob", func() {
 				})
 			})
 
+			ginkgo.When("suspended after the launcher has started", func() {
+				ginkgo.BeforeEach(func() {
+					launcher := &mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.Containers[0]
+					launcher.Command = []string{"/bin/sh", "-c"}
+					launcher.Args = []string{"sleep 10 && mpirun --allow-run-as-root -n 2 /home/mpiuser/pi"}
+				})
+				ginkgo.It("should clear the launcher startTime and succeed when resumed", func() {
+					ctx := context.Background()
+					mpiJob := createJob(ctx, mpiJob)
+
+					ginkgo.By("Waiting for the launcher Job to start (startTime set)")
+					gomega.Eventually(func() (bool, error) {
+						launcher, err := getLauncherJob(ctx, mpiJob)
+						if err != nil || launcher == nil {
+							return false, err
+						}
+						return launcher.Status.StartTime != nil, nil
+					}, foreverTimeout, waitInterval).Should(gomega.BeTrue(), "launcher Job must start")
+
+					ginkgo.By("Suspending the running MPIJob")
+					mpiJob = suspendJob(ctx, mpiJob)
+
+					ginkgo.By("Waiting for all pods to be deleted while suspended")
+					gomega.Eventually(func() (int, error) {
+						pods, err := k8sClient.CoreV1().Pods(mpiJob.Namespace).List(ctx, metav1.ListOptions{})
+						if err != nil {
+							return -1, err
+						}
+						return len(pods.Items), nil
+					}, foreverTimeout, waitInterval).Should(gomega.Equal(0))
+
+					ginkgo.By("When resuming the operator must clear the launcher Job startTime and recreate the launcher")
+					fresh, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+					gomega.Expect(err).ToNot(gomega.HaveOccurred())
+					mpiJob = resumeJob(ctx, fresh)
+
+					mpiJob = waitForCompletion(ctx, mpiJob)
+					expectConditionToBeTrue(mpiJob, kubeflow.JobSucceeded)
+				})
+			})
+
 			ginkgo.When("running with host network", func() {
 				ginkgo.BeforeEach(func() {
 					mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeLauncher].Template.Spec.HostNetwork = true
@@ -590,6 +631,21 @@ func resumeJob(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
 	mpiJob, err := mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Update(ctx, mpiJob, metav1.UpdateOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	return mpiJob
+}
+
+func suspendJob(ctx context.Context, mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
+	var latest *kubeflow.MPIJob
+	gomega.Eventually(func() bool {
+		var err error
+		latest, err = mpiClient.KubeflowV2beta1().MPIJobs(mpiJob.Namespace).Get(ctx, mpiJob.Name, metav1.GetOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		latest.Spec.RunPolicy.Suspend = ptr.To(true)
+		ginkgo.By("Suspending MPIJob")
+		latest, err = mpiClient.KubeflowV2beta1().MPIJobs(latest.Namespace).Update(ctx, latest, metav1.UpdateOptions{})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		return true
+	}).Should(gomega.BeTrue(), "MPIJob should be suspended")
+	return latest
 }
 
 func createJobAndWaitForCompletion(mpiJob *kubeflow.MPIJob) *kubeflow.MPIJob {
