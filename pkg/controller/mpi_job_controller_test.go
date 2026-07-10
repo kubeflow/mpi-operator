@@ -1581,10 +1581,11 @@ func TestWorkerReady(t *testing.T) {
 
 func TestNewLauncherAndWorker(t *testing.T) {
 	cases := map[string]struct {
-		job          kubeflow.MPIJob
-		workerIndex  int
-		wantLauncher batchv1.Job
-		wantWorker   corev1.Pod
+		job           kubeflow.MPIJob
+		clusterDomain string
+		workerIndex   int
+		wantLauncher  batchv1.Job
+		wantWorker    corev1.Pod
 	}{
 		"defaults": {
 			job: kubeflow.MPIJob{
@@ -2026,12 +2027,143 @@ func TestNewLauncherAndWorker(t *testing.T) {
 				},
 			},
 		},
+		"worker uses configured cluster domain for launcher hostname resolution": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "custom-domain",
+					Namespace: "tenant-a",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					MPIImplementation: kubeflow.MPIImplementationIntel,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+			clusterDomain: "kube.local",
+			wantLauncher: batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "custom-domain-launcher",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						"app": "custom-domain",
+					},
+				},
+				Spec: batchv1.JobSpec{
+					PodReplacementPolicy: ptr.To(batchv1.Failed),
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+								kubeflow.JobNameLabel:      "custom-domain",
+								kubeflow.JobRoleLabel:      "launcher",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Hostname:      "custom-domain-launcher",
+							Subdomain:     "custom-domain",
+							RestartPolicy: corev1.RestartPolicyOnFailure,
+							Containers: []corev1.Container{
+								{
+									Env: joinEnvVars(
+										launcherEnvVars,
+										intelEnvVars,
+										corev1.EnvVar{Name: intelMPISlotsEnv, Value: "1"},
+										nvidiaDisableEnvVars),
+									VolumeMounts: []corev1.VolumeMount{
+										{Name: "ssh-auth", MountPath: "/root/.ssh"},
+										{Name: "mpi-job-config", MountPath: "/etc/mpi"},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "ssh-auth",
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
+											DefaultMode: ptr.To[int32](0600),
+											SecretName:  "custom-domain-ssh",
+											Items:       sshVolumeItems,
+										},
+									},
+								},
+								{
+									Name: "mpi-job-config",
+									VolumeSource: corev1.VolumeSource{
+										ConfigMap: &corev1.ConfigMapVolumeSource{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "custom-domain-config",
+											},
+											Items: configVolumeItems,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantWorker: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "custom-domain-worker-0",
+					Namespace: "tenant-a",
+					Labels: map[string]string{
+						kubeflow.OperatorNameLabel: kubeflow.OperatorName,
+						kubeflow.JobNameLabel:      "custom-domain",
+						kubeflow.JobRoleLabel:      "worker",
+						kubeflow.ReplicaIndexLabel: "0",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Hostname:  "custom-domain-worker-0",
+					Subdomain: "custom-domain",
+					DNSConfig: &corev1.PodDNSConfig{
+						Searches: []string{"custom-domain.tenant-a.svc.kube.local"},
+					},
+					RestartPolicy: corev1.RestartPolicyNever,
+					Containers: []corev1.Container{
+						{
+							Command: []string{"/usr/sbin/sshd", "-De"},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "ssh-auth", MountPath: "/root/.ssh"},
+							},
+							Env: workerEnvVars,
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "ssh-auth",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									DefaultMode: ptr.To[int32](0600),
+									SecretName:  "custom-domain-ssh",
+									Items:       sshVolumeItems,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			job := tc.job.DeepCopy()
 			scheme.Scheme.Default(job)
-			ctrl := &MPIJobController{}
+			ctrl := &MPIJobController{clusterDomain: tc.clusterDomain}
 			launcher := ctrl.newLauncherJob(job)
 			if !metav1.IsControlledBy(launcher, job) {
 				t.Errorf("Created launcher Pod is not controlled by Job")

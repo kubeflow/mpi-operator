@@ -1517,7 +1517,11 @@ func (c *MPIJobController) newWorker(mpiJob *kubeflow.MPIJob, index int) *corev1
 		podTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
 	}
 	// The Intel and MPICH implementations require workers to communicate with the launcher through its hostname.
-	searche := fmt.Sprintf("%s.%s.svc.cluster.local", mpiJob.Name, mpiJob.Namespace)
+	searchDomain := "%s.%s.svc.cluster.local"
+	if c.clusterDomain != "" {
+		searchDomain = fmt.Sprintf("%%s.%%s.svc.%s", c.clusterDomain)
+	}
+	searche := fmt.Sprintf(searchDomain, mpiJob.Name, mpiJob.Namespace)
 	if podTemplate.Spec.DNSConfig == nil {
 		podTemplate.Spec.DNSConfig = &corev1.PodDNSConfig{Searches: []string{searche}}
 	} else {
