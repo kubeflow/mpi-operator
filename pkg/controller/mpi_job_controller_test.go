@@ -608,6 +608,49 @@ func TestAllResourcesCreated(t *testing.T) {
 	}
 }
 
+func TestAllResourcesCreatedForLauncherAsWorkerWithDefaultedZeroWorkers(t *testing.T) {
+	f := newFixture(t, "")
+	now := metav1.Now()
+	mpiJob := newMPIJob("foo", nil, &now, nil)
+	mpiJob.Spec.RunLauncherAsWorker = ptr.To(true)
+	mpiJob.Spec.MPIReplicaSpecs[kubeflow.MPIReplicaTypeWorker] = &kubeflow.ReplicaSpec{
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "foo",
+						Image: "bar",
+					},
+				},
+			},
+		},
+	}
+	f.setUpMPIJob(mpiJob)
+
+	fmjc := f.newFakeMPIJobController()
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	f.expectCreateServiceAction(newJobService(mpiJobCopy))
+	cfgMap := newConfigMap(mpiJobCopy, 0, "")
+	updateDiscoverHostsInConfigMap(cfgMap, mpiJobCopy, nil, "")
+	f.expectCreateConfigMapAction(cfgMap)
+	secret, err := newSSHAuthSecret(mpiJobCopy)
+	if err != nil {
+		t.Fatalf("Failed creating secret")
+	}
+	f.expectCreateSecretAction(secret)
+	f.expectCreateJobAction(fmjc.newLauncherJob(mpiJobCopy))
+
+	mpiJobCopy.Status.Conditions = []kubeflow.JobCondition{newCondition(kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, "MPIJob default/foo is created.")}
+	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	}
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(t.Context(), getKey(mpiJob, t))
+}
+
 func TestLauncherNotControlledByUs(t *testing.T) {
 	f := newFixture(t, "")
 	startTime := metav1.Now()
