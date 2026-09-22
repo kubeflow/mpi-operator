@@ -1160,6 +1160,138 @@ func TestResumeMPIJob(t *testing.T) {
 	f.runWithClock(t.Context(), getKey(mpiJob, t), fakeClock)
 }
 
+func TestResumeMPIJobWithWaitForWorkersReady(t *testing.T) {
+	fakeClock := clocktesting.NewFakeClock(time.Now().Truncate(time.Second))
+	f := newFixture(t, "")
+
+	// create a suspended job that waits for the workers to be ready
+	var replicas int32 = 8
+	startTime := metav1.Now()
+	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
+	mpiJob.Spec.LauncherCreationPolicy = kubeflow.LauncherCreationPolicyWaitForWorkersReady
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
+	msg = fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
+	mpiJob.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	}
+	f.setUpMPIJob(mpiJob)
+
+	scheme.Scheme.Default(mpiJob)
+	f.expectCreateServiceAction(newJobService(mpiJob))
+	cfgMap := newConfigMap(mpiJob, replicas, "")
+	updateDiscoverHostsInConfigMap(cfgMap, mpiJob, nil, "")
+	f.setUpConfigMap(cfgMap)
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Failed creating secret")
+	}
+	f.setUpSecret(secret)
+
+	fmjc := f.newFakeMPIJobController()
+	launcher := fmjc.newLauncherJob(mpiJob)
+	launcher.Spec.Suspend = ptr.To(true)
+	f.setUpLauncher(launcher)
+
+	// move the timer by a second so that the StartTime is updated after resume
+	fakeClock.Sleep(time.Second)
+
+	// resume the MPIJob
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
+
+	// expect creation of the worker pods
+	for i := 0; i < int(replicas); i++ {
+		worker := fmjc.newWorker(mpiJob, i)
+		f.kubeActions = append(f.kubeActions, core.NewCreateAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, worker))
+	}
+
+	// the launcher must stay suspended: the worker Pods were just created and
+	// aren't ready yet.
+
+	// expect an update to add the conditions
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.StartTime = &metav1.Time{Time: fakeClock.Now()}
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, corev1.ConditionFalse, "MPIJobResumed", "MPIJob resumed")
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.runWithClock(t.Context(), getKey(mpiJob, t), fakeClock)
+}
+
+func TestResumeMPIJobWithWaitForWorkersReadyAndReadyWorkers(t *testing.T) {
+	fakeClock := clocktesting.NewFakeClock(time.Now().Truncate(time.Second))
+	f := newFixture(t, "")
+
+	// create a suspended job that waits for the workers to be ready
+	var replicas int32 = 8
+	startTime := metav1.Now()
+	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(true)
+	mpiJob.Spec.LauncherCreationPolicy = kubeflow.LauncherCreationPolicyWaitForWorkersReady
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSuspended, corev1.ConditionTrue, mpiJobSuspendedReason, "MPIJob suspended")
+	msg = fmt.Sprintf("MPIJob %s/%s is suspended.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobRunning, corev1.ConditionFalse, mpiJobSuspendedReason, msg)
+	mpiJob.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	}
+	f.setUpMPIJob(mpiJob)
+
+	scheme.Scheme.Default(mpiJob)
+	f.expectCreateServiceAction(newJobService(mpiJob))
+	secret, err := newSSHAuthSecret(mpiJob)
+	if err != nil {
+		t.Fatalf("Failed creating secret")
+	}
+	f.setUpSecret(secret)
+
+	fmjc := f.newFakeMPIJobController()
+	launcher := fmjc.newLauncherJob(mpiJob)
+	launcher.Spec.Suspend = ptr.To(true)
+	f.setUpLauncher(launcher)
+
+	// move the timer by a second so that the StartTime is updated after resume
+	fakeClock.Sleep(time.Second)
+
+	// resume the MPIJob, with all the worker Pods already running and ready
+	mpiJob.Spec.RunPolicy.Suspend = ptr.To(false)
+	var runningPodList []*corev1.Pod
+	for i := 0; i < int(replicas); i++ {
+		worker := fmjc.newWorker(mpiJob, i)
+		worker.Status.Phase = corev1.PodRunning
+		worker.Status.Conditions = []corev1.PodCondition{{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
+		}}
+		runningPodList = append(runningPodList, worker)
+		f.setUpPod(worker)
+	}
+	cfgMap := newConfigMap(mpiJob, replicas, "")
+	updateDiscoverHostsInConfigMap(cfgMap, mpiJob, runningPodList, "")
+	f.setUpConfigMap(cfgMap)
+
+	// expect the launcher update to sync scheduling directives and resume it
+	launcherCopy := launcher.DeepCopy()
+	desiredPodTemplate := fmjc.newLauncherPodTemplate(mpiJob)
+	syncLauncherSchedulingDirectives(launcherCopy, &desiredPodTemplate)
+	launcherCopy.Spec.Suspend = ptr.To(false)
+	f.expectUpdateJobAction(launcherCopy)
+
+	// expect an update to add the conditions
+	mpiJobCopy := mpiJob.DeepCopy()
+	mpiJobCopy.Status.StartTime = &metav1.Time{Time: fakeClock.Now()}
+	mpiJobCopy.Status.ReplicaStatuses[kubeflow.MPIReplicaTypeWorker].Active = replicas
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobSuspended, corev1.ConditionFalse, "MPIJobResumed", "MPIJob resumed")
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.runWithClock(t.Context(), getKey(mpiJob, t), fakeClock)
+}
+
 func TestUnsuspendLauncherUpdateFailureDoesNotPoisonCache(t *testing.T) {
 	f := newFixture(t, "")
 	f.kubeReactors = append(f.kubeReactors, reactor{"update", "jobs",

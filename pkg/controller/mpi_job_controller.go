@@ -675,7 +675,7 @@ func (c *MPIJobController) syncHandler(key string) error {
 			}
 		}
 		if launcher == nil {
-			if mpiJob.Spec.LauncherCreationPolicy == kubeflow.LauncherCreationPolicyAtStartup || c.countReadyWorkerPods(worker) == len(worker) {
+			if c.launcherCanStart(mpiJob, worker) {
 				launcher, err = c.kubeClient.BatchV1().Jobs(namespace).Create(context.TODO(), c.newLauncherJob(mpiJob), metav1.CreateOptions{})
 				if err != nil {
 					c.recorder.Eventf(mpiJob, corev1.EventTypeWarning, mpiJobFailedReason, "launcher pod created failed: %v", err)
@@ -688,7 +688,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 	}
 
 	if launcher != nil {
-		if !isMPIJobSuspended(mpiJob) && isJobSuspended(launcher) {
+		// The launcher Job is created upfront, even for a suspended MPIJob, but it
+		// is only unsuspended once the LauncherCreationPolicy allows it to start.
+		if !isMPIJobSuspended(mpiJob) && isJobSuspended(launcher) && c.launcherCanStart(mpiJob, worker) {
 			launcherCopy := launcher.DeepCopy()
 			// We are unsuspending, hence we need to sync the pod template with the current MPIJob spec.
 			// This is important for interop with Kueue as it may have injected schedulingGates.
@@ -855,6 +857,17 @@ func (c *MPIJobController) getRunningWorkerPods(mpiJob *kubeflow.MPIJob) ([]*cor
 	}
 
 	return podList, nil
+}
+
+// launcherCanStart returns whether the launcher Job of the given MPIJob is
+// allowed to run its Pod, according to the LauncherCreationPolicy. With
+// LauncherCreationPolicyWaitForWorkersReady, the launcher must not start
+// before all the worker Pods are ready.
+func (c *MPIJobController) launcherCanStart(mpiJob *kubeflow.MPIJob, worker []*corev1.Pod) bool {
+	if mpiJob.Spec.LauncherCreationPolicy == kubeflow.LauncherCreationPolicyAtStartup {
+		return true
+	}
+	return c.countReadyWorkerPods(worker) == len(worker)
 }
 
 func (c *MPIJobController) countReadyWorkerPods(workers []*corev1.Pod) int {
