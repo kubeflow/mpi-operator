@@ -42,6 +42,9 @@ spec:
                 description: launcherCreationPolicy if WaitForWorkersReady, the launcher
                   is created only after all workers are in Ready state. Defaults to
                   AtStartup.
+                enum:
+                - AtStartup
+                - WaitForWorkersReady
                 type: string
               mpiImplementation:
                 default: OpenMPI
