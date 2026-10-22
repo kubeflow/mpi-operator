@@ -153,6 +153,42 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
+		"valid with zero workers when launcher acts as worker": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					RunLauncherAsWorker: ptr.To(true),
+					SlotsPerWorker:      ptr.To[int32](2),
+					RunPolicy: kubeflow.RunPolicy{
+						CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
+					},
+					SSHAuthMountPath:  "/root/.ssh",
+					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Replicas:      ptr.To[int32](1),
+							RestartPolicy: kubeflow.RestartPolicyOnFailure,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Replicas:      ptr.To[int32](0),
+							RestartPolicy: kubeflow.RestartPolicyNever,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"empty job": {
 			wantErrs: field.ErrorList{
 				&field.Error{
@@ -373,6 +409,45 @@ func TestValidateMPIJob(t *testing.T) {
 				},
 			},
 		},
+		"invalid zero workers without launcher-as-worker": {
+			job: kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker: ptr.To[int32](2),
+					RunPolicy: kubeflow.RunPolicy{
+						CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
+					},
+					SSHAuthMountPath:  "/root/.ssh",
+					MPIImplementation: kubeflow.MPIImplementationOpenMPI,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Replicas:      ptr.To[int32](1),
+							RestartPolicy: kubeflow.RestartPolicyOnFailure,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Replicas:      ptr.To[int32](0),
+							RestartPolicy: kubeflow.RestartPolicyNever,
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrs: field.ErrorList{{
+				Type:  field.ErrorTypeInvalid,
+				Field: "spec.mpiReplicaSpecs[Worker].replicas",
+			}},
+		},
 		"invalid mpiJob name": {
 			job: kubeflow.MPIJob{
 				ObjectMeta: metav1.ObjectMeta{
@@ -411,5 +486,38 @@ func TestValidateMPIJob(t *testing.T) {
 				t.Errorf("Unexpected errors (-want,+got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestValidateMPIJob_AllowsDefaultedZeroWorkersForLauncherAsWorker(t *testing.T) {
+	job := kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+		},
+		Spec: kubeflow.MPIJobSpec{
+			RunLauncherAsWorker: ptr.To(true),
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{}},
+						},
+					},
+				},
+				kubeflow.MPIReplicaTypeWorker: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	kubeflow.SetDefaults_MPIJob(&job)
+
+	if errs := ValidateMPIJob(&job); len(errs) != 0 {
+		t.Fatalf("ValidateMPIJob returned unexpected errors after defaulting: %v", errs)
 	}
 }

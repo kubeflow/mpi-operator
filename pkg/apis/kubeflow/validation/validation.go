@@ -68,7 +68,7 @@ func validateMPIJobName(job *kubeflow.MPIJob) field.ErrorList {
 }
 
 func validateMPIJobSpec(spec *kubeflow.MPIJobSpec, path *field.Path) field.ErrorList {
-	errs := validateMPIReplicaSpecs(spec.MPIReplicaSpecs, path.Child("mpiReplicaSpecs"))
+	errs := validateMPIReplicaSpecs(spec.MPIReplicaSpecs, path.Child("mpiReplicaSpecs"), spec.RunLauncherAsWorker != nil && *spec.RunLauncherAsWorker)
 	if spec.SlotsPerWorker == nil {
 		errs = append(errs, field.Required(path.Child("slotsPerWorker"), "must have number of slots per worker"))
 	} else {
@@ -109,14 +109,14 @@ func validateRunPolicy(policy *kubeflow.RunPolicy, path *field.Path) field.Error
 	return errs
 }
 
-func validateMPIReplicaSpecs(replicaSpecs map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateMPIReplicaSpecs(replicaSpecs map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec, path *field.Path, runLauncherAsWorker bool) field.ErrorList {
 	var errs field.ErrorList
 	if replicaSpecs == nil {
 		errs = append(errs, field.Required(path, "must have replica specs"))
 		return errs
 	}
 	errs = append(errs, validateLauncherReplicaSpec(replicaSpecs[kubeflow.MPIReplicaTypeLauncher], path.Key(string(kubeflow.MPIReplicaTypeLauncher)))...)
-	errs = append(errs, validateWorkerReplicaSpec(replicaSpecs[kubeflow.MPIReplicaTypeWorker], path.Key(string(kubeflow.MPIReplicaTypeWorker)))...)
+	errs = append(errs, validateWorkerReplicaSpec(replicaSpecs[kubeflow.MPIReplicaTypeWorker], path.Key(string(kubeflow.MPIReplicaTypeWorker)), runLauncherAsWorker)...)
 	return errs
 }
 
@@ -133,14 +133,19 @@ func validateLauncherReplicaSpec(spec *kubeflow.ReplicaSpec, path *field.Path) f
 	return errs
 }
 
-func validateWorkerReplicaSpec(spec *kubeflow.ReplicaSpec, path *field.Path) field.ErrorList {
+func validateWorkerReplicaSpec(spec *kubeflow.ReplicaSpec, path *field.Path, runLauncherAsWorker bool) field.ErrorList {
 	var errs field.ErrorList
 	if spec == nil {
 		return errs
 	}
 	errs = append(errs, validateReplicaSpec(spec, path)...)
-	if spec.Replicas != nil && *spec.Replicas <= 0 {
-		errs = append(errs, field.Invalid(path.Child("replicas"), *spec.Replicas, "must be greater than or equal to 1"))
+	if spec.Replicas != nil {
+		if *spec.Replicas < 0 {
+			errs = append(errs, field.Invalid(path.Child("replicas"), *spec.Replicas, "must be greater than or equal to 0"))
+		}
+		if *spec.Replicas == 0 && !runLauncherAsWorker {
+			errs = append(errs, field.Invalid(path.Child("replicas"), *spec.Replicas, "must be greater than or equal to 1 unless runLauncherAsWorker is true"))
+		}
 	}
 	return errs
 }
