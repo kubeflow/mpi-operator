@@ -627,6 +627,9 @@ func (c *MPIJobController) syncHandler(key string) error {
 			if err := cleanUpWorkerPods(mpiJob, c); err != nil {
 				return err
 			}
+			if err := c.deleteLauncherPods(mpiJob); err != nil {
+				return err
+			}
 			return c.updateStatusHandler(mpiJob)
 		}
 		return nil
@@ -1085,6 +1088,43 @@ func (c *MPIJobController) deleteWorkerPods(mpiJob *kubeflow.MPIJob) error {
 		err = c.kubeClient.CoreV1().Pods(mpiJob.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 		if err != nil && !apierrors.IsNotFound(err) {
 			klog.Errorf("Failed to delete pod[%s/%s]: %v", mpiJob.Namespace, name, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// deleteLauncherPods deletes the Pods of the launcher Job once the MPIJob has
+// finished, following the same CleanPodPolicy rules as deleteWorkerPods:
+// with CleanPodPolicyAll every launcher Pod is removed, and with
+// CleanPodPolicyRunning only the Pods that are still running or pending are.
+// The launcher Job itself is kept, so its status stays available.
+func (c *MPIJobController) deleteLauncherPods(mpiJob *kubeflow.MPIJob) error {
+	launcher, err := c.jobLister.Jobs(mpiJob.Namespace).Get(mpiJob.Name + launcherSuffix)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	// Leave a launcher Job that doesn't belong to this MPIJob alone.
+	if !metav1.IsControlledBy(launcher, mpiJob) {
+		return nil
+	}
+	pods, err := c.jobPods(launcher)
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		if *mpiJob.Spec.RunPolicy.CleanPodPolicy == kubeflow.CleanPodPolicyRunning && !isPodRunning(pod) && !isPodPending(pod) {
+			continue
+		}
+		err := c.kubeClient.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			klog.Errorf("Failed to delete pod[%s/%s]: %v", pod.Namespace, pod.Name, err)
 			return err
 		}
 	}
