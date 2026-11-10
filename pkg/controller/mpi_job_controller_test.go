@@ -1579,6 +1579,74 @@ func TestWorkerReady(t *testing.T) {
 	f.run(t.Context(), getKey(mpiJob, t))
 }
 
+func TestScaleDownWorkersWithRunLauncherAsWorker(t *testing.T) {
+	f := newFixture(t, "")
+	startTime := metav1.Now()
+
+	// The MPIJob was scaled down from 2 workers to 1 worker.
+	var replicas int32 = 1
+	mpiJob := newMPIJob("test", &replicas, &startTime, nil)
+	mpiJob.Spec.RunLauncherAsWorker = ptr.To(true)
+	f.setUpMPIJob(mpiJob)
+
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	f.setUpService(newJobService(mpiJobCopy))
+	secret, err := newSSHAuthSecret(mpiJobCopy)
+	if err != nil {
+		t.Fatalf("Creating SSH auth secret: %v", err)
+	}
+	f.setUpSecret(secret)
+
+	fmjc := f.newFakeMPIJobController()
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
+	launcherPod := mockJobPod(launcher)
+	launcherPod.Status.Phase = corev1.PodRunning
+	f.setUpLauncher(launcher)
+	f.setUpPod(launcherPod)
+
+	var runningPodList []*corev1.Pod
+	for i := 0; i < 2; i++ {
+		worker := fmjc.newWorker(mpiJobCopy, i)
+		worker.Status.Phase = corev1.PodRunning
+		runningPodList = append(runningPodList, worker)
+		f.setUpPod(worker)
+	}
+
+	configMap := newConfigMap(mpiJobCopy, replicas, "")
+	updateDiscoverHostsInConfigMap(configMap, mpiJobCopy, runningPodList, "")
+	f.setUpConfigMap(configMap)
+
+	// Only the worker that is out of range is removed.
+	f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, workerName(mpiJob, 1)))
+
+	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {
+			Active: 1,
+		},
+		kubeflow.MPIReplicaTypeWorker: {
+			Active: 1,
+		},
+	}
+	msg := fmt.Sprintf("MPIJob %s/%s is created.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobCreated, corev1.ConditionTrue, mpiJobCreatedReason, msg)
+	msg = fmt.Sprintf("MPIJob %s/%s is running.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJobCopy, kubeflow.JobRunning, corev1.ConditionTrue, mpiJobRunningReason, msg)
+	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+	f.run(t.Context(), getKey(mpiJob, t))
+
+	var deleted []string
+	for _, action := range filterInformerActions(f.kubeClient.Actions()) {
+		if deleteAction, ok := action.(core.DeleteAction); ok {
+			deleted = append(deleted, deleteAction.GetName())
+		}
+	}
+	if diff := cmp.Diff([]string{workerName(mpiJob, 1)}, deleted); diff != "" {
+		t.Errorf("Unexpected deleted Pods (-want,+got):\n%s", diff)
+	}
+}
+
 func TestNewLauncherAndWorker(t *testing.T) {
 	cases := map[string]struct {
 		job           kubeflow.MPIJob
