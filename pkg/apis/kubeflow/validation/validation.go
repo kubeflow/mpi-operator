@@ -101,6 +101,9 @@ func validateRunPolicy(policy *kubeflow.RunPolicy, path *field.Path) field.Error
 	if policy.BackoffLimit != nil {
 		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.BackoffLimit), path.Child("backoffLimit"))...)
 	}
+	if policy.SchedulingPolicy != nil && policy.SchedulingPolicy.MinAvailable != nil {
+		errs = append(errs, apivalidation.ValidateNonnegativeField(int64(*policy.SchedulingPolicy.MinAvailable), path.Child("schedulingPolicy", "minAvailable"))...)
+	}
 	if policy.ManagedBy != nil {
 		if !validManagedBy.Has(*policy.ManagedBy) {
 			errs = append(errs, field.NotSupported(path.Child("managedBy"), *policy.ManagedBy, validManagedBy.List()))
