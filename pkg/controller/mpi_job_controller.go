@@ -115,6 +115,7 @@ const (
 	eventMessageLimit = 1024
 
 	openMPISlotsEnv  = "OMPI_MCA_orte_set_default_slots"
+	prteSlotsEnv     = "PRTE_MCA_prte_set_default_slots"
 	intelMPISlotsEnv = "I_MPI_PERHOST"
 )
 
@@ -178,6 +179,9 @@ var (
 			Value: worker,
 		},
 	}
+	// Open MPI 5 replaced the ORTE runtime with PRRTE, which ignores the
+	// OMPI_MCA_orte_* variables. Set both families: Open MPI 4 reads the ORTE
+	// names and Open MPI 5 reads the PRTE ones.
 	ompiEnvVars = []corev1.EnvVar{
 		// Allows driver to reach workers through the Service.
 		{
@@ -190,6 +194,21 @@ var (
 		},
 		{
 			Name:  "OMPI_MCA_plm_rsh_args",
+			Value: "-o ConnectionAttempts=10",
+		},
+		// Unlike ORTE, PRTE does not match the launcher's own hostfile entry
+		// (its Service FQDN) against its short hostname when FQDNs are kept,
+		// so with runLauncherAsWorker it tries to SSH to itself and fails.
+		{
+			Name:  "PRTE_MCA_prte_keep_fqdn_hostnames",
+			Value: "false",
+		},
+		{
+			Name:  "PRTE_MCA_prte_default_hostfile",
+			Value: fmt.Sprintf("%s/%s", configMountPath, hostfileName),
+		},
+		{
+			Name:  "PRTE_MCA_plm_ssh_args",
 			Value: "-o ConnectionAttempts=10",
 		},
 	}
@@ -1617,10 +1636,10 @@ func (c *MPIJobController) newLauncherPodTemplate(mpiJob *kubeflow.MPIJob) corev
 	switch mpiJob.Spec.MPIImplementation {
 	case kubeflow.MPIImplementationOpenMPI:
 		container.Env = append(container.Env, ompiEnvVars...)
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  openMPISlotsEnv,
-			Value: slotsStr,
-		})
+		container.Env = append(container.Env,
+			corev1.EnvVar{Name: openMPISlotsEnv, Value: slotsStr},
+			corev1.EnvVar{Name: prteSlotsEnv, Value: slotsStr},
+		)
 	case kubeflow.MPIImplementationIntel:
 		container.Env = append(container.Env, intelEnvVars...)
 		container.Env = append(container.Env, corev1.EnvVar{

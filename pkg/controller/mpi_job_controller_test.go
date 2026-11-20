@@ -1640,6 +1640,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 										launcherEnvVars,
 										ompiEnvVars,
 										corev1.EnvVar{Name: openMPISlotsEnv, Value: "1"},
+										corev1.EnvVar{Name: prteSlotsEnv, Value: "1"},
 										nvidiaDisableEnvVars),
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "ssh-auth", MountPath: "/root/.ssh"},
@@ -1771,6 +1772,7 @@ func TestNewLauncherAndWorker(t *testing.T) {
 										launcherEnvVars,
 										ompiEnvVars,
 										corev1.EnvVar{Name: openMPISlotsEnv, Value: "1"},
+										corev1.EnvVar{Name: prteSlotsEnv, Value: "1"},
 									),
 									VolumeMounts: []corev1.VolumeMount{
 										{Name: "ssh-auth", MountPath: "/root/.ssh"},
@@ -2177,6 +2179,90 @@ func TestNewLauncherAndWorker(t *testing.T) {
 			}
 			if diff := cmp.Diff(&tc.wantWorker, worker, ignoreReferences); diff != "" {
 				t.Errorf("Unexpected launcher pod (-want,+got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestNewLauncherOpenMPIEnvVars checks the literal names of the environment
+// variables that point mpirun at the hostfile. TestNewLauncherAndWorker builds
+// its expectations from ompiEnvVars itself, so it cannot catch a name that the
+// MPI runtime does not recognize.
+func TestNewLauncherOpenMPIEnvVars(t *testing.T) {
+	cases := map[string]struct {
+		implementation kubeflow.MPIImplementation
+		wantEnv        map[string]string
+		wantAbsent     []string
+	}{
+		"OpenMPI gets both the ORTE (Open MPI 4) and PRTE (Open MPI 5) variables": {
+			implementation: kubeflow.MPIImplementationOpenMPI,
+			wantEnv: map[string]string{
+				"OMPI_MCA_orte_keep_fqdn_hostnames": "true",
+				"OMPI_MCA_orte_default_hostfile":    "/etc/mpi/hostfile",
+				"OMPI_MCA_orte_set_default_slots":   "2",
+				"OMPI_MCA_plm_rsh_args":             "-o ConnectionAttempts=10",
+				"PRTE_MCA_prte_keep_fqdn_hostnames": "false",
+				"PRTE_MCA_prte_default_hostfile":    "/etc/mpi/hostfile",
+				"PRTE_MCA_prte_set_default_slots":   "2",
+				"PRTE_MCA_plm_ssh_args":             "-o ConnectionAttempts=10",
+			},
+		},
+		"IntelMPI does not get Open MPI variables": {
+			implementation: kubeflow.MPIImplementationIntel,
+			wantAbsent: []string{
+				"OMPI_MCA_orte_default_hostfile",
+				"PRTE_MCA_prte_default_hostfile",
+			},
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			job := &kubeflow.MPIJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: kubeflow.MPIJobSpec{
+					SlotsPerWorker:    ptr.To[int32](2),
+					MPIImplementation: tc.implementation,
+					MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+						kubeflow.MPIReplicaTypeLauncher: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+						kubeflow.MPIReplicaTypeWorker: {
+							Template: corev1.PodTemplateSpec{
+								Spec: corev1.PodSpec{
+									Containers: []corev1.Container{{}},
+								},
+							},
+						},
+					},
+				},
+			}
+			scheme.Scheme.Default(job)
+			ctrl := &MPIJobController{}
+			podTemplate := ctrl.newLauncherPodTemplate(job)
+
+			got := make(map[string]string)
+			for _, ev := range podTemplate.Spec.Containers[0].Env {
+				got[ev.Name] = ev.Value
+			}
+			for envName, want := range tc.wantEnv {
+				value, ok := got[envName]
+				if !ok {
+					t.Errorf("launcher is missing env var %s", envName)
+				} else if value != want {
+					t.Errorf("env var %s = %q, want %q", envName, value, want)
+				}
+			}
+			for _, envName := range tc.wantAbsent {
+				if _, ok := got[envName]; ok {
+					t.Errorf("launcher has unexpected env var %s", envName)
+				}
 			}
 		})
 	}
