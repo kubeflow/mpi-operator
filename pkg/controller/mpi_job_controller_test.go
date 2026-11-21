@@ -2736,3 +2736,145 @@ func (f *fixture) newFakeMPIJobController() *MPIJobController {
 		podLister: k8sI.Core().V1().Pods().Lister(),
 	}
 }
+
+// newWorkerScalingController creates a controller with the supplied worker Pods
+// in both the fake Kubernetes client and the informer cache.
+func newWorkerScalingController(
+	t *testing.T, pods []*corev1.Pod,
+) (*MPIJobController, *k8sfake.Clientset) {
+	t.Helper()
+
+	kubeObjects := make([]runtime.Object, 0, len(pods))
+	for _, pod := range pods {
+		kubeObjects = append(kubeObjects, pod.DeepCopy())
+	}
+	kubeClient := k8sfake.NewSimpleClientset(kubeObjects...)
+	podInformer := kubeinformers.NewSharedInformerFactory(
+		kubeClient, noResyncPeriodFunc(),
+	).Core().V1().Pods()
+	for _, pod := range pods {
+		if err := podInformer.Informer().GetIndexer().Add(pod.DeepCopy()); err != nil {
+			t.Fatalf("failed to add worker Pod %q to informer cache: %v", pod.Name, err)
+		}
+	}
+
+	return &MPIJobController{
+		kubeClient: kubeClient,
+		podLister:  podInformer.Lister(),
+	}, kubeClient
+}
+
+func newWorkerScalingTestPod(mpiJob *kubeflow.MPIJob, index int) *corev1.Pod {
+	podLabels := defaultLabels(mpiJob.Name, worker)
+	podLabels[kubeflow.ReplicaIndexLabel] = workerReplicaIndexLabel(mpiJob, index)
+
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workerName(mpiJob, index),
+			Namespace: mpiJob.Namespace,
+			Labels:    podLabels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(mpiJob, kubeflow.SchemeGroupVersionKind),
+			},
+		},
+	}
+}
+
+func TestGetOrCreateWorkerScalesUp(t *testing.T) {
+	replicas := int32(3)
+	mpiJob := newMPIJob("scale-up", &replicas, nil, nil)
+	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationOpenMPI
+	mpiJob.Spec.SSHAuthMountPath = rootSSHPath
+
+	existingPods := []*corev1.Pod{
+		newWorkerScalingTestPod(mpiJob, 0),
+		newWorkerScalingTestPod(mpiJob, 1),
+	}
+	controller, kubeClient := newWorkerScalingController(t, existingPods)
+
+	workers, err := controller.getOrCreateWorker(mpiJob)
+	if err != nil {
+		t.Fatalf("getOrCreateWorker() returned an error: %v", err)
+	}
+	if got, want := len(workers), 3; got != want {
+		t.Fatalf("getOrCreateWorker() returned %d workers, want %d", got, want)
+	}
+	for index, pod := range workers {
+		if got, want := pod.Name, workerName(mpiJob, index); got != want {
+			t.Errorf("worker %d has name %q, want %q", index, got, want)
+		}
+	}
+
+	createdPod, err := kubeClient.CoreV1().Pods(mpiJob.Namespace).Get(
+		context.TODO(), workerName(mpiJob, 2), metav1.GetOptions{},
+	)
+	if err != nil {
+		t.Fatalf("expected the missing worker Pod to be created: %v", err)
+	}
+	if got, want := createdPod.Labels[kubeflow.ReplicaIndexLabel], "2"; got != want {
+		t.Errorf("created worker replica-index label = %q, want %q", got, want)
+	}
+
+	createActions := 0
+	for _, action := range kubeClient.Actions() {
+		if action.GetVerb() == "create" && action.GetResource().Resource == "pods" {
+			createActions++
+		}
+	}
+	if createActions != 1 {
+		t.Errorf("Kubernetes client recorded %d Pod create actions, want exactly 1", createActions)
+	}
+}
+
+func TestGetOrCreateWorkerScalesDown(t *testing.T) {
+	replicas := int32(2)
+	mpiJob := newMPIJob("scale-down", &replicas, nil, nil)
+	mpiJob.Spec.MPIImplementation = kubeflow.MPIImplementationOpenMPI
+	mpiJob.Spec.SSHAuthMountPath = rootSSHPath
+
+	existingPods := []*corev1.Pod{
+		newWorkerScalingTestPod(mpiJob, 0),
+		newWorkerScalingTestPod(mpiJob, 1),
+		newWorkerScalingTestPod(mpiJob, 2),
+	}
+	controller, kubeClient := newWorkerScalingController(t, existingPods)
+
+	workers, err := controller.getOrCreateWorker(mpiJob)
+	if err != nil {
+		t.Fatalf("getOrCreateWorker() returned an error: %v", err)
+	}
+	if got, want := len(workers), 2; got != want {
+		t.Fatalf("getOrCreateWorker() returned %d workers, want %d", got, want)
+	}
+	for index, pod := range workers {
+		if got, want := pod.Name, workerName(mpiJob, index); got != want {
+			t.Errorf("worker %d has name %q, want %q", index, got, want)
+		}
+	}
+
+	_, err = kubeClient.CoreV1().Pods(mpiJob.Namespace).Get(
+		context.TODO(), workerName(mpiJob, 2), metav1.GetOptions{},
+	)
+	if !apierrors.IsNotFound(err) {
+		t.Errorf("out-of-range worker Pod should be deleted; Get() error = %v", err)
+	}
+	for index := 0; index < int(replicas); index++ {
+		_, err := kubeClient.CoreV1().Pods(mpiJob.Namespace).Get(
+			context.TODO(), workerName(mpiJob, index), metav1.GetOptions{},
+		)
+		if err != nil {
+			t.Errorf("in-range worker Pod %d should be retained: %v", index, err)
+		}
+	}
+
+	deletedPodNames := []string{}
+	for _, action := range kubeClient.Actions() {
+		if action.GetVerb() == "delete" && action.GetResource().Resource == "pods" {
+			deletedPodNames = append(deletedPodNames, action.(core.DeleteAction).GetName())
+		}
+	}
+	if diff := cmp.Diff([]string{workerName(mpiJob, 2)}, deletedPodNames); diff != "" {
+		t.Errorf("unexpected deleted worker Pods (-want,+got):\n%s", diff)
+	}
+}
+
