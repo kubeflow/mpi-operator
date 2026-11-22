@@ -180,6 +180,79 @@ func TestMPIJobSuccess(t *testing.T) {
 	}
 }
 
+func TestMPIJobRunLauncherAsWorkerWithDefaultedZeroWorkers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	s := newTestSetup(ctx, t)
+	startController(ctx, s.kClient, s.mpiClient, nil)
+
+	mpiJob := &kubeflow.MPIJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "job",
+			Namespace: s.namespace,
+		},
+		Spec: kubeflow.MPIJobSpec{
+			RunLauncherAsWorker: ptr.To(true),
+			RunPolicy: kubeflow.RunPolicy{
+				CleanPodPolicy: ptr.To(kubeflow.CleanPodPolicyRunning),
+			},
+			MPIReplicaSpecs: map[kubeflow.MPIReplicaType]*kubeflow.ReplicaSpec{
+				kubeflow.MPIReplicaTypeLauncher: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+				kubeflow.MPIReplicaTypeWorker: {
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "mpi-image",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	var err error
+	mpiJob, err = s.mpiClient.KubeflowV2beta1().MPIJobs(s.namespace).Create(ctx, mpiJob, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed sending job to apiserver: %v", err)
+	}
+
+	s.events.expect(eventForJob(corev1.Event{
+		Type:   corev1.EventTypeNormal,
+		Reason: "MPIJobCreated",
+	}, mpiJob))
+
+	workerPods, launcherJob := validateMPIJobDependencies(ctx, t, s.kClient, mpiJob, 0, nil)
+	if len(workerPods) != 0 {
+		t.Fatalf("expected no worker pods, got %d", len(workerPods))
+	}
+	if launcherJob == nil {
+		t.Fatal("expected launcher Job to be created")
+	}
+
+	mpiJob = validateMPIJobStatus(ctx, t, s.mpiClient, mpiJob, map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+		kubeflow.MPIReplicaTypeLauncher: {},
+		kubeflow.MPIReplicaTypeWorker:   {},
+	})
+	if !mpiJobHasCondition(mpiJob, kubeflow.JobCreated) {
+		t.Errorf("MPIJob missing Created condition")
+	}
+	s.events.verify(t)
+}
+
 func TestMPIJobWaitWorkers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
