@@ -1,0 +1,68 @@
+apiVersion: kubeflow.org/v2beta1
+kind: MPIJob
+metadata:
+  name: nccl-tests
+spec:
+  slotsPerWorker: 8
+  runPolicy:
+    cleanPodPolicy: Running
+    activeDeadlineSeconds: 666
+  mpiReplicaSpecs:
+    Launcher:
+      replicas: 1
+      template:
+          spec:
+            restartPolicy: OnFailure
+            containers:
+            - image: mpioperator/nccl-tests:latest
+              name: nccl
+              securityContext:
+                privileged: true
+              env:
+              - name: OMPI_ALLOW_RUN_AS_ROOT
+                value: "1"
+              - name: OMPI_ALLOW_RUN_AS_ROOT_CONFIRM
+                value: "1"
+              - name: OMPI_MCA_orte_base_help_aggregate
+                value: "0"
+              command: ["/bin/bash", "-c"]
+              args:
+              - |
+                set -xe
+                export NCCL_DEBUG=INFO
+                until mpirun -np 16 -x LD_LIBRARY_PATH -bind-to none /usr/local/nvidia/bin/nvidia-smi; do sleep 5; done
+                mpirun -np ${NP} -bind-to none \
+                    -x NCCL_DEBUG \
+                    /opt/nccl_tests/build/all_reduce_perf -c 0 -b 8 -e 16G \
+                      -f 4 -g 1 -n 10
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+            enableServiceLinks: false
+            automountServiceAccountToken: false
+    Worker:
+      replicas: 2
+      template:
+        metadata:
+          annotations:
+        spec:
+          volumes:
+          - name: shared-memory
+            emptyDir:
+              medium: "Memory"
+
+          containers:
+          - image: mpioperator/nccl-tests:latest
+            name: nccl
+            securityContext:
+              privileged: true
+            resources:
+              limits:
+                nvidia.com/gpu: 8
+            volumeMounts:
+              - name: shared-memory
+                mountPath: /dev/shm
+
+          enableServiceLinks: false
+          automountServiceAccountToken: false
