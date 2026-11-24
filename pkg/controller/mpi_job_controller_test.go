@@ -569,6 +569,31 @@ func TestDoNothingWithMPIJobManagedExternally(t *testing.T) {
 	}
 }
 
+func TestDoNothingWithNegativeMinAvailable(t *testing.T) {
+	cases := map[string]*int32{
+		"launcher only": nil,
+		"with workers":  ptr.To[int32](2),
+	}
+	for name, workerReplicas := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t, options.GangSchedulerVolcano)
+			f.volcanoClient = volcanofake.NewSimpleClientset()
+			mpiJob := newMPIJob("test", workerReplicas, nil, nil)
+			mpiJob.Spec.RunPolicy.SchedulingPolicy = &kubeflow.SchedulingPolicy{
+				MinAvailable: ptr.To[int32](-1),
+			}
+			f.setUpMPIJob(mpiJob)
+			f.run(t.Context(), getKey(mpiJob, t))
+			if !f.expectNoKubeActions() {
+				t.Fatalf("Expected no kubeActions (secrets, pods, services etc.)")
+			}
+			if actions := filterInformerActions(f.volcanoClient.Actions()); len(actions) != 0 {
+				t.Fatalf("Expected no PodGroup actions, got %v", actions)
+			}
+		})
+	}
+}
+
 func TestAllResourcesCreated(t *testing.T) {
 	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
