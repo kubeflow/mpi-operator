@@ -1003,6 +1003,11 @@ func (c *MPIJobController) getOrCreateWorker(mpiJob *kubeflow.MPIJob) ([]*corev1
 			}
 			index, err := strconv.Atoi(indexStr)
 			if err == nil {
+				// The index label of workers is shifted by one when the
+				// launcher runs as a worker. See workerReplicaIndexLabel.
+				if runLauncherAsWorker(mpiJob) {
+					index--
+				}
 				if index >= int(*worker.Replicas) {
 					err = c.kubeClient.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 					if err != nil {
