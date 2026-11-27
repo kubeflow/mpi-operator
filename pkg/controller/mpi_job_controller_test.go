@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kubeinformers "k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -539,6 +540,41 @@ func TestDoNothingWithNonexistentMPIJob(t *testing.T) {
 	completionTime := metav1.Now()
 	mpiJob := newMPIJob("test", ptr.To[int32](64), &startTime, &completionTime)
 	f.run(t.Context(), getKey(mpiJob, t))
+}
+
+func TestHandleObjectIgnoresPodOfDeletedJob(t *testing.T) {
+	var handledErrors []error
+	originalHandlers := utilruntime.ErrorHandlers
+	utilruntime.ErrorHandlers = []utilruntime.ErrorHandler{
+		func(_ context.Context, err error, _ string, _ ...interface{}) {
+			handledErrors = append(handledErrors, err)
+		},
+	}
+	t.Cleanup(func() { utilruntime.ErrorHandlers = originalHandlers })
+
+	f := newFixture(t, "")
+	c, _, _ := f.newController(t.Context(), clock.RealClock{})
+	deletedJob := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
+		Name:      "cleanup-29928045",
+		Namespace: metav1.NamespaceDefault,
+		UID:       uuid.NewUUID(),
+	}}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Name:      "cleanup-29928045-abcde",
+		Namespace: metav1.NamespaceDefault,
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(deletedJob, batchv1.SchemeGroupVersion.WithKind("Job")),
+		},
+	}}
+
+	c.handleObject(pod)
+
+	if len(handledErrors) != 0 {
+		t.Errorf("handleObject reported errors for a pod whose Job was deleted: %v", handledErrors)
+	}
+	if c.queue.Len() != 0 {
+		t.Errorf("handleObject enqueued %d keys for a pod whose Job was deleted, want 0", c.queue.Len())
+	}
 }
 
 func TestDoNothingWithInvalidMPIJob(t *testing.T) {
