@@ -907,55 +907,93 @@ func TestSecretNotControlledByUs(t *testing.T) {
 }
 
 func TestShutdownWorker(t *testing.T) {
-	f := newFixture(t, "")
-	startTime := metav1.Now()
-	completionTime := metav1.Now()
-
-	var replicas int32 = 8
-	mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
-	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
-
-	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
-	f.setUpMPIJob(mpiJob)
-
-	fmjc := f.newFakeMPIJobController()
-	mpiJobCopy := mpiJob.DeepCopy()
-	scheme.Scheme.Default(mpiJobCopy)
-	launcher := fmjc.newLauncherJob(mpiJobCopy)
-	launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
-		{
-			Type:   batchv1.JobSuccessCriteriaMet,
-			Status: corev1.ConditionTrue,
-		},
-		{
-			Type:   batchv1.JobComplete,
-			Status: corev1.ConditionTrue,
-		},
-	}...)
-	launcher.Status.StartTime = &startTime
-	f.setUpLauncher(launcher)
-
-	for i := 0; i < int(replicas); i++ {
-		worker := fmjc.newWorker(mpiJobCopy, i)
-		f.setUpPod(worker)
+	workerPhases := []corev1.PodPhase{
+		corev1.PodRunning,
+		corev1.PodPending,
+		corev1.PodSucceeded,
+		corev1.PodFailed,
+		corev1.PodRunning,
+		corev1.PodPending,
+		corev1.PodSucceeded,
+		corev1.PodFailed,
 	}
-
-	for i := 0; i < int(replicas); i++ {
-		name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
-		f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, name))
-	}
-
-	mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
-		kubeflow.MPIReplicaTypeWorker: {
-			Active:    0,
-			Succeeded: 0,
-			Failed:    0,
+	cases := map[string]struct {
+		cleanPodPolicy kubeflow.CleanPodPolicy
+		// deletedWorkers are the indexes of the workers expected to be deleted.
+		deletedWorkers   []int
+		wantStatusUpdate bool
+	}{
+		"clean pod policy All deletes all workers": {
+			cleanPodPolicy:   kubeflow.CleanPodPolicyAll,
+			deletedWorkers:   []int{0, 1, 2, 3, 4, 5, 6, 7},
+			wantStatusUpdate: true,
+		},
+		"clean pod policy Running deletes only running and pending workers": {
+			cleanPodPolicy:   kubeflow.CleanPodPolicyRunning,
+			deletedWorkers:   []int{0, 1, 4, 5},
+			wantStatusUpdate: true,
+		},
+		"clean pod policy None keeps all workers": {
+			cleanPodPolicy: kubeflow.CleanPodPolicyNone,
 		},
 	}
-	setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
-	f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t, "")
+			startTime := metav1.Now()
+			completionTime := metav1.Now()
 
-	f.run(t.Context(), getKey(mpiJob, t))
+			replicas := int32(len(workerPhases))
+			mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
+			mpiJob.Spec.RunPolicy.CleanPodPolicy = ptr.To(tc.cleanPodPolicy)
+			msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+
+			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
+			f.setUpMPIJob(mpiJob)
+
+			fmjc := f.newFakeMPIJobController()
+			mpiJobCopy := mpiJob.DeepCopy()
+			scheme.Scheme.Default(mpiJobCopy)
+			launcher := fmjc.newLauncherJob(mpiJobCopy)
+			launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
+				{
+					Type:   batchv1.JobSuccessCriteriaMet,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   batchv1.JobComplete,
+					Status: corev1.ConditionTrue,
+				},
+			}...)
+			launcher.Status.StartTime = &startTime
+			f.setUpLauncher(launcher)
+
+			for i, phase := range workerPhases {
+				worker := fmjc.newWorker(mpiJobCopy, i)
+				worker.Status.Phase = phase
+				f.setUpPod(worker)
+			}
+
+			for _, i := range tc.deletedWorkers {
+				name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
+				f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, name))
+			}
+
+			if tc.wantStatusUpdate {
+				mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+					kubeflow.MPIReplicaTypeWorker: {
+						Active:    0,
+						Succeeded: 0,
+						Failed:    0,
+					},
+				}
+				setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+				f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+			}
+
+			f.run(t.Context(), getKey(mpiJob, t))
+		})
+	}
 }
 
 func TestCreateSuspendedMPIJob(t *testing.T) {
