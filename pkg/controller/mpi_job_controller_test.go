@@ -958,6 +958,139 @@ func TestShutdownWorker(t *testing.T) {
 	f.run(t.Context(), getKey(mpiJob, t))
 }
 
+func TestCleanUpLauncherPodsAfterFinished(t *testing.T) {
+	testCases := map[string]struct {
+		cleanPodPolicy      kubeflow.CleanPodPolicy
+		launcherPodPhase    corev1.PodPhase
+		launcherTerminating bool
+		foreignLauncher     bool
+		wantLauncherDeleted bool
+	}{
+		"All deletes a succeeded launcher pod": {
+			cleanPodPolicy:      kubeflow.CleanPodPolicyAll,
+			launcherPodPhase:    corev1.PodSucceeded,
+			wantLauncherDeleted: true,
+		},
+		"All deletes a failed launcher pod": {
+			cleanPodPolicy:      kubeflow.CleanPodPolicyAll,
+			launcherPodPhase:    corev1.PodFailed,
+			wantLauncherDeleted: true,
+		},
+		"All skips a launcher pod that is already terminating": {
+			cleanPodPolicy:      kubeflow.CleanPodPolicyAll,
+			launcherPodPhase:    corev1.PodRunning,
+			launcherTerminating: true,
+		},
+		"All leaves the pods of a launcher Job it doesn't control": {
+			cleanPodPolicy:   kubeflow.CleanPodPolicyAll,
+			launcherPodPhase: corev1.PodSucceeded,
+			foreignLauncher:  true,
+		},
+		"Running keeps a succeeded launcher pod": {
+			cleanPodPolicy:   kubeflow.CleanPodPolicyRunning,
+			launcherPodPhase: corev1.PodSucceeded,
+		},
+		"Running deletes a running launcher pod": {
+			cleanPodPolicy:      kubeflow.CleanPodPolicyRunning,
+			launcherPodPhase:    corev1.PodRunning,
+			wantLauncherDeleted: true,
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t, "")
+			startTime := metav1.Now()
+			completionTime := metav1.Now()
+
+			var replicas int32 = 2
+			mpiJob := newMPIJob("test", &replicas, &startTime, &completionTime)
+			mpiJob.Spec.RunPolicy.CleanPodPolicy = ptr.To(tc.cleanPodPolicy)
+			msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+			updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
+			f.setUpMPIJob(mpiJob)
+
+			fmjc := f.newFakeMPIJobController()
+			mpiJobCopy := mpiJob.DeepCopy()
+			scheme.Scheme.Default(mpiJobCopy)
+			launcher := fmjc.newLauncherJob(mpiJobCopy)
+			launcher.Status.Conditions = append(launcher.Status.Conditions, []batchv1.JobCondition{
+				{
+					Type:   batchv1.JobSuccessCriteriaMet,
+					Status: corev1.ConditionTrue,
+				},
+				{
+					Type:   batchv1.JobComplete,
+					Status: corev1.ConditionTrue,
+				},
+			}...)
+			launcher.Status.StartTime = &startTime
+			launcherPod := mockJobPod(launcher)
+			launcherPod.Status.Phase = tc.launcherPodPhase
+			if tc.launcherTerminating {
+				launcherPod.DeletionTimestamp = ptr.To(metav1.Now())
+				launcherPod.Finalizers = []string{"example.com/test"}
+			}
+			if tc.foreignLauncher {
+				launcher.OwnerReferences = nil
+			}
+			f.setUpLauncher(launcher)
+			f.setUpPod(launcherPod)
+
+			for i := 0; i < int(replicas); i++ {
+				worker := fmjc.newWorker(mpiJobCopy, i)
+				worker.Status.Phase = corev1.PodRunning
+				f.setUpPod(worker)
+			}
+			for i := 0; i < int(replicas); i++ {
+				name := fmt.Sprintf("%s-%d", mpiJob.Name+workerSuffix, i)
+				f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, name))
+			}
+			if tc.wantLauncherDeleted {
+				f.kubeActions = append(f.kubeActions, core.NewDeleteAction(schema.GroupVersionResource{Resource: "pods"}, mpiJob.Namespace, launcherPod.Name))
+			}
+
+			mpiJobCopy.Status.ReplicaStatuses = map[kubeflow.MPIReplicaType]*kubeflow.ReplicaStatus{
+				kubeflow.MPIReplicaTypeWorker: {},
+			}
+			setUpMPIJobTimestamp(mpiJobCopy, &startTime, &completionTime)
+			f.expectUpdateMPIJobStatusAction(mpiJobCopy)
+
+			f.run(t.Context(), getKey(mpiJob, t))
+		})
+	}
+}
+
+func TestNoLauncherPodCleanUpWithCleanPodPolicyNone(t *testing.T) {
+	f := newFixture(t, "")
+	startTime := metav1.Now()
+	completionTime := metav1.Now()
+
+	mpiJob := newMPIJob("test", ptr.To[int32](2), &startTime, &completionTime)
+	mpiJob.Spec.RunPolicy.CleanPodPolicy = ptr.To(kubeflow.CleanPodPolicyNone)
+	msg := fmt.Sprintf("MPIJob %s/%s successfully completed.", mpiJob.Namespace, mpiJob.Name)
+	updateMPIJobConditions(mpiJob, kubeflow.JobSucceeded, corev1.ConditionTrue, mpiJobSucceededReason, msg)
+	f.setUpMPIJob(mpiJob)
+
+	fmjc := f.newFakeMPIJobController()
+	mpiJobCopy := mpiJob.DeepCopy()
+	scheme.Scheme.Default(mpiJobCopy)
+	launcher := fmjc.newLauncherJob(mpiJobCopy)
+	launcher.Status.Conditions = append(launcher.Status.Conditions, batchv1.JobCondition{
+		Type:   batchv1.JobComplete,
+		Status: corev1.ConditionTrue,
+	})
+	launcherPod := mockJobPod(launcher)
+	launcherPod.Status.Phase = corev1.PodSucceeded
+	f.setUpLauncher(launcher)
+	f.setUpPod(launcherPod)
+	for i := 0; i < 2; i++ {
+		f.setUpPod(fmjc.newWorker(mpiJobCopy, i))
+	}
+
+	// No Pod is deleted and the status is left untouched.
+	f.run(t.Context(), getKey(mpiJob, t))
+}
+
 func TestCreateSuspendedMPIJob(t *testing.T) {
 	impls := []kubeflow.MPIImplementation{kubeflow.MPIImplementationOpenMPI, kubeflow.MPIImplementationIntel, kubeflow.MPIImplementationMPICH}
 	for _, implementation := range impls {
