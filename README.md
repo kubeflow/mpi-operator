@@ -255,3 +255,10 @@ This will produce an image with the tag `registry.example.com/mpi-operator:dev`.
 ## Contributing
 
 Learn more in [CONTRIBUTING](https://github.com/kubeflow/mpi-operator/blob/master/CONTRIBUTING.md).
+
+## Contributors
+
+<a href="https://github.com/kubeflow/mpi-operator/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kubeflow/mpi-operator" />
+</a>
+
